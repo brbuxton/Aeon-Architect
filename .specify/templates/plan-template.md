@@ -31,7 +31,26 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+**Kernel Minimalism (Principle I)**: 
+- [ ] Does this feature add code to the kernel? If yes, justify why it cannot be a tool/supervisor.
+- [ ] Will kernel LOC remain under 800 after this feature?
+- [ ] Does this feature add domain logic to the kernel? (MUST be NO)
+
+**Separation of Concerns (Principle II)**:
+- [ ] Are new capabilities implemented as tools/supervisors, not kernel changes?
+- [ ] Do new modules interact through clean interfaces only?
+- [ ] Are kernel internals accessed by external modules? (MUST be NO)
+
+**Declarative Plans (Principle III)**:
+- [ ] If this feature affects plans, are they JSON/YAML declarative structures?
+- [ ] Is any procedural logic added to plans? (MUST be NO)
+
+**Extensibility (Principle IX)**:
+- [ ] Can this feature be added without kernel mutation?
+- [ ] If kernel changes are required, are they rare, deliberate, and documented?
+
+**Sprint 1 Scope (Principle X)**:
+- [ ] Is this feature within Sprint 1 scope? (No diagrams, IaC, RAG, cloud logic, embeddings, multi-agent, advanced memory)
 
 ## Project Structure
 

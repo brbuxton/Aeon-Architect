@@ -1,50 +1,139 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: N/A → 1.0.0 (initial constitution)
+- Modified principles: N/A (new constitution)
+- Added sections: Core Principles (10), Architecture Constraints, Development Rules, Sprint 1 Scope, Governance
+- Removed sections: N/A (replaced previous constitution)
+- Templates requiring updates: ⚠ plan-template.md (Constitution Check section), ⚠ spec-template.md (may need kernel-specific guidance)
+- Follow-up TODOs: None
+-->
+
+# Aeon Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Kernel Minimalism (NON-NEGOTIABLE)
+The kernel is the orchestrator and MUST remain small, deterministic, and domain-agnostic. The kernel handles ONLY: LLM loop execution, plan creation, plan updates, state transitions, scheduling, tool invocation, TTL/token governance, and supervisor routing. The kernel MUST never contain domain logic (Azure, cloud patterns, diagrams, IaC, validation rules, etc.). The kernel MUST be stable, testable, and under 800 LOC in the first release. Rationale: A minimal kernel ensures maintainability, testability, and prevents architectural drift toward domain-specific concerns.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Strict Separation of Concerns
+Tools, supervisors, memory engines, validators, pattern libraries, RAG systems, and domain logic MUST all live outside the kernel and interact through clean interfaces. The kernel knows interfaces, not internals. The kernel MUST communicate with external modules only through well-defined contracts. Rationale: Separation enables independent development, testing, and replacement of components without kernel changes.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Declarative Plans
+Plans are JSON/YAML declarative data structures created/updated by the LLM. The kernel executes plans; the LLM creates them. No procedural logic is allowed in plans. Plans MUST be pure data structures that describe what to do, not how to do it. Rationale: Declarative plans enable the kernel to remain deterministic and domain-agnostic while allowing the LLM to express complex orchestration logic.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Tools as First-Class Modules
+Tools MUST be independent, deterministic, and schema-defined. Tools MUST not access kernel internals or contain orchestration logic. Tools encapsulate domain knowledge (in future sprints), not the kernel. Each tool MUST have a clear schema defining inputs, outputs, and side effects. Rationale: First-class tools enable extensibility without kernel mutation, allowing new capabilities through composition rather than modification.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Supervisors
+A supervisor is a separate module (using the same LLM) that repairs malformed JSON, tool calls, or plans. The kernel MUST invoke the supervisor when validation fails. Supervisors MUST not add new tools or meaning—only correction. Supervisors operate on syntax and structure, not semantics. Rationale: Supervisors handle LLM output inconsistencies without polluting the kernel with repair logic.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Memory Subsystem
+Sprint 1 memory is a simple key/value store with a minimal API. Memory MUST be outside the kernel and replaceable with embeddings/vector search in future versions. The memory interface MUST be abstracted such that implementations can be swapped without kernel changes. Rationale: Starting simple enables rapid iteration while maintaining architectural flexibility for future enhancements.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### VII. Validation
+Validation modules MUST enforce schema correctness for plans, LLM outputs, and tool calls. The kernel MUST run validation before tool invocation, memory writes, and plan updates. Validation failures MUST trigger supervisor invocation or error handling, never silent failures. Rationale: Validation ensures system integrity and prevents invalid state propagation through the orchestration loop.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### VIII. Observability
+Every orchestration cycle MUST log: step number, plan state, LLM output, supervisor actions, tool calls, TTL countdown, and errors. Logs are JSONL format. Logging MUST be non-blocking and MUST not affect kernel determinism. Rationale: Comprehensive observability enables debugging, monitoring, and understanding of LLM orchestration behavior in production.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### IX. Extensibility Without Mutation
+New capabilities MUST be added through new tools or supervisors, not by modifying kernel internals. Kernel changes MUST be rare, deliberate, and well-documented. When kernel changes are necessary, they MUST maintain backward compatibility or follow semantic versioning for breaking changes. Rationale: Extensibility through composition preserves kernel stability and enables independent evolution of system capabilities.
+
+### X. Sprint 1 Scope Constraints
+Sprint 1 MUST NOT include: diagram generation, IaC generation, RAG, cloud logic, embeddings, multi-agent concurrency, or advanced memory ranking. Sprint 1 ONLY delivers: kernel, plan engine, state manager, simple memory K/V, tool interface, supervisor, and validation layer. The goal of Sprint 1 is to produce a minimal but functional reasoning loop that can create plans, call stub tools, and update state reliably. Rationale: Focused scope ensures delivery of a working foundation before adding advanced features.
+
+## Architecture Constraints
+
+### Kernel Boundaries
+- The kernel MUST NOT exceed 800 LOC in Sprint 1
+- The kernel MUST NOT import or depend on domain-specific modules
+- The kernel MUST NOT contain business logic, validation rules, or pattern matching beyond orchestration
+- All domain knowledge MUST reside in tools, supervisors, or external modules
+
+### Interface Contracts
+- All external modules (tools, supervisors, memory, validators) MUST implement well-defined interfaces
+- Interfaces MUST be versioned and backward-compatible within major versions
+- The kernel MUST communicate with external modules only through interface contracts
+- Interface changes MUST follow semantic versioning
+
+### Plan Structure
+- Plans MUST be valid JSON or YAML
+- Plans MUST NOT contain executable code or procedural logic
+- Plans MUST be schema-validated before execution
+- Plan schemas MUST be versioned and documented
+
+## Development Rules
+
+### Code Organization
+- Kernel code MUST be in a dedicated kernel module/package
+- Tools MUST be in separate modules with no kernel dependencies
+- Supervisors MUST be separate modules that can be swapped
+- Memory implementations MUST be pluggable through interfaces
+
+### Testing Requirements
+- Kernel MUST have 100% test coverage for core orchestration logic
+- All interfaces MUST have contract tests
+- Tools MUST be independently testable without kernel
+- Integration tests MUST verify kernel-external module interactions
+
+### Documentation Requirements
+- Kernel API MUST be fully documented
+- Interface contracts MUST be specified with schemas
+- Plan format MUST be documented with examples
+- Architecture decisions MUST be recorded in ADRs
+
+## Sprint 1 Deliverables
+
+### Required Components
+1. **Kernel**: Core orchestrator (<800 LOC) handling LLM loop, plan execution, state management
+2. **Plan Engine**: JSON/YAML plan parser, validator, and executor
+3. **State Manager**: Manages orchestration state transitions
+4. **Simple Memory K/V**: Basic key-value store with minimal API
+5. **Tool Interface**: Schema-defined interface for tool registration and invocation
+6. **Supervisor**: LLM-based repair module for malformed outputs
+7. **Validation Layer**: Schema validation for plans, LLM outputs, tool calls
+
+### Out of Scope (Sprint 1)
+- Diagram generation tools
+- Infrastructure as Code (IaC) generation
+- RAG (Retrieval Augmented Generation) systems
+- Cloud-specific logic (Azure, AWS, etc.)
+- Embeddings and vector search
+- Multi-agent concurrency
+- Advanced memory ranking/retrieval
+
+### Success Criteria
+- Kernel executes a complete reasoning loop: plan creation → tool invocation → state update
+- Supervisor successfully repairs malformed JSON/tool calls
+- Validation layer rejects invalid plans and tool calls
+- Memory K/V stores and retrieves state correctly
+- All orchestration cycles are logged in JSONL format
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development practices and architectural guidelines. All code, designs, and documentation MUST comply with these principles.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+### Amendment Process
+- Amendments to this constitution require:
+  1. Documentation of the proposed change and rationale
+  2. Impact analysis on kernel stability and existing modules
+  3. Approval from project maintainers
+  4. Version increment following semantic versioning:
+     - MAJOR: Backward incompatible principle removals or kernel architecture changes
+     - MINOR: New principle/section added or materially expanded guidance
+     - PATCH: Clarifications, wording fixes, non-semantic refinements
+  5. Update of all dependent templates, interfaces, and documentation
+
+### Compliance Verification
+- All pull requests MUST verify constitutional compliance, especially kernel size and separation of concerns
+- Automated checks MUST validate kernel LOC limits and interface contracts
+- Non-compliance MUST block code integration
+- Kernel changes MUST be reviewed with extra scrutiny
+
+### Kernel Change Justification
+- Any kernel change MUST be justified against Principle I (Kernel Minimalism)
+- Kernel changes that increase LOC beyond 800 MUST include a plan to refactor back under limit
+- Kernel changes that add domain logic MUST be rejected
+- Proposed kernel changes MUST demonstrate that the functionality cannot be achieved through tools or supervisors
+
+**Version**: 1.0.0 | **Ratified**: 2025-01-27 | **Last Amended**: 2025-01-27
