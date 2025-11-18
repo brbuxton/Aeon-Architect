@@ -31,14 +31,48 @@ class Tool(ABC):
         pass
 
     def validate_input(self, **kwargs) -> bool:
-        """Validate input against input_schema (default implementation uses pydantic)."""
-        # Default implementation - subclasses can override
-        return True
+        """
+        Validate input against input_schema.
+        
+        Args:
+            **kwargs: Arguments to validate
+            
+        Returns:
+            True if valid
+            
+        Raises:
+            ValidationError: If validation fails
+        """
+        from aeon.exceptions import ValidationError
+        import jsonschema
+        
+        try:
+            jsonschema.validate(instance=kwargs, schema=self.input_schema)
+            return True
+        except jsonschema.ValidationError as e:
+            raise ValidationError(f"Input validation failed: {str(e)}") from e
 
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        """Validate output against output_schema (default implementation uses pydantic)."""
-        # Default implementation - subclasses can override
-        return True
+        """
+        Validate output against output_schema.
+        
+        Args:
+            result: Result dict to validate
+            
+        Returns:
+            True if valid
+            
+        Raises:
+            ValidationError: If validation fails
+        """
+        from aeon.exceptions import ValidationError
+        import jsonschema
+        
+        try:
+            jsonschema.validate(instance=result, schema=self.output_schema)
+            return True
+        except jsonschema.ValidationError as e:
+            raise ValidationError(f"Output validation failed: {str(e)}") from e
 
 
 

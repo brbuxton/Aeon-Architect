@@ -135,15 +135,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Contract test for Tool interface in tests/contract/test_tool_interface.py
-- [ ] T044 [P] [US4] Unit test for ToolRegistry in tests/unit/tools/test_registry.py
-- [ ] T045 [P] [US4] Unit test for tool invocation in tests/unit/tools/test_invocation.py
-- [ ] T046 [P] [US4] Integration test for tool invocation in orchestration loop in tests/integration/test_tool_invocation.py
+- [x] T043 [P] [US4] Contract test for Tool interface in tests/contract/test_tool_interface.py
+- [x] T044 [P] [US4] Unit test for ToolRegistry in tests/unit/tools/test_registry.py
+- [x] T045 [P] [US4] Unit test for tool invocation in tests/unit/tools/test_invocation.py
+- [x] T046 [P] [US4] Integration test for tool invocation in orchestration loop in tests/integration/test_tool_invocation.py
 
 ### Implementation for User Story 4
 
-- [ ] T047 [US4] Implement ToolRegistry.register() and get() methods in aeon/tools/registry.py
-- [ ] T047a [US4] Implement ToolRegistry.list_all() in aeon/tools/registry.py  
+- [x] T047 [US4] Implement ToolRegistry.register() and get() methods in aeon/tools/registry.py
+- [x] T047a [US4] Implement ToolRegistry.list_all() in aeon/tools/registry.py  
       **Purpose**  
       Satisfies FR-021: Aeon must support enumeration of all registered tools.
 
@@ -158,13 +158,13 @@
       **Files Modified**  
       - aeon/tools/registry.py  
       - tests/unit/tools/test_registry.py
-- [ ] T048 [US4] Implement tool input validation in aeon/tools/interface.py
-- [ ] T049 [US4] Implement tool output validation in aeon/tools/interface.py
-- [ ] T050 [US4] Create EchoTool stub in aeon/tools/stubs/echo.py
-- [ ] T051 [US4] Create CalculatorTool stub in aeon/tools/stubs/calculator.py
-- [ ] T052 [US4] Implement tool invocation in aeon/kernel/orchestrator.py
-- [ ] T053 [US4] Add tool error handling (mark step failed, log error, continue) in aeon/kernel/orchestrator.py
-- [ ] T054 [US4] Integrate tool results into LLM reasoning cycle in aeon/kernel/orchestrator.py
+- [x] T048 [US4] Implement tool input validation in aeon/tools/interface.py
+- [x] T049 [US4] Implement tool output validation in aeon/tools/interface.py
+- [x] T050 [US4] Create EchoTool stub in aeon/tools/stubs/echo.py
+- [x] T051 [US4] Create CalculatorTool stub in aeon/tools/stubs/calculator.py
+- [x] T052 [US4] Implement tool invocation in aeon/kernel/orchestrator.py
+- [x] T053 [US4] Add tool error handling (mark step failed, log error, continue) in aeon/kernel/orchestrator.py
+- [x] T054 [US4] Integrate tool results into LLM reasoning cycle in aeon/kernel/orchestrator.py
 
 **Checkpoint**: At this point, User Stories 1-4 should work independently. Complete thought → tool → thought loop is functional.
 

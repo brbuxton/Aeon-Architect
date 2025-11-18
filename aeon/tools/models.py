@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ToolCall(BaseModel):
@@ -17,10 +17,7 @@ class ToolCall(BaseModel):
     timestamp: str = Field(..., description="ISO 8601 timestamp of the call")
     step_id: str = Field(..., description="ID of the plan step that triggered this tool call")
 
-    class Config:
-        """Pydantic config."""
-
-        frozen = False  # Allow result/error updates
+    model_config = ConfigDict(frozen=False)  # Allow result/error updates
 
 
 
