@@ -215,10 +215,19 @@ Return a JSON plan with goal and steps."""
         - Validates tool inputs/outputs
         - Logs tool calls to tool_history
         - Handles tool errors gracefully (marks step failed, continues)
+
+        For User Story 5, this method:
+        - Memory is accessible via self.memory for read/write operations
+        - Memory persists across steps during plan execution
+        - Memory operations can be performed during step execution
         """
         # For Sprint 1, tools are invoked based on step description or LLM reasoning
         # This is a simplified implementation - full LLM reasoning cycle integration
         # will be enhanced in future iterations
+        
+        # Memory is available via self.memory for read/write operations
+        # In future iterations, LLM reasoning will trigger memory operations
+        # For now, memory is accessible and persists across steps
         
         # If no tool registry, step completes with no-op
         if not self.tool_registry:

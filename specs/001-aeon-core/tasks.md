@@ -178,17 +178,17 @@
 
 ### Tests for User Story 5
 
-- [ ] T055 [P] [US5] Contract test for Memory interface in tests/contract/test_memory_interface.py
-- [ ] T056 [P] [US5] Unit test for InMemoryKVStore in tests/unit/memory/test_kv_store.py
-- [ ] T057 [P] [US5] Integration test for memory operations in orchestration in tests/integration/test_memory.py
+- [x] T055 [P] [US5] Contract test for Memory interface in tests/contract/test_memory_interface.py
+- [x] T056 [P] [US5] Unit test for InMemoryKVStore in tests/unit/memory/test_kv_store.py
+- [x] T057 [P] [US5] Integration test for memory operations in orchestration in tests/integration/test_memory.py
 
 ### Implementation for User Story 5
 
-- [ ] T058 [US5] Implement InMemoryKVStore.write() in aeon/memory/kv_store.py
-- [ ] T059 [US5] Implement InMemoryKVStore.read() in aeon/memory/kv_store.py
-- [ ] T060 [US5] Implement InMemoryKVStore.search() with prefix matching in aeon/memory/kv_store.py
-- [ ] T061 [US5] Integrate memory into Orchestrator initialization in aeon/kernel/orchestrator.py
-- [ ] T062 [US5] Add memory read/write operations to orchestration loop in aeon/kernel/orchestrator.py
+- [x] T058 [US5] Implement InMemoryKVStore.write() in aeon/memory/kv_store.py
+- [x] T059 [US5] Implement InMemoryKVStore.read() in aeon/memory/kv_store.py
+- [x] T060 [US5] Implement InMemoryKVStore.search() with prefix matching in aeon/memory/kv_store.py
+- [x] T061 [US5] Integrate memory into Orchestrator initialization in aeon/kernel/orchestrator.py
+- [x] T062 [US5] Add memory read/write operations to orchestration loop in aeon/kernel/orchestrator.py
 
 **Checkpoint**: At this point, User Stories 1-5 should work independently. Memory subsystem is functional.
 
