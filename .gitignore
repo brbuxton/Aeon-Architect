@@ -1,0 +1,157 @@
+# Environment and secrets
+.env
+.env.*
+*.env
+*.env.local
+*.env.*.local
+secrets/
+*.secret
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cert
+config/secrets.*
+**/secrets.yaml
+**/secrets.yml
+*.tfvars
+.terraform.lock.hcl
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.log
+
+# Build artifacts and dependencies
+node_modules/
+dist/
+build/
+out/
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+venv/
+.venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.egg
+*.whl
+
+# Language-specific
+*.log
+*.tmp
+*.temp
+*.cache
+.cache/
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+Pipfile.lock
+poetry.lock
+Gemfile.lock
+Cargo.lock
+
+# Testing and coverage
+coverage/
+.nyc_output/
+*.lcov
+.pytest_cache/
+.coverage.*
+htmlcov/
+junit.xml
+test-results/
+*.test
+
+# Documentation builds
+docs/_build/
+site/
+_site/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.old
+*.orig
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Kubernetes
+kubeconfig*
+*.kubeconfig
+.kube/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Local development
+.local/
+local/
+*.local
+
