@@ -110,18 +110,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T034 [P] [US3] Unit test for supervisor JSON repair in tests/unit/supervisor/test_repair.py
-- [ ] T035 [P] [US3] Unit test for supervisor retry logic (2 attempts) in tests/unit/supervisor/test_repair.py
-- [ ] T036 [P] [US3] Integration test for supervisor error correction in tests/integration/test_supervisor_repair.py
+- [x] T034 [P] [US3] Unit test for supervisor JSON repair in tests/unit/supervisor/test_repair.py
+- [x] T035 [P] [US3] Unit test for supervisor retry logic (2 attempts) in tests/unit/supervisor/test_repair.py
+- [x] T036 [P] [US3] Integration test for supervisor error correction in tests/integration/test_supervisor_repair.py
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Implement Supervisor class in aeon/supervisor/repair.py
-- [ ] T038 [US3] Implement repair_json() method with 2 retry attempts in aeon/supervisor/repair.py
-- [ ] T039 [US3] Implement repair_tool_call() method in aeon/supervisor/repair.py
-- [ ] T040 [US3] Implement repair_plan() method in aeon/supervisor/repair.py
-- [ ] T041 [US3] Integrate supervisor into validation layer in aeon/validation/schema.py
-- [ ] T042 [US3] Add supervisor invocation on validation failures in aeon/kernel/orchestrator.py
+- [x] T037 [US3] Implement Supervisor class in aeon/supervisor/repair.py
+- [x] T038 [US3] Implement repair_json() method with 2 retry attempts in aeon/supervisor/repair.py
+- [x] T039 [US3] Implement repair_tool_call() method in aeon/supervisor/repair.py
+- [x] T040 [US3] Implement repair_plan() method in aeon/supervisor/repair.py
+- [x] T041 [US3] Integrate supervisor into validation layer in aeon/validation/schema.py
+- [x] T042 [US3] Add supervisor invocation on validation failures in aeon/kernel/orchestrator.py
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should work independently. System can self-correct malformed outputs.
 

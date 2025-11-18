@@ -1,8 +1,9 @@
 """Core orchestrator for LLM orchestration loop."""
 
+from datetime import datetime
 from typing import Any, Dict, Optional
 
-from aeon.exceptions import LLMError, PlanError, TTLExpiredError
+from aeon.exceptions import LLMError, PlanError, SupervisorError, TTLExpiredError
 from aeon.kernel.state import OrchestrationState
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
@@ -73,8 +74,23 @@ class Orchestrator:
             plan_json = self._extract_plan_from_response(response)
 
             # Parse and validate plan
-            plan = self.parser.parse(plan_json)
-            self.validator.validate_plan(plan.model_dump())
+            try:
+                plan = self.parser.parse(plan_json)
+                self.validator.validate_plan(plan.model_dump())
+            except PlanError as parse_error:
+                # If supervisor is available and parsing failed, try to repair the plan structure
+                if self.supervisor:
+                    try:
+                        repaired_plan_dict = self.supervisor.repair_plan(plan_json)
+                        # Try parsing again with repaired plan
+                        plan = self.parser.parse(repaired_plan_dict)
+                        self.validator.validate_plan(plan.model_dump())
+                    except (SupervisorError, PlanError) as repair_error:
+                        raise PlanError(
+                            f"Failed to parse/validate plan and supervisor repair failed: {str(repair_error)}"
+                        ) from repair_error
+                else:
+                    raise
 
             return plan
 
@@ -137,6 +153,15 @@ Return a JSON plan with goal and steps."""
         try:
             return json.loads(text)
         except json.JSONDecodeError as e:
+            # If supervisor is available, try to repair the malformed JSON
+            if self.supervisor:
+                try:
+                    repaired_json = self.supervisor.repair_json(text)
+                    return repaired_json
+                except SupervisorError as se:
+                    raise PlanError(
+                        f"Failed to extract plan JSON and supervisor repair failed: {str(se)}"
+                    ) from se
             raise PlanError(f"Failed to extract plan JSON from response: {str(e)}") from e
 
     def execute(self, request: str, plan: Optional[Plan] = None) -> Dict[str, Any]:
