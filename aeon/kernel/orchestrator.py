@@ -6,7 +6,8 @@ from aeon.exceptions import LLMError, PlanError, TTLExpiredError
 from aeon.kernel.state import OrchestrationState
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
-from aeon.plan.models import Plan
+from aeon.plan.executor import PlanExecutor
+from aeon.plan.models import Plan, PlanStep
 from aeon.plan.parser import PlanParser
 from aeon.plan.validator import PlanValidator
 
@@ -138,12 +139,13 @@ Return a JSON plan with goal and steps."""
         except json.JSONDecodeError as e:
             raise PlanError(f"Failed to extract plan JSON from response: {str(e)}") from e
 
-    def execute(self, request: str) -> Dict[str, Any]:
+    def execute(self, request: str, plan: Optional[Plan] = None) -> Dict[str, Any]:
         """
-        Execute a request: generate plan and execute it.
+        Execute a request: generate plan (if needed) and run it sequentially.
 
         Args:
             request: Natural language request
+            plan: Optional pre-generated plan
 
         Returns:
             Execution result dict
@@ -153,17 +155,19 @@ Return a JSON plan with goal and steps."""
             LLMError: If LLM operations fail
             PlanError: If plan operations fail
         """
-        # Generate plan
-        plan = self.generate_plan(request)
-        
-        # Initialize state
-        self.state = OrchestrationState(plan=plan, ttl_remaining=self.ttl)
-        
-        # Execute plan (to be implemented in User Story 2)
-        # For now, return plan
+        # Generate plan if one was not supplied
+        plan_to_execute = plan or self.generate_plan(request)
+
+        # Initialize state for execution
+        self.state = OrchestrationState(plan=plan_to_execute, ttl_remaining=self.ttl)
+
+        # Execute plan sequentially
+        executor = PlanExecutor(state=self.state, step_runner=self._execute_step)
+        executor.execute()
+
         return {
-            "plan": plan.model_dump(),
-            "status": "plan_generated",
+            "plan": self.state.plan.model_dump(),
+            "status": "completed",
             "ttl_remaining": self.state.ttl_remaining,
         }
 
@@ -175,5 +179,17 @@ Return a JSON plan with goal and steps."""
             Current state or None if not initialized
         """
         return self.state
+
+    def _execute_step(self, step: "PlanStep", state: OrchestrationState) -> None:
+        """
+        Execute a single plan step.
+
+        Sprint 1 (User Story 2) uses a deterministic no-op to model successful
+        completion. Future user stories will expand this hook to invoke tools,
+        memory operations, and supervisor validation.
+        """
+        # Placeholder for future functionality. No action is needed for Sprint 1.
+        return None
+
 
 

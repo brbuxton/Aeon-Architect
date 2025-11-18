@@ -85,18 +85,18 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Unit test for plan executor in tests/unit/plan/test_executor.py
-- [ ] T026 [P] [US2] Unit test for state transitions in tests/unit/kernel/test_state.py
-- [ ] T027 [P] [US2] Integration test for plan execution loop in tests/integration/test_plan_execution.py
+- [x] T025 [P] [US2] Unit test for plan executor in tests/unit/plan/test_executor.py
+- [x] T026 [P] [US2] Unit test for state transitions in tests/unit/kernel/test_state.py
+- [x] T027 [P] [US2] Integration test for plan execution loop in tests/integration/test_plan_execution.py
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Implement PlanExecutor in aeon/plan/executor.py with sequential step execution
-- [ ] T029 [US2] Implement step status transition logic in aeon/plan/executor.py (pending → running → complete/failed)
-- [ ] T030 [US2] Implement OrchestrationState management in aeon/kernel/state.py
-- [ ] T031 [US2] Implement main orchestration loop in aeon/kernel/orchestrator.py
-- [ ] T032 [US2] Add state update methods to Orchestrator in aeon/kernel/orchestrator.py
-- [ ] T033 [US2] Implement get_state() method in aeon/kernel/orchestrator.py
+- [x] T028 [US2] Implement PlanExecutor in aeon/plan/executor.py with sequential step execution
+- [x] T029 [US2] Implement step status transition logic in aeon/plan/executor.py (pending → running → complete/failed)
+- [x] T030 [US2] Implement OrchestrationState management in aeon/kernel/state.py
+- [x] T031 [US2] Implement main orchestration loop in aeon/kernel/orchestrator.py
+- [x] T032 [US2] Add state update methods to Orchestrator in aeon/kernel/orchestrator.py
+- [x] T033 [US2] Implement get_state() method in aeon/kernel/orchestrator.py
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. Can generate and execute plans with status updates.
 
