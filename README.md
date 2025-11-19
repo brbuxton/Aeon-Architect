@@ -78,19 +78,111 @@ pip install -e .
 
 ## Quick Start
 
+### Basic Usage
+
 ```python
 from aeon.kernel.orchestrator import Orchestrator
 from aeon.llm.adapters.remote_api import RemoteAPIAdapter
 from aeon.memory.kv_store import InMemoryKVStore
+from aeon.observability.logger import JSONLLogger
+from pathlib import Path
 
-# Initialize orchestrator
-llm = RemoteAPIAdapter(api_key="...")
+# Initialize components
+llm = RemoteAPIAdapter(api_key="your-api-key")
 memory = InMemoryKVStore()
-orchestrator = Orchestrator(llm=llm, memory=memory, ttl=10)
+logger = JSONLLogger(file_path=Path("orchestration.log"))
+
+# Create orchestrator
+orchestrator = Orchestrator(
+    llm=llm,
+    memory=memory,
+    ttl=10,
+    logger=logger
+)
 
 # Generate and execute plan
 result = orchestrator.execute("calculate the sum of 5 and 10")
 print(result)
+# Output: {"plan": {...}, "status": "completed", "ttl_remaining": 9}
+```
+
+### With Tools
+
+```python
+from aeon.kernel.orchestrator import Orchestrator
+from aeon.tools.registry import ToolRegistry
+from aeon.tools.stubs.calculator import CalculatorTool
+from aeon.tools.stubs.echo import EchoTool
+from tests.fixtures.mock_llm import MockLLMAdapter
+
+# Register tools
+registry = ToolRegistry()
+registry.register(CalculatorTool())
+registry.register(EchoTool())
+
+# Create orchestrator with tools
+orchestrator = Orchestrator(
+    llm=MockLLMAdapter(),
+    tool_registry=registry,
+    ttl=10
+)
+
+# Execute plan with tool invocation
+result = orchestrator.execute("add 5 and 10")
+```
+
+### With Memory
+
+```python
+from aeon.kernel.orchestrator import Orchestrator
+from aeon.memory.kv_store import InMemoryKVStore
+from tests.fixtures.mock_llm import MockLLMAdapter
+
+# Create memory store
+memory = InMemoryKVStore()
+
+# Store values before execution
+memory.write("user_name", "Alice")
+memory.write("user_age", 30)
+
+# Create orchestrator with memory
+orchestrator = Orchestrator(
+    llm=MockLLMAdapter(),
+    memory=memory,
+    ttl=10
+)
+
+# Execute plan - memory persists across steps
+result = orchestrator.execute("process user data")
+
+# Retrieve stored values
+name = memory.read("user_name")  # Returns "Alice"
+age = memory.read("user_age")    # Returns 30
+```
+
+### With Logging
+
+```python
+from aeon.kernel.orchestrator import Orchestrator
+from aeon.observability.logger import JSONLLogger
+from pathlib import Path
+from tests.fixtures.mock_llm import MockLLMAdapter
+
+# Create logger
+logger = JSONLLogger(file_path=Path("orchestration.jsonl"))
+
+# Create orchestrator with logging
+orchestrator = Orchestrator(
+    llm=MockLLMAdapter(),
+    logger=logger,
+    ttl=10
+)
+
+# Execute plan - logs written to JSONL file
+result = orchestrator.execute("analyze dataset and generate report")
+
+# Log file contains structured entries for each cycle:
+# {"step_number": 1, "plan_state": {...}, "llm_output": {...}, ...}
 ```
 
 ## Development
