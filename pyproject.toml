@@ -36,6 +36,9 @@ dev = [
 [tool.setuptools]
 packages = ["aeon"]
 
+[project.scripts]
+aeon = "aeon.cli.main:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

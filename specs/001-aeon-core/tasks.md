@@ -244,7 +244,7 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T077 [P] Add CLI interface in aeon/cli/main.py (optional Sprint 1)
+- [x] T077 [P] Add CLI interface in aeon/cli/main.py (optional Sprint 1)
 - [ ] T078 [P] Create vLLM adapter in aeon/llm/adapters/vllm.py
 - [ ] T079 [P] Create llama-cpp-python adapter in aeon/llm/adapters/llama_cpp.py
 - [x] T080 [P] Kernel LOC Verification Tooling

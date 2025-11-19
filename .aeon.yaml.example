@@ -1,0 +1,29 @@
+# Aeon Core Configuration File
+# Copy this to .aeon.yaml in your project directory or ~/.aeon.yaml
+
+llm:
+  # LLM adapter type: "mock", "llama-cpp", or "remote"
+  type: llama-cpp
+  
+  # API URL for the LLM service
+  # For llama-cpp: http://localhost:8000/v1/chat/completions
+  # For OpenAI: https://api.openai.com/v1/chat/completions
+  api_url: http://localhost:8000/v1/chat/completions
+  
+  # Model identifier
+  model: llama-cpp-model
+  
+  # API key (for remote APIs, leave as null if not needed)
+  api_key: null
+
+orchestrator:
+  # Time-to-live in cycles (prevents infinite loops)
+  ttl: 10
+
+logging:
+  # Enable JSONL logging
+  enabled: false
+  
+  # Log file path (relative to current directory or absolute)
+  file: aeon.log
+
