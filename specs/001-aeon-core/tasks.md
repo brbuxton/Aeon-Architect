@@ -225,16 +225,16 @@
 
 ### Tests for User Story 7
 
-- [ ] T070 [P] [US7] Unit test for JSONL logger in tests/unit/observability/test_logger.py
-- [ ] T071 [P] [US7] Integration test for cycle logging in tests/integration/test_logging.py
+- [x] T070 [P] [US7] Unit test for JSONL logger in tests/unit/observability/test_logger.py
+- [x] T071 [P] [US7] Integration test for cycle logging in tests/integration/test_logging.py
 
 ### Implementation for User Story 7
 
-- [ ] T072 [US7] Implement JSONL logger in aeon/observability/logger.py
-- [ ] T073 [US7] Create LogEntry formatter in aeon/observability/logger.py
-- [ ] T074 [US7] Integrate logging into orchestration loop in aeon/kernel/orchestrator.py
-- [ ] T075 [US7] Add cycle logging after each LLM cycle in aeon/kernel/orchestrator.py
-- [ ] T076 [US7] Ensure logging is non-blocking in aeon/observability/logger.py
+- [x] T072 [US7] Implement JSONL logger in aeon/observability/logger.py
+- [x] T073 [US7] Create LogEntry formatter in aeon/observability/logger.py
+- [x] T074 [US7] Integrate logging into orchestration loop in aeon/kernel/orchestrator.py
+- [x] T075 [US7] Add cycle logging after each LLM cycle in aeon/kernel/orchestrator.py
+- [x] T076 [US7] Ensure logging is non-blocking in aeon/observability/logger.py
 
 **Checkpoint**: At this point, all User Stories 1-7 should work independently. Complete observability is functional.
 

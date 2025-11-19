@@ -7,6 +7,7 @@ from aeon.exceptions import LLMError, PlanError, SupervisorError, ToolError, TTL
 from aeon.kernel.state import OrchestrationState
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
+from aeon.observability.logger import JSONLLogger
 from aeon.plan.executor import PlanExecutor
 from aeon.plan.models import Plan, PlanStep
 from aeon.plan.parser import PlanParser
@@ -24,6 +25,7 @@ class Orchestrator:
         ttl: int = 10,
         tool_registry: Optional[Any] = None,
         supervisor: Optional[Any] = None,
+        logger: Optional[JSONLLogger] = None,
     ) -> None:
         """
         Initialize orchestrator.
@@ -34,15 +36,18 @@ class Orchestrator:
             ttl: Time-to-live in cycles (default 10)
             tool_registry: Tool registry (optional, for later phases)
             supervisor: Supervisor for error repair (optional, for later phases)
+            logger: JSONL logger for cycle logging (optional)
         """
         self.llm = llm
         self.memory = memory
         self.ttl = ttl
         self.tool_registry = tool_registry
         self.supervisor = supervisor
+        self.logger = logger
         self.parser = PlanParser()
         self.validator = PlanValidator()
         self.state: Optional[OrchestrationState] = None
+        self._cycle_number = 0
 
     def generate_plan(self, request: str) -> Plan:
         """
@@ -186,6 +191,7 @@ Return a JSON plan with goal and steps."""
 
         # Initialize state for execution
         self.state = OrchestrationState(plan=plan_to_execute, ttl_remaining=self.ttl)
+        self._cycle_number = 0
 
         # Execute plan sequentially
         try:
@@ -199,6 +205,10 @@ Return a JSON plan with goal and steps."""
                 "ttl_remaining": self.state.ttl_remaining,
             }
         except TTLExpiredError:
+            # Log TTL expiration if logger is available
+            if self.logger:
+                self._log_cycle(errors=[{"type": "TTLExpiredError", "message": "TTL expired during plan execution"}])
+            
             # TTL expired - return structured expiration response
             return {
                 "plan": self.state.plan.model_dump(),
@@ -230,6 +240,10 @@ Return a JSON plan with goal and steps."""
         - Memory is accessible via self.memory for read/write operations
         - Memory persists across steps during plan execution
         - Memory operations can be performed during step execution
+
+        For User Story 7, this method:
+        - Logs cycle after step execution completes
+        - Captures plan state, LLM output, supervisor actions, tool calls, TTL, errors
         """
         # For Sprint 1, tools are invoked based on step description or LLM reasoning
         # This is a simplified implementation - full LLM reasoning cycle integration
@@ -241,6 +255,9 @@ Return a JSON plan with goal and steps."""
         
         # If no tool registry, step completes with no-op
         if not self.tool_registry:
+            # Log cycle after step execution
+            if self.logger:
+                self._log_cycle()
             return None
         
         # For now, we'll implement a basic tool invocation mechanism
@@ -250,7 +267,52 @@ Return a JSON plan with goal and steps."""
         
         # Placeholder: In future iterations, extract tool calls from LLM reasoning
         # For now, this method provides the hook for tool invocation
+        
+        # Log cycle after step execution
+        if self.logger:
+            self._log_cycle()
+        
         return None
+
+    def _log_cycle(self, errors: Optional[list] = None) -> None:
+        """
+        Log an orchestration cycle.
+
+        Args:
+            errors: Optional list of errors to include in log entry
+        """
+        if not self.logger or not self.state:
+            return
+
+        self._cycle_number += 1
+
+        # Get tool calls from current step (from tool_history)
+        tool_calls = []
+        if self.state.tool_history:
+            # Get tool calls for current step
+            current_step_id = self.state.current_step_id
+            for tool_call in self.state.tool_history:
+                if tool_call.get("step_id") == current_step_id:
+                    tool_calls.append(tool_call)
+
+        # Get supervisor actions (from supervisor_actions)
+        supervisor_actions = self.state.supervisor_actions[-1:] if self.state.supervisor_actions else []
+
+        # Get LLM output (from llm_outputs, use last one if available)
+        llm_output = self.state.llm_outputs[-1] if self.state.llm_outputs else {}
+
+        # Format and log entry
+        log_entry = self.logger.format_entry(
+            step_number=self._cycle_number,
+            plan_state=self.state.plan.model_dump(),
+            llm_output=llm_output,
+            supervisor_actions=supervisor_actions,
+            tool_calls=tool_calls,
+            ttl_remaining=self.state.ttl_remaining,
+            errors=errors or [],
+        )
+
+        self.logger.log_entry(log_entry)
     
     def _invoke_tool(
         self,

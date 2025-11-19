@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LogEntry(BaseModel):
@@ -23,10 +23,9 @@ class LogEntry(BaseModel):
     )
     timestamp: str = Field(..., description="ISO 8601 timestamp of the cycle")
 
-    class Config:
-        """Pydantic config."""
-
-        frozen = False  # Allow updates during cycle
+    model_config = ConfigDict(
+        frozen=False,  # Allow updates during cycle
+    )
 
 
 
