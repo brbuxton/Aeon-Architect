@@ -41,6 +41,36 @@ class PlanStep(BaseModel):
             raise ValueError("Field cannot be empty")
         return v.strip()
 
+    @field_validator("tool")
+    @classmethod
+    def validate_tool(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validate tool field (T100).
+        
+        If tool is present, it must be a non-empty string.
+        Actual tool registration validation is done by Validator.validate_step_tool().
+        """
+        if v is not None:
+            if not v or not v.strip():
+                raise ValueError("Tool field cannot be empty if present")
+            return v.strip()
+        return v
+
+    @field_validator("agent")
+    @classmethod
+    def validate_agent(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validate agent field (T101).
+        
+        If agent is present, it must be "llm".
+        """
+        if v is not None:
+            v = v.strip().lower()
+            if v != "llm":
+                raise ValueError(f"Agent field must be 'llm' if present, got '{v}'")
+            return "llm"
+        return v
+
     model_config = ConfigDict(
         frozen=False,  # Allow status updates
         use_enum_values=True,

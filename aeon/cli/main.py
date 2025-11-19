@@ -173,13 +173,77 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
             print(json.dumps(full_result, indent=2, default=str))
         else:
             print(f"\nPlan:")
-            plan = result.get("plan", {})
-            print(f"  Goal: {plan.get('goal', 'N/A')}")
-            print(f"  Steps: {len(plan.get('steps', []))}")
-            for i, step in enumerate(plan.get("steps", []), 1):
-                status = step.get("status", "unknown")
-                desc = step.get("description", "N/A")
-                print(f"    {i}. [{status}] {desc}")
+            # Preserve Plan object identity (T124) - use state.plan if available
+            if state and state.plan:
+                plan_obj = state.plan
+            else:
+                # Fallback to result plan dict
+                plan_dict = result.get("plan", {})
+                from aeon.plan.models import Plan
+                try:
+                    plan_obj = Plan(**plan_dict)
+                except Exception:
+                    plan_obj = None
+            
+            if plan_obj:
+                print(f"  Goal: {plan_obj.goal}")
+                print(f"  Steps: {len(plan_obj.steps)}")
+                
+                # Get execution modes from state if available (T119)
+                execution_modes = getattr(state, 'execution_modes', {}) if state else {}
+                
+                for i, step in enumerate(plan_obj.steps, 1):
+                    status = step.status.value if hasattr(step.status, 'value') else str(step.status)
+                    desc = step.description
+                    
+                    # Display execution mode (T119)
+                    execution_mode = execution_modes.get(step.step_id, "unknown")
+                    mode_display = f"[{execution_mode}]" if execution_mode != "unknown" else ""
+                    
+                    # Display warnings for missing/invalid tools (T120)
+                    warnings = []
+                    if step.errors:
+                        warnings.append(f"⚠️  Errors: {', '.join(step.errors)}")
+                    if step.tool and execution_mode == "fallback":
+                        warnings.append(f"⚠️  Tool '{step.tool}' not found, using fallback")
+                    
+                    # Display repaired steps (T121)
+                    repaired_indicator = ""
+                    if step.tool and execution_mode == "tool" and step.errors is None:
+                        # Check if this was repaired (no errors but had tool)
+                        repaired_indicator = " (repaired)" if hasattr(step, '_was_repaired') else ""
+                    
+                    # Display fallback steps (T122)
+                    fallback_indicator = ""
+                    if execution_mode == "fallback":
+                        fallback_indicator = " (fallback reasoning)"
+                    
+                    step_line = f"    {i}. [{status}]{mode_display} {desc}"
+                    if repaired_indicator:
+                        step_line += repaired_indicator
+                    if fallback_indicator:
+                        step_line += fallback_indicator
+                    print(step_line)
+                    
+                    if warnings:
+                        for warning in warnings:
+                            print(f"      {warning}")
+                    
+                    # Show final step outputs regardless of execution path (T123)
+                    if state and state.memory:
+                        memory_key = f"step_{step.step_id}_result"
+                        step_result = state.memory.read(memory_key)
+                        if step_result:
+                            print(f"      Result: {step_result}")
+            else:
+                # Fallback to dict display if Plan object not available
+                plan_dict = result.get("plan", {})
+                print(f"  Goal: {plan_dict.get('goal', 'N/A')}")
+                print(f"  Steps: {len(plan_dict.get('steps', []))}")
+                for i, step in enumerate(plan_dict.get("steps", []), 1):
+                    status = step.get("status", "unknown")
+                    desc = step.get("description", "N/A")
+                    print(f"    {i}. [{status}] {desc}")
             
             # Show LLM outputs
             if state and state.llm_outputs:
@@ -204,10 +268,18 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
                         print(f"  {i}. {tool_name}: ERROR - {error}")
             
             # Show the generated plan (this is what the LLM produced)
-            print(f"\n{'='*60}")
-            print("Generated Plan (from LLM):")
-            print(f"{'='*60}")
-            print(json.dumps(plan.model_dump(), indent=2))
+            # Preserve Plan object identity (T124)
+            if plan_obj:
+                print(f"\n{'='*60}")
+                print("Generated Plan (from LLM):")
+                print(f"{'='*60}")
+                print(json.dumps(plan_obj.model_dump(), indent=2))
+            else:
+                print(f"\n{'='*60}")
+                print("Generated Plan (from LLM):")
+                print(f"{'='*60}")
+                plan_dict = result.get("plan", {})
+                print(json.dumps(plan_dict, indent=2))
             
             # Note about step execution
             if state and not state.llm_outputs:

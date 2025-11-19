@@ -2,10 +2,11 @@
 
 import json
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from aeon.exceptions import SupervisorError
 from aeon.llm.interface import LLMAdapter
+from aeon.plan.models import PlanStep
 
 
 class Supervisor:
@@ -248,4 +249,127 @@ Return only the corrected plan JSON, no explanation."""
             return json.loads(text)
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"No valid JSON found in text: {text[:100]}", text, 0) from e
+
+    def repair_missing_tool_step(
+        self,
+        step: PlanStep,
+        available_tools: List[Dict[str, Any]],
+        plan_goal: str,
+        max_attempts: int = 2,
+    ) -> PlanStep:
+        """
+        Repair step with missing or invalid tool reference.
+
+        Args:
+            step: PlanStep with missing/invalid tool
+            available_tools: List of available tools (from ToolRegistry.export_tools_for_llm())
+            plan_goal: Overall plan goal for context
+            max_attempts: Maximum repair attempts (default 2)
+
+        Returns:
+            Repaired PlanStep with valid tool reference
+
+        Raises:
+            SupervisorError: If repair fails after max_attempts
+
+        Note:
+            This method reads step.errors and clears it on successful repair.
+            The repaired step will have a valid tool reference from available_tools.
+        """
+        prompt = self._construct_missing_tool_repair_prompt(step, available_tools, plan_goal)
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = self.llm_adapter.generate(
+                    prompt=prompt,
+                    system_prompt=self.system_prompt,
+                    max_tokens=2048,
+                    temperature=0.3,
+                )
+
+                repaired_text = response.get("text", "").strip()
+                repaired_dict = self._extract_json_from_text(repaired_text)
+
+                # Validate repaired step structure
+                if "step_id" not in repaired_dict:
+                    raise ValueError("Repaired step missing 'step_id'")
+                if "description" not in repaired_dict:
+                    raise ValueError("Repaired step missing 'description'")
+
+                # Validate tool reference is in available tools
+                if "tool" in repaired_dict:
+                    tool_name = repaired_dict["tool"]
+                    tool_names = [t["name"] for t in available_tools]
+                    if tool_name not in tool_names:
+                        raise ValueError(f"Repaired step references tool '{tool_name}' not in available tools")
+
+                # Create repaired PlanStep
+                repaired_step = PlanStep(
+                    step_id=repaired_dict.get("step_id", step.step_id),
+                    description=repaired_dict.get("description", step.description),
+                    tool=repaired_dict.get("tool"),
+                    agent=repaired_dict.get("agent"),
+                    status=repaired_dict.get("status", step.status),
+                    errors=None,  # Clear errors on successful repair
+                )
+
+                return repaired_step
+
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                if attempt == max_attempts:
+                    raise SupervisorError(
+                        f"Failed to repair missing-tool step after {max_attempts} attempts: {str(e)}"
+                    ) from e
+                continue
+            except Exception as e:
+                if attempt == max_attempts:
+                    raise SupervisorError(
+                        f"Unexpected error during missing-tool step repair after {max_attempts} attempts: {str(e)}"
+                    ) from e
+                continue
+
+        raise SupervisorError(f"Failed to repair missing-tool step after {max_attempts} attempts")
+
+    def _construct_missing_tool_repair_prompt(
+        self,
+        step: PlanStep,
+        available_tools: List[Dict[str, Any]],
+        plan_goal: str,
+    ) -> str:
+        """
+        Construct prompt for missing-tool step repair.
+
+        Args:
+            step: PlanStep with missing/invalid tool
+            available_tools: List of available tools
+            plan_goal: Overall plan goal
+
+        Returns:
+            Prompt string
+        """
+        # Build tools list for prompt
+        tools_text = "Available tools:\n"
+        for tool in available_tools:
+            tools_text += f"- {tool['name']}: {tool.get('description', 'No description')}\n"
+            if tool.get('input_schema'):
+                tools_text += f"  Input schema: {json.dumps(tool['input_schema'], indent=2)}\n"
+
+        # Build step context
+        step_context = step.model_dump()
+        if step.errors:
+            step_context["errors"] = step.errors
+
+        prompt = f"""Repair this step to reference a valid tool from the available list. Do not invent tools.
+
+Plan goal: {plan_goal}
+
+Step to repair:
+{json.dumps(step_context, indent=2)}
+
+{tools_text}
+
+Return only the corrected step JSON with a valid tool reference from the available tools list.
+The step must have: step_id, description, and tool (referencing one of the available tools).
+Clear any errors field on successful repair."""
+        return prompt
 

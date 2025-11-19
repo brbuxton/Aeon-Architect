@@ -102,3 +102,60 @@ class TestToolRegistry:
         registry = ToolRegistry()
         registry.unregister("nonexistent")  # Should not raise
 
+    def test_export_tools_for_llm_returns_tool_list(self):
+        """Test export_tools_for_llm returns list of tools formatted for LLM (T094)."""
+        registry = ToolRegistry()
+        tool1 = MockTool("calculator", "Calculator tool")
+        tool2 = MockTool("echo", "Echo tool")
+        registry.register(tool1)
+        registry.register(tool2)
+        
+        exported = registry.export_tools_for_llm()
+        
+        assert isinstance(exported, list)
+        assert len(exported) == 2
+        # Should be sorted alphabetically
+        assert exported[0]["name"] == "calculator"
+        assert exported[1]["name"] == "echo"
+
+    def test_export_tools_for_llm_includes_all_required_fields(self):
+        """Test export_tools_for_llm includes name, description, input_schema, output_schema."""
+        registry = ToolRegistry()
+        tool = MockTool("test_tool", "Test description")
+        tool.input_schema = {"type": "object", "properties": {"value": {"type": "string"}}}
+        tool.output_schema = {"type": "object", "properties": {"result": {"type": "string"}}}
+        registry.register(tool)
+        
+        exported = registry.export_tools_for_llm()
+        
+        assert len(exported) == 1
+        tool_info = exported[0]
+        assert "name" in tool_info
+        assert "description" in tool_info
+        assert "input_schema" in tool_info
+        assert "output_schema" in tool_info
+        assert tool_info["name"] == "test_tool"
+        assert tool_info["description"] == "Test description"
+        assert tool_info["input_schema"] == tool.input_schema
+        assert tool_info["output_schema"] == tool.output_schema
+
+    def test_export_tools_for_llm_may_include_example(self):
+        """Test export_tools_for_llm may include example field (optional)."""
+        registry = ToolRegistry()
+        tool = MockTool("test_tool")
+        registry.register(tool)
+        
+        exported = registry.export_tools_for_llm()
+        
+        # Example is optional, but structure should allow it
+        assert len(exported) == 1
+        tool_info = exported[0]
+        # Example field may or may not be present
+        # Just verify the structure is correct
+
+    def test_export_tools_for_llm_returns_empty_list_when_no_tools(self):
+        """Test export_tools_for_llm returns empty list when no tools registered."""
+        registry = ToolRegistry()
+        exported = registry.export_tools_for_llm()
+        assert exported == []
+

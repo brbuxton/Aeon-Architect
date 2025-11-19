@@ -4,15 +4,18 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from aeon.exceptions import LLMError, PlanError, SupervisorError, ToolError, TTLExpiredError, ValidationError
+from aeon.kernel.executor import StepExecutor
 from aeon.kernel.state import OrchestrationState
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
 from aeon.observability.logger import JSONLLogger
 from aeon.plan.executor import PlanExecutor
-from aeon.plan.models import Plan, PlanStep
+from aeon.plan.models import Plan, PlanStep, StepStatus
 from aeon.plan.parser import PlanParser
 from aeon.plan.validator import PlanValidator
 from aeon.tools.models import ToolCall
+from aeon.tools.registry import ToolRegistry
+from aeon.validation.schema import Validator
 
 
 class Orchestrator:
@@ -48,6 +51,8 @@ class Orchestrator:
         self.validator = PlanValidator()
         self.state: Optional[OrchestrationState] = None
         self._cycle_number = 0
+        self.step_executor = StepExecutor()  # StepExecutor for multi-mode execution (T116)
+        self.validator_schema = Validator()  # Validator for step tool validation
 
     def generate_plan(self, request: str) -> Plan:
         """
@@ -116,16 +121,42 @@ A plan must have:
   - "step_id": unique identifier (string)
   - "description": what the step does (string)
   - "status": "pending" (always pending for new plans)
+  - "tool": (optional) name of registered tool for tool-based execution
+  - "agent": (optional) "llm" for explicit LLM reasoning steps
+
+IMPORTANT: Only reference tools that exist in the available tools list. Do not invent tools.
+If a step requires a tool, use the "tool" field with the exact tool name from the available list.
+If a step requires reasoning without a tool, use "agent": "llm".
 
 Return only valid JSON."""
 
     def _construct_plan_generation_prompt(self, request: str) -> str:
-        """Construct prompt for plan generation."""
-        return f"""Generate a plan to accomplish the following request:
+        """
+        Construct prompt for plan generation (T115).
+        
+        Includes tool registry if available.
+        """
+        prompt = f"""Generate a plan to accomplish the following request:
 
 {request}
 
-Return a JSON plan with goal and steps."""
+"""
+        
+        # Include tool registry if available (T115)
+        if self.tool_registry:
+            available_tools = self.tool_registry.export_tools_for_llm()
+            if available_tools:
+                prompt += "Available tools:\n"
+                for tool in available_tools:
+                    prompt += f"- {tool['name']}: {tool.get('description', 'No description')}\n"
+                    if tool.get('input_schema'):
+                        import json
+                        prompt += f"  Input schema: {json.dumps(tool['input_schema'], indent=2)}\n"
+                prompt += "\n"
+                prompt += "You may reference these tools in step.tool fields. Do not invent tools.\n\n"
+        
+        prompt += "Return a JSON plan with goal and steps."
+        return prompt
 
     def _extract_plan_from_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -248,7 +279,13 @@ Return a JSON plan with goal and steps."""
 
     def _execute_step(self, step: "PlanStep", state: OrchestrationState) -> None:
         """
-        Execute a single plan step.
+        Execute a single plan step (T116-T118).
+
+        Uses StepExecutor for multi-mode execution:
+        - Tool-based execution if step.tool is present and valid
+        - LLM reasoning execution if step.agent == "llm"
+        - Missing-tool repair flow if tool is missing/invalid (T117)
+        - Fallback execution if repair fails (T118)
 
         For User Story 4, this method:
         - Invokes tools if tool_registry is available
@@ -265,28 +302,83 @@ Return a JSON plan with goal and steps."""
         - Logs cycle after step execution completes
         - Captures plan state, LLM output, supervisor actions, tool calls, TTL, errors
         """
-        # For Sprint 1, tools are invoked based on step description or LLM reasoning
-        # This is a simplified implementation - full LLM reasoning cycle integration
-        # will be enhanced in future iterations
-        
-        # Memory is available via self.memory for read/write operations
-        # In future iterations, LLM reasoning will trigger memory operations
-        # For now, memory is accessible and persists across steps
-        
-        # If no tool registry, step completes with no-op
-        if not self.tool_registry:
-            # Log cycle after step execution
+        # Ensure we have required dependencies for StepExecutor
+        if not self.memory:
+            # Fallback to no-op if memory not available
             if self.logger:
                 self._log_cycle()
             return None
         
-        # For now, we'll implement a basic tool invocation mechanism
-        # In a full implementation, this would parse LLM output to extract tool calls
-        # For Sprint 1, we'll use a simple approach where tools can be invoked
-        # based on step context
+        if not self.tool_registry:
+            # If no tool registry, use StepExecutor with None registry (will fallback to LLM)
+            tool_registry = None
+        else:
+            tool_registry = self.tool_registry
         
-        # Placeholder: In future iterations, extract tool calls from LLM reasoning
-        # For now, this method provides the hook for tool invocation
+        if not self.supervisor:
+            # Create a basic supervisor if not available (for repair functionality)
+            from aeon.supervisor.repair import Supervisor
+            supervisor = Supervisor(llm_adapter=self.llm)
+        else:
+            supervisor = self.supervisor
+        
+        # Handle missing-tool repair flow (T117) - validate and repair before execution
+        if step.tool and tool_registry and supervisor:
+            # Validate tool before execution
+            validation_result = self.validator_schema.validate_step_tool(step, tool_registry)
+            if not validation_result["valid"]:
+                # Tool is missing/invalid - attempt repair
+                try:
+                    available_tools = tool_registry.export_tools_for_llm()
+                    plan_goal = state.plan.goal
+                    repaired_step = supervisor.repair_missing_tool_step(
+                        step, available_tools, plan_goal
+                    )
+                    # Update step with repaired version
+                    step.tool = repaired_step.tool
+                    step.errors = None  # Errors cleared on successful repair
+                except SupervisorError:
+                    # Repair failed - will fallback to LLM reasoning in StepExecutor (T118)
+                    pass
+        
+        # Use StepExecutor for multi-mode execution (T116)
+        try:
+            execution_result = self.step_executor.execute_step(
+                step=step,
+                registry=tool_registry or ToolRegistry(),  # Empty registry if None
+                memory=self.memory,
+                llm=self.llm,
+                supervisor=supervisor,
+            )
+            
+            # Log execution mode and result
+            if execution_result.execution_mode:
+                # Store execution mode in state for logging
+                if not hasattr(state, 'execution_modes'):
+                    state.execution_modes = {}
+                state.execution_modes[step.step_id] = execution_result.execution_mode
+            
+            # Log tool calls if tool-based execution
+            if execution_result.execution_mode == "tool" and execution_result.success:
+                # Tool call was successful - log it
+                if tool_registry and step.tool:
+                    tool = tool_registry.get(step.tool)
+                    if tool:
+                        tool_call = ToolCall(
+                            tool_name=step.tool,
+                            arguments={},  # No args for now
+                            result=execution_result.result,
+                            timestamp=datetime.now().isoformat(),
+                            step_id=step.step_id,
+                        )
+                        state.tool_history.append(tool_call.model_dump())
+            
+        except Exception as e:
+            # Handle execution errors
+            step.status = StepStatus.FAILED
+            if self.logger:
+                self._log_cycle(errors=[{"type": type(e).__name__, "message": str(e)}])
+            return None
         
         # Log cycle after step execution
         if self.logger:

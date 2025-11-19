@@ -250,47 +250,47 @@
 
 ### Tests for User Story 8
 
-- [ ] T087 [P] [US8] Unit test for PlanStep with tool/agent fields in tests/unit/plan/test_models.py
-- [ ] T088 [P] [US8] Unit test for validate_step_tool in tests/unit/validation/test_validator.py
-- [ ] T089 [P] [US8] Unit test for StepExecutor routing logic in tests/unit/kernel/test_executor.py
-- [ ] T090 [P] [US8] Unit test for tool-based step execution in tests/unit/kernel/test_executor.py
-- [ ] T091 [P] [US8] Unit test for LLM reasoning step execution in tests/unit/kernel/test_executor.py
-- [ ] T092 [P] [US8] Unit test for fallback execution in tests/unit/kernel/test_executor.py
-- [ ] T093 [P] [US8] Unit test for repair_missing_tool_step in tests/unit/supervisor/test_repair.py
-- [ ] T094 [P] [US8] Unit test for export_tools_for_llm in tests/unit/tools/test_registry.py
-- [ ] T095 [P] [US8] Integration test for multi-mode execution in tests/integration/test_multi_mode_execution.py
-- [ ] T096 [P] [US8] Integration test for missing-tool repair flow in tests/integration/test_missing_tool_repair.py
-- [ ] T097 [P] [US8] Integration test for fallback reasoning in tests/integration/test_fallback_reasoning.py
+- [x] T087 [P] [US8] Unit test for PlanStep with tool/agent fields in tests/unit/plan/test_models.py
+- [x] T088 [P] [US8] Unit test for validate_step_tool in tests/unit/validation/test_validator.py
+- [x] T089 [P] [US8] Unit test for StepExecutor routing logic in tests/unit/kernel/test_executor.py
+- [x] T090 [P] [US8] Unit test for tool-based step execution in tests/unit/kernel/test_executor.py
+- [x] T091 [P] [US8] Unit test for LLM reasoning step execution in tests/unit/kernel/test_executor.py
+- [x] T092 [P] [US8] Unit test for fallback execution in tests/unit/kernel/test_executor.py
+- [x] T093 [P] [US8] Unit test for repair_missing_tool_step in tests/unit/supervisor/test_repair.py
+- [x] T094 [P] [US8] Unit test for export_tools_for_llm in tests/unit/tools/test_registry.py
+- [x] T095 [P] [US8] Integration test for multi-mode execution in tests/integration/test_multi_mode_execution.py
+- [x] T096 [P] [US8] Integration test for missing-tool repair flow in tests/integration/test_missing_tool_repair.py
+- [x] T097 [P] [US8] Integration test for fallback reasoning in tests/integration/test_fallback_reasoning.py
 
 ### Implementation for User Story 8
 
-- [ ] T098 [US8] Add optional tool field to PlanStep model in aeon/plan/models.py
-- [ ] T099 [US8] Add optional agent field to PlanStep model in aeon/plan/models.py
-- [ ] T100 [US8] Add validation for tool field (must reference registered tool) in aeon/plan/models.py
-- [ ] T101 [US8] Add validation for agent field (must be "llm" if present) in aeon/plan/models.py
-- [ ] T102 [US8] Implement validate_step_tool method in aeon/validation/schema.py
-- [ ] T103 [US8] Populate step.errors field in validate_step_tool when missing/invalid tools detected in aeon/validation/schema.py
-- [ ] T104 [US8] Create StepExecutor class in aeon/kernel/executor.py
-- [ ] T105 [US8] Implement execute_step routing logic in aeon/kernel/executor.py
-- [ ] T106 [US8] Implement execute_tool_step method in aeon/kernel/executor.py
-- [ ] T107 [US8] Implement execute_llm_reasoning_step method in aeon/kernel/executor.py
-- [ ] T108 [US8] Implement missing-tool detection and repair flow in aeon/kernel/executor.py
-- [ ] T109 [US8] Implement fallback execution path in aeon/kernel/executor.py
-- [ ] T110 [US8] Add memory storage for step results in aeon/kernel/executor.py
-- [ ] T111 [US8] Implement repair_missing_tool_step method in aeon/supervisor/repair.py
-- [ ] T112 [US8] Update supervisor repair prompts to include tool registry in aeon/supervisor/repair.py
-- [ ] T113 [US8] Implement export_tools_for_llm method in aeon/tools/registry.py
-- [ ] T114 [US8] Format tool schemas for LLM consumption in aeon/tools/registry.py
-- [ ] T115 [US8] Update plan generation prompts to include tool registry in aeon/kernel/orchestrator.py
-- [ ] T116 [US8] Integrate StepExecutor into orchestrator in aeon/kernel/orchestrator.py
-- [ ] T117 [US8] Handle missing-tool repair flow in orchestrator in aeon/kernel/orchestrator.py
-- [ ] T118 [US8] Handle fallback execution in orchestrator in aeon/kernel/orchestrator.py
-- [ ] T119 [US8] Add execution mode display to CLI in aeon/cli/main.py
-- [ ] T120 [US8] Add warnings for missing/invalid tools in CLI in aeon/cli/main.py
-- [ ] T121 [US8] Display repaired steps in CLI in aeon/cli/main.py
-- [ ] T122 [US8] Display fallback steps in CLI in aeon/cli/main.py
-- [ ] T123 [US8] Show final step outputs regardless of execution path in CLI in aeon/cli/main.py
-- [ ] T124 [US8] Preserve Plan object identity in CLI (prevent dict overwrite) in aeon/cli/main.py
+- [x] T098 [US8] Add optional tool field to PlanStep model in aeon/plan/models.py
+- [x] T099 [US8] Add optional agent field to PlanStep model in aeon/plan/models.py
+- [x] T100 [US8] Add validation for tool field (must reference registered tool) in aeon/plan/models.py
+- [x] T101 [US8] Add validation for agent field (must be "llm" if present) in aeon/plan/models.py
+- [x] T102 [US8] Implement validate_step_tool method in aeon/validation/schema.py
+- [x] T103 [US8] Populate step.errors field in validate_step_tool when missing/invalid tools detected in aeon/validation/schema.py
+- [x] T104 [US8] Create StepExecutor class in aeon/kernel/executor.py
+- [x] T105 [US8] Implement execute_step routing logic in aeon/kernel/executor.py
+- [x] T106 [US8] Implement execute_tool_step method in aeon/kernel/executor.py
+- [x] T107 [US8] Implement execute_llm_reasoning_step method in aeon/kernel/executor.py
+- [x] T108 [US8] Implement missing-tool detection and repair flow in aeon/kernel/executor.py
+- [x] T109 [US8] Implement fallback execution path in aeon/kernel/executor.py
+- [x] T110 [US8] Add memory storage for step results in aeon/kernel/executor.py
+- [x] T111 [US8] Implement repair_missing_tool_step method in aeon/supervisor/repair.py
+- [x] T112 [US8] Update supervisor repair prompts to include tool registry in aeon/supervisor/repair.py
+- [x] T113 [US8] Implement export_tools_for_llm method in aeon/tools/registry.py
+- [x] T114 [US8] Format tool schemas for LLM consumption in aeon/tools/registry.py
+- [x] T115 [US8] Update plan generation prompts to include tool registry in aeon/kernel/orchestrator.py
+- [x] T116 [US8] Integrate StepExecutor into orchestrator in aeon/kernel/orchestrator.py
+- [x] T117 [US8] Handle missing-tool repair flow in orchestrator in aeon/kernel/orchestrator.py
+- [x] T118 [US8] Handle fallback execution in orchestrator in aeon/kernel/orchestrator.py
+- [x] T119 [US8] Add execution mode display to CLI in aeon/cli/main.py
+- [x] T120 [US8] Add warnings for missing/invalid tools in CLI in aeon/cli/main.py
+- [x] T121 [US8] Display repaired steps in CLI in aeon/cli/main.py
+- [x] T122 [US8] Display fallback steps in CLI in aeon/cli/main.py
+- [x] T123 [US8] Show final step outputs regardless of execution path in CLI in aeon/cli/main.py
+- [x] T124 [US8] Preserve Plan object identity in CLI (prevent dict overwrite) in aeon/cli/main.py
 
 **Checkpoint**: At this point, User Stories 1-8 should work independently. Multi-mode step execution is fully functional with tool-based, LLM reasoning, and fallback modes.
 

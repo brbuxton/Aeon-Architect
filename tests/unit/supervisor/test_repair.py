@@ -125,3 +125,128 @@ class TestSupervisorRepair:
         assert "steps" in result
         assert len(result["steps"]) == 1
 
+    def test_repair_missing_tool_step_repairs_step_with_missing_tool(self, supervisor, mock_llm):
+        """Test repair_missing_tool_step repairs step with missing tool reference (T093)."""
+        from aeon.plan.models import PlanStep
+        
+        # Step with missing tool
+        step = PlanStep(
+            step_id="step1",
+            description="Calculate sum of numbers",
+            tool="nonexistent_calculator",
+            errors=["Tool 'nonexistent_calculator' not found in registry"],
+        )
+        
+        # Available tools
+        from aeon.tools.interface import Tool
+        
+        class MockTool(Tool):
+            def __init__(self, name):
+                self.name = name
+                self.description = f"{name} tool"
+                self.input_schema = {"type": "object", "properties": {}}
+                self.output_schema = {"type": "object", "properties": {}}
+            
+            def invoke(self, **kwargs):
+                return {"result": "success"}
+        
+        available_tools = [
+            {
+                "name": "calculator",
+                "description": "Calculator tool for math operations",
+                "input_schema": {"type": "object", "properties": {}},
+                "output_schema": {"type": "object", "properties": {}},
+            }
+        ]
+        
+        plan_goal = "Calculate mathematical operations"
+        
+        # Mock LLM to return repaired step with valid tool
+        repaired_step_json = '{"step_id": "step1", "description": "Calculate sum of numbers", "tool": "calculator", "status": "pending"}'
+        
+        original_generate = mock_llm.generate
+        def mock_generate(*args, **kwargs):
+            if "Repair this step" in kwargs.get("prompt", ""):
+                return {"text": repaired_step_json}
+            return original_generate(*args, **kwargs)
+        mock_llm.generate = mock_generate
+        
+        # Repair the step
+        repaired_step = supervisor.repair_missing_tool_step(step, available_tools, plan_goal)
+        
+        assert isinstance(repaired_step, PlanStep)
+        assert repaired_step.tool == "calculator"  # Should be repaired to valid tool
+        assert repaired_step.step_id == "step1"  # Step ID preserved
+        assert repaired_step.errors is None or len(repaired_step.errors) == 0  # Errors cleared
+
+    def test_repair_missing_tool_step_clears_errors_on_success(self, supervisor, mock_llm):
+        """Test repair_missing_tool_step clears step.errors on successful repair."""
+        from aeon.plan.models import PlanStep
+        
+        step = PlanStep(
+            step_id="step1",
+            description="Use calculator",
+            tool="missing_tool",
+            errors=["Tool 'missing_tool' not found"],
+        )
+        
+        available_tools = [
+            {
+                "name": "calculator",
+                "description": "Calculator tool",
+                "input_schema": {},
+                "output_schema": {},
+            }
+        ]
+        
+        repaired_step_json = '{"step_id": "step1", "description": "Use calculator", "tool": "calculator", "status": "pending"}'
+        
+        original_generate = mock_llm.generate
+        def mock_generate(*args, **kwargs):
+            if "Repair this step" in kwargs.get("prompt", ""):
+                return {"text": repaired_step_json}
+            return original_generate(*args, **kwargs)
+        mock_llm.generate = mock_generate
+        
+        repaired_step = supervisor.repair_missing_tool_step(step, available_tools, "Test goal")
+        
+        # Errors should be cleared on successful repair
+        assert repaired_step.errors is None or len(repaired_step.errors) == 0
+
+    def test_repair_missing_tool_step_includes_tool_registry_in_prompt(self, supervisor, mock_llm):
+        """Test repair_missing_tool_step includes tool registry in prompt."""
+        from aeon.plan.models import PlanStep
+        
+        step = PlanStep(
+            step_id="step1",
+            description="Calculate",
+            tool="missing",
+        )
+        
+        available_tools = [
+            {
+                "name": "calculator",
+                "description": "Calculator",
+                "input_schema": {},
+                "output_schema": {},
+            }
+        ]
+        
+        repaired_step_json = '{"step_id": "step1", "description": "Calculate", "tool": "calculator", "status": "pending"}'
+        
+        captured_prompt = None
+        original_generate = mock_llm.generate
+        def mock_generate(*args, **kwargs):
+            nonlocal captured_prompt
+            if "Repair this step" in kwargs.get("prompt", ""):
+                captured_prompt = kwargs.get("prompt", "")
+                return {"text": repaired_step_json}
+            return original_generate(*args, **kwargs)
+        mock_llm.generate = mock_generate
+        
+        supervisor.repair_missing_tool_step(step, available_tools, "Test goal")
+        
+        # Verify tool registry is included in prompt
+        assert captured_prompt is not None
+        assert "calculator" in captured_prompt or "available tools" in captured_prompt.lower()
+
