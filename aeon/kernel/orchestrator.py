@@ -142,22 +142,42 @@ Return a JSON plan with goal and steps."""
         """
         text = response.get("text", "")
         
-        # Try to extract JSON from text
-        # This is a simplified extraction - can be enhanced with better JSON parsing
         import json
         import re
         
-        # Look for JSON block in response
-        json_match = re.search(r'\{[^}]+\}', text, re.DOTALL)
-        if json_match:
+        # First, try to extract JSON from markdown code blocks (```json ... ```)
+        code_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if code_block_match:
             try:
-                return json.loads(json_match.group())
+                return json.loads(code_block_match.group(1))
             except json.JSONDecodeError:
                 pass
         
+        # Try to find JSON object with proper brace matching
+        # Find the first { and then match braces to find the complete JSON object
+        brace_start = text.find('{')
+        if brace_start >= 0:
+            brace_count = 0
+            brace_end = -1
+            for i in range(brace_start, len(text)):
+                if text[i] == '{':
+                    brace_count += 1
+                elif text[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        brace_end = i
+                        break
+            
+            if brace_end > brace_start:
+                json_str = text[brace_start:brace_end + 1]
+                try:
+                    return json.loads(json_str)
+                except json.JSONDecodeError:
+                    pass
+        
         # If no JSON found, try parsing entire text
         try:
-            return json.loads(text)
+            return json.loads(text.strip())
         except json.JSONDecodeError as e:
             # If supervisor is available, try to repair the malformed JSON
             if self.supervisor:

@@ -101,6 +101,8 @@ htmlcov/
 junit.xml
 test-results/
 *.test
+*_execution.jsonl
+*_live*.jsonl
 
 # Documentation builds
 docs/_build/
