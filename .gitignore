@@ -92,6 +92,7 @@ Cargo.lock
 
 # Testing and coverage
 coverage/
+coverage.xml
 .nyc_output/
 *.lcov
 .pytest_cache/
@@ -100,6 +101,8 @@ htmlcov/
 junit.xml
 test-results/
 *.test
+*_execution.jsonl
+*_live*.jsonl
 
 # Documentation builds
 docs/_build/
