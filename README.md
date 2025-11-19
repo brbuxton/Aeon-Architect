@@ -63,6 +63,9 @@ Gracefully stop reasoning when TTL expires with structured response.
 ### ✅ User Story 7: Orchestration Cycle Logging
 Generate JSONL logs for each orchestration cycle with all required fields.
 
+### ✅ User Story 8: Multi-Mode Step Execution
+Execute steps via tools, explicit LLM reasoning, or fallback when tools are missing. Includes missing-tool detection, supervisor repair, and graceful fallback to LLM reasoning.
+
 ## Installation
 
 ```bash
@@ -78,7 +81,88 @@ pip install -e .
 
 ## Quick Start
 
-### Basic Usage
+### Command Line Interface
+
+The easiest way to use Aeon Core is through the CLI:
+
+**Installation:**
+```bash
+# Install the package in development mode to get the CLI
+pip install -e .
+
+# Verify installation
+aeon --help
+```
+
+**Basic Usage:**
+```bash
+# Generate a plan from a natural language request
+aeon plan "calculate the sum of 5 and 10"
+
+# Execute a request (generate plan and run it)
+aeon execute "calculate the sum of 5 and 10"
+
+# Output as JSON
+aeon execute --json "your request here"
+aeon plan --json "your request here"
+```
+
+**LLM Adapter Options:**
+```bash
+# Use with llama-cpp (default, runs on localhost:8000)
+aeon execute "analyze data and generate report"
+
+# Use with mock LLM for testing
+aeon --llm mock execute "test request"
+
+# Use with remote API (requires API key)
+aeon --llm remote --api-key YOUR_KEY --api-url https://api.openai.com/v1/chat/completions execute "your request"
+```
+
+**Configuration:**
+```bash
+# Use a config file (searches: .aeon.yaml, ~/.aeon.yaml, ~/.config/aeon/config.yaml)
+aeon --config .aeon.yaml execute "your request"
+
+# Override config with command-line options
+aeon --llm llama-cpp --ttl 20 execute "your request"
+```
+
+**Example Output:**
+```bash
+$ aeon --llm mock execute "calculate 5 plus 10"
+
+Executing request: calculate 5 plus 10
+
+Generating plan...
+Executing plan...
+
+Status: completed
+TTL remaining: 9
+
+Plan:
+  Goal: calculate 5 plus 10
+  Steps: 1
+    1. [complete][tool] Process request: calculate 5 plus 10
+      Result: {'result': 'success'}
+```
+
+**Configuration File** (`.aeon.yaml`):
+```yaml
+llm:
+  type: llama-cpp  # or "mock", "remote"
+  api_url: http://localhost:8000
+  model: your-model-name
+  api_key: your-api-key  # for remote LLM
+
+orchestrator:
+  ttl: 10
+  log_file: orchestration.jsonl
+```
+
+See `.aeon.yaml.example` for a complete example.
+
+### Python API Usage
 
 ```python
 from aeon.kernel.orchestrator import Orchestrator
@@ -240,7 +324,17 @@ MIT
 
 ## Status
 
-🚧 **In Development** - Sprint 1 implementation in progress.
+✅ **Sprint 1 Complete** - All 8 user stories implemented and tested:
+- ✅ Plan Generation (US1)
+- ✅ Plan Execution (US2)
+- ✅ Supervisor Error Correction (US3)
+- ✅ Tool Registration and Invocation (US4)
+- ✅ Key/Value Memory Operations (US5)
+- ✅ TTL Expiration Handling (US6)
+- ✅ Orchestration Cycle Logging (US7)
+- ✅ Multi-Mode Step Execution (US8)
+
+**Test Coverage:** 153 tests passing, 53% overall coverage (80-100% for core modules)
 
 
 

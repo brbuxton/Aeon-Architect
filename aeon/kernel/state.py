@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from aeon.plan.models import Plan, PlanStep, StepStatus
+from aeon.memory.interface import Memory
 
 
 @dataclass
@@ -16,6 +17,8 @@ class OrchestrationState:
     llm_outputs: List[Dict[str, Any]] = field(default_factory=list)
     supervisor_actions: List[Dict[str, Any]] = field(default_factory=list)
     ttl_remaining: int = 10
+    memory: Optional[Memory] = None
+
 
     def get_current_step(self) -> Optional[PlanStep]:
         """Get the current step object if available."""

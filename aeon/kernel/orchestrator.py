@@ -241,7 +241,7 @@ Return only valid JSON."""
         plan_to_execute = plan or self.generate_plan(request)
 
         # Initialize state for execution
-        self.state = OrchestrationState(plan=plan_to_execute, ttl_remaining=self.ttl)
+        self.state = OrchestrationState(plan=plan_to_execute, ttl_remaining=self.ttl, memory=self.memory)
         self._cycle_number = 0
 
         # Execute plan sequentially
