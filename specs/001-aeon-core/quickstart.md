@@ -151,7 +151,41 @@ name = memory.read("user_name")  # Returns "Alice"
 results = memory.search("user_")  # Returns [("user_name", "Alice"), ("user_age", 30)]
 ```
 
-### Scenario 4: Error Handling
+### Scenario 4: Multi-Mode Step Execution
+
+```python
+# Plan with tool-based step
+plan_with_tool = {
+    "goal": "Calculate and store result",
+    "steps": [
+        {
+            "step_id": "1",
+            "description": "Calculate 5 + 10",
+            "status": "pending",
+            "tool": "calculator"  # Tool-based execution
+        },
+        {
+            "step_id": "2",
+            "description": "Reason about the result",
+            "status": "pending",
+            "agent": "llm"  # Explicit LLM reasoning
+        }
+    ]
+}
+
+# Execute plan with mixed execution modes
+result = orchestrator.execute(
+    user_request="Calculate and reason",
+    initial_plan=Plan(**plan_with_tool)
+)
+
+# Missing-tool step automatically handled:
+# - Validator detects missing tool
+# - Supervisor attempts repair with tool registry
+# - If repair fails, falls back to LLM reasoning
+```
+
+### Scenario 5: Error Handling
 
 ```python
 # Supervisor automatically repairs malformed JSON

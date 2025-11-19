@@ -40,6 +40,9 @@ A single step within a plan execution.
 - `status` (enum, required): Current execution state
   - Values: "pending", "running", "complete", "failed"
   - Default: "pending"
+- `tool` (string, optional): Name of registered tool for tool-based execution
+- `agent` (string, optional): Execution agent type ("llm" for explicit LLM reasoning)
+- `errors` (array of strings, optional): List of error messages. Populated by validator when validation fails (e.g., missing tool, invalid tool reference). Cleared by supervisor on successful repair or when step status transitions to "complete" or "failed"
 
 **Validation Rules**:
 - step_id must be non-empty string
@@ -48,6 +51,13 @@ A single step within a plan execution.
 - status must be one of the enum values
 - Status transitions must follow: pending → running → (complete | failed)
 - Status cannot transition backwards (e.g., complete → running)
+- If `tool` is present, it must reference a tool registered in the tool registry
+- If `agent` is present, it must be "llm"
+- If both `tool` and `agent` are present, `tool` takes precedence (tool-based execution)
+- If neither `tool` nor `agent` is present, step is treated as missing-tool step
+- `errors` is populated by validator when validation fails (e.g., missing tool, invalid tool reference)
+- `errors` is cleared by supervisor on successful repair or when step status transitions to "complete" or "failed"
+- `errors` and `status` are independent: a step can have errors while status is "pending" or "running"
 
 **State Transitions**:
 - `pending` → `running`: When step execution begins

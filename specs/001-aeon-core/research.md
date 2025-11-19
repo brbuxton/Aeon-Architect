@@ -236,6 +236,83 @@ class OrchestrationState:
 - Decremented in kernel after processing LLM response
 - Checked before each LLM call; if zero, return structured expiration response
 
+### Decision 11: Multi-Mode Step Execution Design
+
+**Decision**: PlanStep model extended with optional `tool` (string) and `agent` (string) fields. Execution routing: tool-based (if `tool` present and valid), LLM reasoning (if `agent == "llm"`), missing-tool (if no tool or invalid tool) → repair → fallback.
+
+**Rationale**:
+- Declarative approach aligns with Principle III (Declarative Plans)
+- Optional fields maintain backward compatibility
+- Clear execution mode indication via data structure
+- Tool field precedence ensures deterministic routing
+- Missing-tool repair enables graceful degradation
+
+**Alternatives Considered**:
+- Separate step types (ToolStep, LLMStep, etc.): Rejected - adds complexity, single PlanStep with optional fields is simpler
+- Execution mode in step description: Rejected - not machine-readable, requires parsing
+- Separate execution mode field: Considered but tool/agent fields are more semantic
+
+**Implementation Approach**:
+```python
+class PlanStep(BaseModel):
+    step_id: str
+    description: str
+    status: StepStatus
+    tool: Optional[str] = None  # Tool name for tool-based execution
+    agent: Optional[str] = None  # "llm" for explicit LLM reasoning
+    
+    @field_validator("tool")
+    def validate_tool_exists(cls, v, registry):
+        if v and v not in registry:
+            raise ValueError(f"Tool {v} not found in registry")
+    
+    @field_validator("agent")
+    def validate_agent(cls, v):
+        if v and v != "llm":
+            raise ValueError("Agent must be 'llm' if specified")
+```
+
+### Decision 12: Missing-Tool Detection and Repair
+
+**Decision**: Validator detects missing/invalid tool references before execution. Supervisor repairs missing-tool steps with tool registry context. If repair fails, executor falls back to LLM reasoning using step description.
+
+**Rationale**:
+- Early detection prevents invalid execution attempts
+- Supervisor repair leverages tool registry to correct references
+- Fallback ensures execution continues even when tools unavailable
+- Aligns with FR-058 through FR-062
+
+**Alternatives Considered**:
+- Fail fast on missing tools: Rejected - too strict, prevents graceful degradation
+- Automatic tool creation: Rejected - violates tool registry constraints, adds complexity
+- Skip missing-tool steps: Rejected - loses plan intent, fallback preserves execution
+
+**Implementation Approach**:
+- Validator method: `validate_step_tool(step: PlanStep, registry: ToolRegistry) -> ValidationResult` populates step.errors in-place
+- Supervisor method: `repair_missing_tool_step(step: PlanStep, tools: List[Tool], plan_goal: str) -> PlanStep` reads step.errors and clears it on success
+- Executor fallback: `execute_llm_reasoning_step(step: PlanStep, memory: Memory, llm: LLMAdapter) -> Dict`
+- PlanStep model includes `errors: Optional[List[str]]` field for error messages
+
+### Decision 13: LLM Tool Awareness
+
+**Decision**: Plan generation and supervisor repair prompts include complete tool registry (names, descriptions, schemas, example invocations). LLM is explicitly instructed not to invent tools.
+
+**Rationale**:
+- Prevents LLM from referencing non-existent tools
+- Enables LLM to make informed tool selection decisions
+- Aligns with FR-067 through FR-070
+- Tool registry export provides structured tool information
+
+**Alternatives Considered**:
+- Tool names only: Rejected - insufficient context for LLM to select appropriate tools
+- Tool discovery API: Rejected - adds complexity, static registry export is sufficient
+- No tool awareness: Rejected - leads to invalid tool references, violates FR-069
+
+**Implementation Approach**:
+- ToolRegistry method: `export_tools_for_llm() -> List[Dict]` returns formatted tool list
+- Orchestrator plan generation prompt includes: "Available tools: {tool_list}. Do not invent tools."
+- Supervisor repair prompt includes: "Available tools: {tool_list}. Repair step to reference a valid tool."
+
 ## Research Summary
 
 All technology decisions align with constitutional principles:
@@ -244,6 +321,8 @@ All technology decisions align with constitutional principles:
 - No external dependencies beyond standard library and pydantic
 - Simple, testable implementations
 - Extensible architecture for future enhancements
+- Multi-mode step execution adds ~150-200 LOC to kernel, well under 800 LOC limit
+- Execution routing is orchestration logic, not domain logic
 
 No blocking research questions remain. Ready to proceed to Phase 1 design.
 

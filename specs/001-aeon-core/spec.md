@@ -133,6 +133,27 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 
 ---
 
+### User Story 8 - Multi-Mode Step Execution (Priority: P1)
+
+As a developer, I can create plans with steps that execute via tools, explicit LLM reasoning, or fallback to LLM reasoning when tools are missing or invalid. Aeon Core automatically handles each execution mode with appropriate validation, repair, and observability.
+
+**Why this priority**: This is essential for the complete orchestration loop. Steps must be executable in multiple ways to handle real-world scenarios where tools may be available, explicitly requested, or missing. This enables the system to gracefully handle tool availability and provide fallback reasoning capabilities.
+
+**Independent Test**: Can be fully tested by creating plans with tool-based steps, LLM reasoning steps, and missing-tool steps, then verifying that Aeon Core correctly identifies each step type, executes them appropriately, handles missing tools with repair/fallback, and produces observable results. The test delivers value by proving the system can handle diverse execution scenarios and gracefully degrade when tools are unavailable.
+
+**Acceptance Scenarios**:
+
+1. **Given** a plan step contains a "tool" field referencing a registered tool, **When** Aeon Core executes the step, **Then** it validates arguments, invokes the tool, stores the result in the Memory subsystem, marks the step complete or failed, and logs the execution
+2. **Given** a plan step contains an "agent: llm" field with a description, **When** Aeon Core executes the step, **Then** it invokes the LLM with a reasoning prompt incorporating Memory subsystem context, stores the LLM output as the step result in the Memory subsystem, marks the step complete unless an error occurs, and logs all behavior
+3. **Given** a plan step has no "tool" field or references an unregistered tool, **When** Aeon Core processes the step, **Then** the validator detects the missing/invalid tool, populates the step's `errors` field with error messages, and routes to supervisor for repair
+4. **Given** a supervisor attempts to repair a missing-tool step, **When** the supervisor invokes the LLM with available tools, tool schemas, step context, and plan goal, **Then** if the LLM produces a corrected step referencing a valid tool, the repaired step replaces the original
+5. **Given** a missing-tool step cannot be repaired to reference a valid tool, **When** supervisor repair fails, **Then** the orchestrator treats the step as an LLM reasoning step, uses the step description as the prompt, invokes the LLM adapter directly, stores the result in the Memory subsystem, and records all activity in observability logs
+6. **Given** the LLM is invoked for plan generation or supervisor repair, **When** the LLM interface receives the request, **Then** it always includes the complete list of registered tools with their schemas and example invocations
+7. **Given** the LLM attempts to reference a tool that does not exist in the registry, **When** validation processes the LLM output, **Then** the system rejects the invalid tool reference and routes to supervisor for correction
+8. **Given** a developer uses the CLI to execute a plan, **When** steps encounter missing or invalid tools, **Then** the CLI clearly presents warnings about the issues, displays repaired or fallback steps, shows final step outputs regardless of execution path, and preserves Plan object identity
+
+---
+
 ### Edge Cases
 
 - What happens when the LLM produces a plan with circular dependencies between steps? (Note: Sequential execution order prevents true circular dependencies, but step descriptions may reference later steps)
@@ -141,7 +162,10 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 - How does the system handle supervisor failures (supervisor cannot repair an error)?
 - What happens when TTL expires mid-tool-call?
 - How does the system handle malformed tool schemas during registration?
-- What happens when the LLM produces a plan that references non-existent tools?
+- What happens when the LLM produces a plan that references non-existent tools? (Answer: Validator detects missing tool, populates step.errors with error messages, routes to supervisor for repair. If repair fails, step executes via LLM reasoning fallback)
+- How does the system handle a step that has both a "tool" field and an "agent: llm" field? (Answer: Tool field takes precedence; step executes as tool-based)
+- What happens when a tool-based step's tool becomes unregistered during execution? (Answer: Step is treated as missing-tool step and handled via repair/fallback)
+- How does the system handle Memory subsystem storage failures during step execution? (Answer: Error is logged, step execution continues, Memory subsystem operation failure is recorded in observability logs)
 - How does the system handle concurrent access to memory (if applicable in Sprint 1)?
 - What happens when validation fails and supervisor also fails to repair after 2 attempts?
 - How does the system handle plan updates that would create invalid state transitions?
@@ -164,17 +188,24 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 #### Plan Engine
 
 - **FR-006**: The system SHALL support creation of a declarative plan in JSON format from LLM output
-- **FR-007**: The plan SHALL contain the following required fields: goal (string), steps (array), where each step contains: step_id (string), description (string), status (enum: pending, running, complete, failed)
+- **FR-007**: The plan SHALL contain the following required fields: goal (string), steps (array), where each step contains: step_id (string), description (string), status (enum: pending, running, complete, failed). Steps MAY optionally contain: tool (string, references registered tool), agent (string, value "llm" for explicit LLM reasoning)
 - **FR-008**: The system SHALL update plan steps and their status flags as execution proceeds through each step
 - **FR-009**: The plan SHALL be a pure data structure (JSON/YAML) and SHALL NOT contain executable code or procedural logic
 - **FR-010**: The system SHALL reject or route to Supervisor any malformed plan structures that do not conform to the required schema
 - **FR-052**: Plan steps SHALL execute in strict sequential order: step N must reach status "complete" or "failed" before step N+1 can transition from "pending" to "running"
 - **FR-053**: The LLM SHALL NOT be permitted to reorder steps or change step sequence during execution; step order is fixed at plan creation
+- **FR-056**: A tool-based step (step containing "tool" field) SHALL validate tool arguments against the tool's input_schema, execute the referenced tool, mark the step as complete or failed based on tool execution result, store the tool output in the Memory subsystem, and emit observability logs
+- **FR-057**: An LLM reasoning step (step containing "agent: llm" field) SHALL invoke the LLM with a reasoning prompt incorporating Memory subsystem context, return the LLM's output as the step result, mark the step as complete unless an error occurs, store the result in the Memory subsystem, and log all behavior
+- **FR-058**: A missing-tool step (step with no "tool" field or referencing an unregistered tool) SHALL be detected by the validator, populate the step's `errors` field with error messages (e.g., "Tool 'X' not found in registry"), and route to supervisor for repair. The step's `status` SHALL remain "pending" or "running" until repair succeeds or step is marked "failed"
+- **FR-059**: When supervisor repairs a missing-tool step, it SHALL invoke the LLM with the list of available tools, tool schemas, the step context, and the overall plan goal
+- **FR-060**: If supervisor repair produces a corrected step referencing a valid tool, the repaired step SHALL replace the original step in the plan
+- **FR-061**: If supervisor repair cannot produce a valid tool reference, the orchestrator SHALL treat the step as an LLM reasoning step and execute it using fallback reasoning
+- **FR-062**: Fallback execution for missing-tool steps SHALL use the step description as the prompt, invoke the LLM adapter directly, store the result in the Memory subsystem, and record all activity in observability logs
 
 #### State Manager
 
 - **FR-011**: The system SHALL maintain orchestration state including: current plan, current step identifier, tool call history, LLM outputs, supervisor actions log, and TTL counters
-- **FR-012**: State SHALL be stored in memory for the full duration of the orchestration session
+- **FR-012**: Orchestration state (plan, current step, tool history, LLM outputs, supervisor actions, TTL) SHALL be maintained in memory (in-memory objects) for the full duration of the orchestration session. This is distinct from the Memory subsystem (K/V store) used for step results and cross-step data persistence.
 - **FR-013**: The system SHALL provide optional state persistence to disk or file (deferred to Sprint 2, not required in Sprint 1)
 
 #### Minimal Memory Subsystem
@@ -201,6 +232,8 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 - **FR-025**: The system SHALL validate tool calls against their registered tool definitions (input_schema validation)
 - **FR-026**: The system SHALL validate plan updates for required fields and structural correctness
 - **FR-027**: Validation failures SHALL route to the Supervisor for repair attempts before rejection
+- **FR-063**: The validator SHALL detect when a plan step references a tool that does not exist in the tool registry
+- **FR-064**: The validator SHALL populate the step's `errors` field with error messages when detecting missing or invalid tool references (e.g., "Tool 'X' not found in registry" or "Tool 'Y' is not registered"). The validator SHALL route steps with errors to supervisor for repair
 
 #### Supervisor Layer
 
@@ -212,6 +245,8 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 - **FR-033**: The supervisor SHALL return corrected JSON structures or declare an unrecoverable error if repair is not possible
 - **FR-050**: The supervisor SHALL make up to 2 repair attempts for a given validation failure before declaring the error unrecoverable
 - **FR-051**: After 2 failed repair attempts, the supervisor SHALL declare an unrecoverable error and return a structured error response to the kernel
+- **FR-065**: When repairing a missing-tool step, the supervisor SHALL provide the LLM with the complete list of available tools, their schemas, example invocations, the step context, and the overall plan goal
+- **FR-066**: The supervisor SHALL enforce that repaired steps reference only tools that exist in the tool registry
 
 #### TTL and Governance
 
@@ -224,6 +259,21 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 - **FR-037**: The system SHALL log each orchestration cycle to a JSONL format log file
 - **FR-038**: Each log entry SHALL include: step number, current plan state, LLM output, supervisor actions (if any), tool calls made, TTL remaining, and errors (if any)
 - **FR-039**: Logs SHALL be generated for every orchestration cycle, including cycles that result in errors
+
+#### LLM Interface and Tool Awareness
+
+- **FR-067**: During plan generation, the LLM interface SHALL receive the complete list of registered tools, including their schemas and example invocations
+- **FR-068**: During supervisor repair operations, the LLM interface SHALL receive the complete list of registered tools, including their schemas and example invocations
+- **FR-069**: The LLM SHALL NOT be permitted to invent or reference tools that do not exist in the tool registry
+- **FR-070**: The system SHALL enforce tool registry constraints through validation and supervisor repair, preventing the LLM from referencing non-existent tools
+
+#### CLI Interface
+
+- **FR-071**: The CLI SHALL clearly present warnings when steps reference missing or invalid tools
+- **FR-072**: The CLI SHALL display repaired steps when supervisor successfully repairs missing-tool steps
+- **FR-073**: The CLI SHALL display fallback steps when missing-tool steps are executed via LLM reasoning fallback
+- **FR-074**: The CLI SHALL show final step outputs regardless of execution path (tool-based, LLM reasoning, or fallback)
+- **FR-075**: The CLI SHALL preserve Plan object identity and SHALL NOT overwrite Plan instances with raw dictionaries
 
 #### Excluded Capabilities for Sprint 1
 
@@ -238,7 +288,7 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 
 ### Key Entities
 
-- **Plan**: A declarative JSON data structure representing a multi-step execution strategy. Contains: goal (the objective), steps (array of step objects), where each step has: step_id (unique identifier), description (what the step does), status (current execution state: pending, running, complete, failed)
+- **Plan**: A declarative JSON data structure representing a multi-step execution strategy. Contains: goal (the objective), steps (array of step objects), where each step has: step_id (unique identifier), description (what the step does), status (current execution state: pending, running, complete, failed). Steps may optionally contain: tool (string, references a registered tool for tool-based execution), agent (string, value "llm" for explicit LLM reasoning steps), errors (array of strings, error messages populated by validator when validation fails)
 
 - **Orchestration State**: The current execution context maintained by the kernel. Contains: plan (current plan being executed), current_step (identifier of the active step), tool_history (log of tool calls and results), llm_outputs (history of LLM responses), supervisor_actions (log of supervisor repairs), ttl_remaining (cycles left before expiration)
 
@@ -259,8 +309,13 @@ As a developer, I can review a JSONL log showing each orchestration cycle, inclu
 - **SC-005**: Memory operations (write, read, search) complete successfully in 99% of operations
 - **SC-006**: When TTL expires, the system gracefully terminates and returns a structured response in 100% of cases
 - **SC-007**: Every orchestration cycle produces a complete JSONL log entry with all required fields in 100% of cycles
-- **SC-008**: The kernel codebase remains under 800 lines of code (LOC) as measured by the primary kernel module
+- **SC-008**: The kernel codebase remains under 800 of code (LOC) as measured by the primary kernel module
 - **SC-009**: The system demonstrates a complete thought → tool → thought loop: plan generation, tool invocation with results, and state update based on tool results, in a single end-to-end test
+- **SC-010**: The "primary kernel module" is defined as 'kernel/orchestrator.py' and executor.py. Together, these files must remain under 800 LOC total and does not include helper files (PlanExecutor, State, Validator, Supervisor, Registry)
+- **SC-011**: The system successfully executes tool-based steps, LLM reasoning steps, and missing-tool steps (with repair/fallback) in 95% of test cases
+- **SC-012**: When supervisor repairs missing-tool steps, it successfully produces valid tool references in 80% of repairable cases
+- **SC-013**: The LLM never references non-existent tools in generated plans or repaired steps (100% tool registry compliance)
+- **SC-014**: The CLI displays step execution results, warnings, and repair/fallback information for 100% of executed steps
 
 ## Assumptions
 

@@ -33,9 +33,11 @@
 
 - All checklist items pass validation
 - Specification is complete and ready for `/speckit.clarify` or `/speckit.plan`
-- All 47 functional requirements are clearly defined and testable
-- All 7 user stories have detailed acceptance scenarios
-- Success criteria are measurable and technology-agnostic
-- Edge cases are comprehensively identified
+- All 75 functional requirements are clearly defined and testable (includes new multi-mode step execution requirements)
+- All 8 user stories have detailed acceptance scenarios (added User Story 8 for multi-mode step execution)
+- Success criteria are measurable and technology-agnostic (added SC-011 through SC-014)
+- Edge cases are comprehensively identified (added edge cases for multi-mode execution)
 - Out of scope items are explicitly documented
+- Updated: Added User Story 8 for multi-mode step execution (tool-based, LLM reasoning, missing-tool with repair/fallback)
+- Updated: Added functional requirements FR-056 through FR-075 covering step execution modes, validation, supervisor repair, LLM tool awareness, and CLI requirements
 

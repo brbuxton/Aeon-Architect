@@ -244,6 +244,20 @@ class ToolRegistry:
             name: Tool name to unregister
         """
         pass
+    
+    def export_tools_for_llm(self) -> List[Dict[str, Any]]:
+        """
+        Export tool registry for LLM prompts.
+        
+        Returns:
+            List of tool dicts with:
+                - "name": Tool name
+                - "description": Tool description
+                - "input_schema": Input JSON schema
+                - "output_schema": Output JSON schema
+                - "example": Example invocation (optional)
+        """
+        pass
 ```
 
 **Contract Requirements**:
@@ -251,6 +265,7 @@ class ToolRegistry:
 - Registration must validate tool schema
 - get() returns None (not raises) for missing tools
 - Thread-safe registration (not required for Sprint 1)
+- export_tools_for_llm() must return complete tool information for LLM consumption
 
 ## Supervisor Interface
 
@@ -338,6 +353,30 @@ class Supervisor:
             SupervisorError: If repair fails after max_attempts
         """
         pass
+    
+    def repair_missing_tool_step(
+        self,
+        step: Dict[str, Any],
+        available_tools: List[Dict[str, Any]],
+        plan_goal: str,
+        max_attempts: int = 2,
+    ) -> Dict[str, Any]:
+        """
+        Repair step with missing or invalid tool reference.
+        
+        Args:
+            step: Step dict with missing/invalid tool
+            available_tools: List of available tools (from ToolRegistry.export_tools_for_llm())
+            plan_goal: Overall plan goal for context
+            max_attempts: Maximum repair attempts (default 2)
+            
+        Returns:
+            Repaired step dict with valid tool reference
+            
+        Raises:
+            SupervisorError: If repair fails after max_attempts
+        """
+        pass
 ```
 
 **Contract Requirements**:
@@ -346,6 +385,7 @@ class Supervisor:
 - Must retry up to max_attempts (default 2 per FR-050)
 - Must raise SupervisorError if repair fails
 - Must use same LLM adapter as main orchestration
+- repair_missing_tool_step() must only reference tools from available_tools list (FR-066)
 
 ## Validation Interface
 
@@ -414,6 +454,36 @@ class Validator:
             ValidationError: If validation fails
         """
         pass
+    
+    def validate_step_tool(
+        self,
+        step: PlanStep,
+        tool_registry: ToolRegistry,
+    ) -> ValidationResult:
+        """
+        Validate that step references a registered tool.
+        
+        Populates step.errors with error messages if validation fails.
+        The step object is modified in-place (errors field is set).
+        
+        Args:
+            step: PlanStep object to validate (modified in-place)
+            tool_registry: Tool registry to check against
+            
+        Returns:
+            ValidationResult with:
+                - "valid": bool - True if step.tool is valid or step has no tool field
+                - "error": Optional[str] - error message if invalid (also added to step.errors)
+                
+        Raises:
+            ValidationError: If step structure is invalid (not tool-related)
+            
+        Note:
+            This method modifies step.errors in-place. If step.tool is missing or invalid,
+            step.errors is populated with error messages (e.g., "Tool 'X' not found in registry").
+            Supervisor repair MUST read step.errors and clear it on successful repair.
+        """
+        pass
 ```
 
 **Contract Requirements**:
@@ -421,6 +491,90 @@ class Validator:
 - Must raise ValidationError (not return False) on failure
 - Must provide detailed error messages
 - Must validate before tool invocation, memory writes, plan updates (FR-024-026)
+- validate_step_tool() must detect missing or invalid tool references (FR-063, FR-064)
+- validate_step_tool() must populate step.errors field (not just return ValidationResult) when validation fails
+- Supervisor repair methods must read step.errors and clear it on successful repair
+
+## Step Executor Interface
+
+**Purpose**: Execute plan steps in different modes (tool-based, LLM reasoning, fallback).
+
+**Interface**: `aeon.kernel.executor.StepExecutor`
+
+```python
+from typing import Dict, Any
+from aeon.plan.models import PlanStep
+from aeon.memory.interface import Memory
+from aeon.tools.registry import ToolRegistry
+from aeon.llm.interface import LLMAdapter
+from aeon.supervisor.models import Supervisor
+
+class StepExecutionResult:
+    """Result of step execution."""
+    success: bool
+    result: Dict[str, Any]
+    error: Optional[str]
+    execution_mode: str  # "tool", "llm", "fallback"
+
+class StepExecutor:
+    """Execute plan steps in different modes."""
+    
+    def execute_step(
+        self,
+        step: PlanStep,
+        registry: ToolRegistry,
+        memory: Memory,
+        llm: LLMAdapter,
+        supervisor: Supervisor,
+    ) -> StepExecutionResult:
+        """
+        Execute a plan step.
+        
+        Determines execution mode:
+        - If step.tool present and valid → tool-based execution
+        - Else if step.agent == "llm" → LLM reasoning execution
+        - Else → missing-tool path (repair → fallback)
+        
+        Args:
+            step: PlanStep to execute
+            registry: Tool registry
+            memory: Memory interface for storing results
+            llm: LLM adapter for reasoning steps
+            supervisor: Supervisor for missing-tool repair
+            
+        Returns:
+            StepExecutionResult with execution outcome
+            
+        Raises:
+            ExecutionError: On unrecoverable execution failure
+        """
+        pass
+    
+    def execute_tool_step(
+        self,
+        step: PlanStep,
+        registry: ToolRegistry,
+        memory: Memory,
+    ) -> StepExecutionResult:
+        """Execute tool-based step."""
+        pass
+    
+    def execute_llm_reasoning_step(
+        self,
+        step: PlanStep,
+        memory: Memory,
+        llm: LLMAdapter,
+    ) -> StepExecutionResult:
+        """Execute LLM reasoning step (explicit or fallback)."""
+        pass
+```
+
+**Contract Requirements**:
+- execute_step() must route to correct execution mode based on step fields
+- Tool-based execution must validate arguments and store results in memory
+- LLM reasoning execution must incorporate memory context
+- Fallback execution must use step description as prompt
+- All execution modes must update step status and log results
 
 ## Kernel Interface (Public API)
 

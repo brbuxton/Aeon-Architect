@@ -1,7 +1,7 @@
 """Plan data models."""
 
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -22,6 +22,15 @@ class PlanStep(BaseModel):
     description: str = Field(..., description="Human-readable description of what the step does")
     status: StepStatus = Field(
         default=StepStatus.PENDING, description="Current execution state"
+    )
+    tool: Optional[str] = Field(
+        default=None, description="Name of registered tool for tool-based execution"
+    )
+    agent: Optional[str] = Field(
+        default=None, description="Execution agent type ('llm' for explicit LLM reasoning)"
+    )
+    errors: Optional[List[str]] = Field(
+        default=None, description="List of error messages. Populated by validator when validation fails. Cleared by supervisor on successful repair."
     )
 
     @field_validator("step_id", "description")
