@@ -202,16 +202,16 @@
 
 ### Tests for User Story 6
 
-- [ ] T063 [P] [US6] Unit test for TTL counter in tests/unit/kernel/test_ttl.py
-- [ ] T064 [P] [US6] Integration test for TTL expiration in tests/integration/test_ttl_expiration.py
+- [x] T063 [P] [US6] Unit test for TTL counter in tests/unit/kernel/test_ttl.py
+- [x] T064 [P] [US6] Integration test for TTL expiration in tests/integration/test_ttl_expiration.py
 
 ### Implementation for User Story 6
 
-- [ ] T065 [US6] Implement TTL counter in aeon/kernel/ttl.py
-- [ ] T066 [US6] Add TTL initialization to Orchestrator in aeon/kernel/orchestrator.py
-- [ ] T067 [US6] Implement TTL decrement after each LLM cycle in aeon/kernel/orchestrator.py
-- [ ] T068 [US6] Add TTL expiration check and graceful termination in aeon/kernel/orchestrator.py
-- [ ] T069 [US6] Implement structured "TTL expired" response in aeon/kernel/orchestrator.py
+- [x] T065 [US6] Implement TTL counter in aeon/kernel/ttl.py
+- [x] T066 [US6] Add TTL initialization to Orchestrator in aeon/kernel/orchestrator.py
+- [x] T067 [US6] Implement TTL decrement after each LLM cycle in aeon/kernel/orchestrator.py
+- [x] T068 [US6] Add TTL expiration check and graceful termination in aeon/kernel/orchestrator.py
+- [x] T069 [US6] Implement structured "TTL expired" response in aeon/kernel/orchestrator.py
 
 **Checkpoint**: At this point, User Stories 1-6 should work independently. TTL governance is functional.
 

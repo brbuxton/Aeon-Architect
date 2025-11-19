@@ -188,14 +188,24 @@ Return a JSON plan with goal and steps."""
         self.state = OrchestrationState(plan=plan_to_execute, ttl_remaining=self.ttl)
 
         # Execute plan sequentially
-        executor = PlanExecutor(state=self.state, step_runner=self._execute_step)
-        executor.execute()
-
-        return {
-            "plan": self.state.plan.model_dump(),
-            "status": "completed",
-            "ttl_remaining": self.state.ttl_remaining,
-        }
+        try:
+            executor = PlanExecutor(state=self.state, step_runner=self._execute_step)
+            executor.execute()
+            
+            # Execution completed successfully
+            return {
+                "plan": self.state.plan.model_dump(),
+                "status": "completed",
+                "ttl_remaining": self.state.ttl_remaining,
+            }
+        except TTLExpiredError:
+            # TTL expired - return structured expiration response
+            return {
+                "plan": self.state.plan.model_dump(),
+                "status": "ttl_expired",
+                "ttl_remaining": self.state.ttl_remaining,
+                "error": "TTL expired during plan execution",
+            }
 
     def get_state(self) -> Optional[OrchestrationState]:
         """

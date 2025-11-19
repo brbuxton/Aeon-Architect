@@ -92,6 +92,7 @@ Cargo.lock
 
 # Testing and coverage
 coverage/
+coverage.xml
 .nyc_output/
 *.lcov
 .pytest_cache/
