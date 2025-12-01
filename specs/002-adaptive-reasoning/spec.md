@@ -94,21 +94,21 @@ As a developer, I can receive a converged result from Aeon that indicates whethe
 
 ### User Story 4 - Adaptive Reasoning Depth Based on Task Complexity (Priority: P2)
 
-As a developer, I can submit tasks of varying complexity, and Aeon automatically adjusts its reasoning depth, TTL allocations, and processing strategies based on detected complexity, ambiguity, or uncertainty levels.
+As a developer, I can submit tasks of varying complexity, and Aeon automatically adjusts its reasoning depth, TTL allocations, and processing strategies based on TaskProfile dimensions (reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement).
 
-**Why this priority**: Adaptive depth enables the system to efficiently handle both simple and complex tasks without over-allocating resources to simple problems or under-processing complex ones. This optimizes system efficiency and improves user experience. Adaptive depth MAY adjust TTL allocations and reasoning depth both upward (when complexity is high) and downward (when tasks are detected to be simpler than previously estimated), enabling efficient resource utilization. However, it is secondary to core execution capabilities (P1) since the system can function with fixed depth while this feature enhances it.
+**Why this priority**: Adaptive depth enables the system to efficiently handle both simple and complex tasks without over-allocating resources to simple problems or under-processing complex ones. This optimizes system efficiency and improves user experience. Adaptive depth MAY adjust TTL allocations and reasoning depth both upward (when TaskProfile indicates high reasoning_depth or low information_sufficiency) and downward (when TaskProfile indicates low reasoning_depth and high information_sufficiency), enabling efficient resource utilization. However, it is secondary to core execution capabilities (P1) since the system can function with fixed depth while this feature enhances it.
 
-**Independent Test**: Can be fully tested by submitting both simple tasks (e.g., "add two numbers") and complex tasks (e.g., "design a distributed system architecture") and verifying that Aeon adjusts TTL, reasoning depth, and processing strategies appropriately based on detected complexity. The test delivers value by proving the system can optimize resource allocation and reasoning effort based on task characteristics.
+**Independent Test**: Can be fully tested by submitting both tasks requiring shallow reasoning as inferred from the TaskProfile (e.g., "add two numbers") and tasks requiring deep reasoning as inferred from the TaskProfile (e.g., "design a distributed system architecture") and verifying that Aeon adjusts TTL, reasoning depth, and processing strategies appropriately based on TaskProfile dimensions. The test delivers value by proving the system can optimize resource allocation and reasoning effort based on task characteristics.
 
 **Acceptance Scenarios**:
 
-1. **Given** a developer submits a simple, well-defined task, **When** Aeon processes the task, **Then** the adaptive depth heuristics detect low complexity and allocate minimal TTL and shallow reasoning depth
-2. **Given** a developer submits a complex, ambiguous task, **When** Aeon processes the task, **Then** the adaptive depth heuristics detect high complexity/ambiguity and allocate increased TTL and deep reasoning strategies
-3. **Given** Aeon detects ambiguity or uncertainty during execution, **When** uncertainty is scored as high, **Then** the system dynamically adjusts TTL upward and switches to deeper reasoning modes; conversely, when a task is detected to be simpler than previously estimated, adaptive depth MAY also reduce TTL allocations or reasoning depth accordingly (adaptive depth MAY revise complexity assessment during execution and adjust depth/TTL bidirectionally within configured caps)
-4. **Given** adaptive depth heuristics operate, **When** complexity is detected, **Then** they integrate with semantic validation, convergence engine, and recursive planner to inform depth decisions
-5. **Given** heuristics analyze task characteristics, **When** token patterns, vague language, missing details, or logical gaps are detected, **Then** these indicators contribute to complexity and ambiguity scoring
+1. **Given** a developer submits a simple, well-defined task, **When** Aeon processes the task, **Then** the adaptive depth heuristics detect that TaskProfile indicates low reasoning_depth and high information_sufficiency and allocate minimal TTL and shallow reasoning depth
+2. **Given** a developer submits a complex, ambiguous task, **When** Aeon processes the task, **Then** the adaptive depth heuristics detect that TaskProfile indicates high reasoning_depth or low information_sufficiency and allocate increased TTL and deep reasoning strategies
+3. **Given** Aeon detects ambiguity or uncertainty during execution, **When** TaskProfile information_sufficiency dimension indicates low sufficiency, **Then** the system dynamically adjusts TTL upward and switches to deeper reasoning modes; conversely, when TaskProfile indicates a task is simpler than previously estimated, adaptive depth MAY also reduce TTL allocations or reasoning depth accordingly (adaptive depth MAY revise TaskProfile dimensions during execution and adjust depth/TTL bidirectionally within configured caps)
+4. **Given** adaptive depth heuristics operate, **When** TaskProfile dimensions are analyzed, **Then** they integrate with semantic validation, convergence engine, and recursive planner to inform depth decisions
+5. **Given** heuristics analyze task characteristics, **When** token patterns, vague language, missing details, or logical gaps are detected, **Then** these indicators contribute to TaskProfile information_sufficiency dimension
 6. **Given** adaptive depth heuristics detect high complexity and attempt to increase TTL allocation, **When** the calculated TTL would exceed global TTL limits configured by the user or system, **Then** the heuristics cap TTL at the configured maximum rather than exceeding it, and respect all resource caps
-7. **Given** adaptive depth heuristics adjust reasoning depth or TTL for a task, **When** a developer inspects the execution metadata (e.g., execution history), **Then** they can see the reason for the adjustment (e.g., high ambiguity score, missing details, logical gaps)
+7. **Given** adaptive depth heuristics adjust reasoning depth or TTL for a task, **When** a developer inspects the execution metadata (e.g., execution history), **Then** they can see the reason for the adjustment (e.g., TaskProfile information_sufficiency dimension indicates low sufficiency, missing details, logical gaps)
 
 ---
 
@@ -167,6 +167,24 @@ As a developer, I can inspect a completed multi-pass execution and see a structu
 - What happens when semantic validation proposes repairs that conflict with recursive planner refinements? (Answer: The conflict is surfaced in execution metadata/logs and resolved deterministically by applying the recursive planner's refinement while logging the semantic validation repair as an advisory)
 - How does the multi-pass loop handle supervisor repair failures during the refinement phase? (Answer: Supervisor repair failures are treated as unrecoverable refinement failures; system proceeds with current plan state and continues to next pass without applying refinement changes)
 
+## Mandatory Kernel Refactoring Requirement
+
+Before any Sprint 2 User Stories implementation begins, the kernel codebase MUST undergo a mandatory structural refactoring to ensure compliance with constitutional LOC limits and maintain architectural purity.
+
+### Refactoring Constraints
+
+1. **LOC Measurement and Reduction**: Before other Sprint 2 User Stories implementation begins, the combined LOC of `orchestrator.py` and `executor.py` MUST be measured and brought below 700 LOC if higher, to ensure headroom under the 800 LOC constitutional limit.
+
+2. **Structural-Only Refactoring**: The refactor MUST be structural only — no behavior changes, no interface changes. All existing functionality must remain identical in behavior and external interface.
+
+3. **Logic Extraction**: Any non-orchestration logic found in `orchestrator.py` or `executor.py` MUST be moved into appropriate external modules. Supporting kernel modules may contain only pure data structures and simple containers, and may NOT be used to circumvent kernel LOC limits.
+
+4. **Behavioral Preservation**: After refactoring, Sprint 1 behavior MUST remain identical. Regression tests MUST confirm no behavioral drift. All existing tests must pass without modification, and no new behavioral differences must be introduced.
+
+### Refactoring Scope
+
+This refactoring is a prerequisite for Sprint 2 implementation and must be completed and validated before any functional requirements from Sprint 2 User Stories are implemented.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -200,7 +218,7 @@ As a developer, I can inspect a completed multi-pass execution and see a structu
 - **FR-014**: Plans generated through recursive planning SHALL remain declarative (JSON/YAML structures) and SHALL NOT contain procedural logic or executable code
 - **FR-015**: The recursive planner SHALL preserve plan structure and relationships when refining fragments (e.g., step dependencies, goal alignment)
 - **FR-016**: The recursive planner SHALL respect kernel minimalism and purity constraints, operating as a modular component external to the kernel core
-- **FR-082**: When recursive planning exceeds the maximum allowed nesting depth (e.g., depth limit reached), the system SHALL fail gracefully, mark the fragment as requiring manual intervention (including advisory metadata in execution results, execution continues, refinement stops for that fragment), and preserve the existing plan structure without discarding work already completed
+- **FR-082**: When recursive planning exceeds the maximum allowed nesting depth of 5 levels, the system SHALL fail gracefully, mark the fragment as requiring manual intervention (including advisory metadata in execution results, execution continues, refinement stops for that fragment), and preserve the existing plan structure without discarding work already completed
 
 #### Convergence Engine
 
@@ -217,13 +235,23 @@ As a developer, I can inspect a completed multi-pass execution and see a structu
 
 #### Adaptive Depth Heuristics
 
-- **FR-026**: The system SHALL implement adaptive depth heuristics that adjust reasoning depth based on detected task complexity
-- **FR-027**: The adaptive depth heuristics SHALL detect task complexity through analysis of task characteristics (ambiguity, specificity, logical structure)
-- **FR-028**: The adaptive depth heuristics SHALL calculate ambiguity or uncertainty scores for tasks and use these scores to inform depth decisions
-- **FR-029**: The adaptive depth heuristics SHALL adjust TTL allocations based on detected complexity (higher complexity → higher TTL), but SHALL NOT exceed global TTL and resource caps configured by the user or system
+- **FR-026**: Adaptive depth SHALL consume the TaskProfile to adjust reasoning depth using reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, and confidence_requirement
+- **FR-027**: The system SHALL infer all TaskProfile dimensions using LLM-driven analysis of the task’s linguistic, structural, and contextual cues.
+- **FR-NEW-004**: The TaskProfile inference SHALL assign concrete values to all five dimensions (reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement).
+- **FR-NEW-005**: The TaskProfile inference SHALL include a raw_inference natural-language explanation summarizing how each dimension was determined.
+- **FR-NEW-006**: The TaskProfile inference SHALL produce dimension values that are internally coherent and non-contradictory.
+- **FR-NEW-007**: The TaskProfile inference for identical input within a single pass SHALL remain stable within one tier of variation.
+- **FR-NEW-008**: The TaskProfile inference SHALL only be recomputed or revised at pass boundaries.
+- **FR-NEW-009**: The system SHALL implement TaskProfile inference via an LLM-driven mechanism whose input and output adhere to the TaskProfile interface, and whose output satisfies all TaskProfile acceptance criteria.
+- **FR-NEW-010**: The TaskProfile inference mechanism SHALL accept a task description plus context and SHALL return a TaskProfile instance that conforms to the TaskProfile entity schema and satisfies the TaskProfile acceptance criteria.
+- **FR-028**: Ambiguity and uncertainty indicators SHALL be incorporated into the information_sufficiency dimension of the TaskProfile
+- **FR-029**: TTL allocation SHALL derive from TaskProfile dimensions, giving higher TTL to tasks with higher reasoning_depth or lower information_sufficiency
+- **FR-030**: Reasoning depth strategies SHALL be selected based on TaskProfile dimensions, not fixed complexity categories
+- **FR-NEW-001**: The system SHALL maintain versioned TaskProfile metadata across passes, updating dimensions only at pass boundaries
+- **FR-NEW-002**: The system SHALL record TaskProfile version transitions in execution history
+- **FR-NEW-003**: The system SHALL revise TaskProfile dimensions when validators, convergence analysis, or recursive planning reveal new information
 - **FR-077**: The adaptive depth heuristics SHALL respect global TTL and resource caps and MUST NOT silently exceed configured limits. When adaptive heuristics would exceed limits, they SHALL cap TTL allocations at the configured maximum rather than exceeding it
 - **FR-080**: The adaptive depth heuristics MAY revise their complexity assessment during execution based on new information (e.g., semantic validation results, convergence failures, recursive planner needs) and adjust reasoning depth and TTL allocations within configured caps accordingly. Adaptive depth MAY reduce TTL allocations or reasoning depth when tasks are detected to be simpler than previously estimated, not only increase them when complexity is high
-- **FR-030**: The adaptive depth heuristics SHALL select between deep reasoning and shallow reasoning strategies based on complexity and ambiguity scores
 - **FR-031**: The adaptive depth heuristics SHALL integrate with semantic validation layer to inform complexity detection (e.g., using validation issue counts as complexity indicators)
 - **FR-032**: The adaptive depth heuristics SHALL integrate with convergence engine to inform depth decisions (e.g., deeper reasoning when convergence fails)
 - **FR-033**: The adaptive depth heuristics SHALL integrate with recursive planner to inform depth decisions (e.g., deeper reasoning when recursive refinement is needed)
@@ -300,15 +328,24 @@ As a developer, I can inspect a completed multi-pass execution and see a structu
 
 - **TTL Expiration Response**: Result returned when TTL expires before convergence containing: converged (false), result_type (ttl_expired), latest_pass_result (output from the most recent completed execution pass, or null if no passes completed), partial_result (output from current incomplete pass if TTL expired mid-phase and no passes completed), expiration_point (phase_boundary or mid_phase), ttl_expired_metadata (object containing completeness_score, coherence_score, consistency_status, detected_issues, reason_codes indicating why convergence was not achieved, pass_number indicating which pass was the latest or current), termination_reason ("ttl_expired")
 
+- **TaskProfile Schema**:  TaskProfile defined later in the fuctional requirements should use the following initial schema -
+    * profile_version: integer
+    * reasoning_depth: enum(low, medium, high)
+    * information_sufficiency: enum(low, medium, high)
+    * expected_tool_usage: enum(none, minimal, moderate, extensive)
+    * output_breadth: enum(narrow, moderate, broad)
+    * confidence_requirement: enum(low, medium, high)
+    * raw_inference: string
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Developers can submit complex, ambiguous tasks and receive converged results within 5 minutes of submission for 90% of tasks (accounting for multi-pass execution time)
+- **SC-001**: Developers can submit tasks with high reasoning_depth or low information_sufficiency and receive converged results within 5 minutes of submission for 90% of tasks (accounting for multi-pass execution time)
 - **SC-002**: The multi-pass execution loop successfully converges on complete, coherent solutions for 85% of complex tasks that require multiple passes
-- **SC-003**: Recursive planning successfully detects and refines ambiguous or low-specificity plan fragments for 80% of tasks containing such issues
+- **SC-003**: Recursive planning successfully detects and refines ambiguous or low-specificity plan fragments for 80% of tasks where the semantic validator reports one or more WARNING or ERROR issues
 - **SC-004**: The convergence engine correctly identifies convergence status (true/false) with accuracy of 90% when evaluated against manual assessment by human reviewers
-- **SC-005**: Adaptive depth heuristics correctly adjust reasoning depth (shallow vs deep) based on task complexity for 85% of tasks, as measured by alignment with expected depth for task complexity level
+- **SC-005**: Adaptive depth heuristics correctly adjust reasoning depth based on TaskProfile dimensions for 85% of tasks, as measured by alignment with expected depth for TaskProfile dimensions
 - **SC-006**: Semantic validation layer detects 90% of specificity issues, logical relevance problems, do/say mismatches, and hallucinated tools in test plans containing these issues
 - **SC-007**: The kernel codebase (kernel/orchestrator.py and kernel/executor.py combined) remains under 800 lines of code after Sprint 2 implementation
 - **SC-008**: Multi-pass loops terminate without infinite loops in 100% of cases (through convergence or TTL expiration)

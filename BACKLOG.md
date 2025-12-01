@@ -4,58 +4,58 @@ Aeon Architect — Backlog of Future Enhancements
 
 ---
 
-## 1. Recursive Planning & Re-Planning
-- Multi-pass plan refinement  
-- Step expansion when ambiguity is detected  
-- Automatic follow-up question generation  
-- Detect missing details and regenerate plan fragments  
-- Partial plan revision without discarding entire plan  
-- Hierarchical and nested subplans  
-- Integrate supervisor into plan refinement loop  
+## 1. Recursive Planning & Re-Planning ✓ (Sprint 2 - GRADUATED)
+- Multi-pass plan refinement  ✓
+- Step expansion when ambiguity is detected  ✓
+- Automatic follow-up question generation  ✓
+- Detect missing details and regenerate plan fragments  ✓
+- Partial plan revision without discarding entire plan  ✓
+- Hierarchical and nested subplans  ✓
+- Integrate supervisor into plan refinement loop  ✓
 
 ---
 
-## 2. Adaptive Depth Heuristics
-- Automatic detection of task complexity  
-- Escalate reasoning depth when required  
-- Reduce depth for simple tasks  
-- Adaptive TTL scaling based on complexity  
-- Confidence/uncertainty estimation  
-- Token-level or structural heuristics (ambiguity, lack of specificity, missing gradients)  
+## 2. Adaptive Depth Heuristics ✓ (Sprint 2 - GRADUATED)
+- Automatic detection of task complexity  ✓
+- Escalate reasoning depth when required  ✓
+- Reduce depth for simple tasks  ✓
+- Adaptive TTL scaling based on complexity  ✓
+- Confidence/uncertainty estimation  ✓
+- Token-level or structural heuristics (ambiguity, lack of specificity, missing gradients)  ✓
 
 ---
 
-## 3. Convergence Engine
-- Detect whether the task is complete  
-- Determine whether additional reasoning is needed  
-- Identify inconsistencies or gaps in final answer  
-- Retry reasoning until convergence threshold is met  
-- Configurable convergence criteria (completeness, coherence, correctness)  
+## 3. Convergence Engine ✓ (Sprint 2 - GRADUATED)
+- Detect whether the task is complete  ✓
+- Determine whether additional reasoning is needed  ✓
+- Identify inconsistencies or gaps in final answer  ✓
+- Retry reasoning until convergence threshold is met  ✓
+- Configurable convergence criteria (completeness, coherence, correctness)  ✓
 
 ---
 
-## 4. Semantic Validation Layer
-- Validate step descriptions for specificity  
-- Detect vague steps, contradictions, or irrelevant steps  
-- Validate that step outputs contribute to goal  
-- Perform “do/say mismatch” analysis  
-- Detect hallucinations (tools, facts, outputs)  
-- Logical consistency checks across plan + answer + memory  
+## 4. Semantic Validation Layer ✓ (Sprint 2 - GRADUATED)
+- Validate step descriptions for specificity  ✓
+- Detect vague steps, contradictions, or irrelevant steps  ✓
+- Validate that step outputs contribute to goal  ✓
+- Perform "do/say mismatch" analysis  ✓
+- Detect hallucinations (tools, facts, outputs)  ✓
+- Logical consistency checks across plan + answer + memory  ✓
 
 ---
 
-## 5. Multi-Pass Execution Loop
+## 5. Multi-Pass Execution Loop ✓ (Sprint 2 - GRADUATED)
 Replace single-pass execution with:
-1. plan  
-2. execute  
-3. evaluate  
-4. refine  
-5. re-execute (if needed)  
-6. converge  
-7. stop  
+1. plan  ✓
+2. execute  ✓
+3. evaluate  ✓
+4. refine  ✓
+5. re-execute (if needed)  ✓
+6. converge  ✓
+7. stop  ✓
 
-- Persistent loop until convergence or TTL exhaustion  
-- Each cycle may modify plan, memory, or step definitions  
+- Persistent loop until convergence or TTL exhaustion  ✓
+- Each cycle may modify plan, memory, or step definitions  ✓
 
 ---
 
@@ -69,12 +69,12 @@ Replace single-pass execution with:
 
 ---
 
-## 7. Supervisor Enhancements
-- Semantic repair, not only structural repair  
+## 7. Supervisor Enhancements (Partially Graduated - Sprint 2)
+- Semantic repair, not only structural repair  (deferred to Tier-2)
 - Multi-round self-correction  
 - Plan quality analysis  
 - Detect low-information or low-utility steps  
-- Ability to refine poorly formed steps  
+- Ability to refine poorly formed steps  ✓ (Sprint 2 - Supervisor integrated into refinement loop, FR-004)
 - Fallback mechanism for incomplete reasoning  
 
 ---
@@ -119,21 +119,21 @@ Replace single-pass execution with:
 
 ---
 
-## 12. Semantic Search Over Artifacts
-- Cross-artifact consistency checks  
-- Automated alignment between plan, prompt, answer, and memory  
+## 12. Semantic Search Over Artifacts (Partially Graduated - Sprint 2)
+- Cross-artifact consistency checks  ✓ (Sprint 2 - Convergence Engine & Semantic Validation)
+- Automated alignment between plan, prompt, answer, and memory  ✓ (Sprint 2 - Cross-phase validation)
 - Multi-document reasoning  
 - Artifact-level diff reasoning  
-- Detect changes that require re-planning  
+- Detect changes that require re-planning  ✓ (Sprint 2 - Refinement detection)
 
 ---
 
-## 13. Expanded Observability / Telemetry
+## 13. Expanded Observability / Telemetry (Partially Graduated - Sprint 2)
 - Per-step reasoning traces  
 - Confidence or uncertainty metadata  
 - Execution heatmaps  
 - Metrics dashboard (cycles, convergence, tool effectiveness)  
-- Plan evolution history  
+- Plan evolution history  ✓ (Sprint 2 - Execution Inspection and History)
 - Memory evolution history  
 
 ---

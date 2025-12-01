@@ -45,10 +45,16 @@ Sprint 1 MUST NOT include: diagram generation, IaC generation, RAG, cloud logic,
 ## Architecture Constraints
 
 ### Kernel Boundaries
-- The kernel MUST NOT exceed 800 LOC in Sprint 1
+- The kernel MUST NOT exceed 800 LOC at any time
 - The kernel MUST NOT import or depend on domain-specific modules
-- The kernel MUST NOT contain business logic, validation rules, or pattern matching beyond orchestration
-- All domain knowledge MUST reside in tools, supervisors, or external modules
+
+### Kernel Composition Rules
+- Only `orchestrator.py` and `executor.py` count as the kernel for LOC purposes.
+- Supporting kernel modules inside the `kernel/` package (e.g., `state.py`, data containers) MAY exist but MUST contain only pure data structures, enums, or simple type containers.
+- Supporting kernel modules MUST NOT contain orchestration logic, control-flow logic, planning logic, validation logic, or reasoning logic.
+- Supporting kernel modules MUST remain small and MUST NOT exceed 150 lines of code each.
+- Supporting kernel modules MUST NOT be used to circumvent the kernel LOC limit or to house orchestration logic, control-flow logic, validation logic, planning logic, or reasoning logic.
+- All orchestration logic MUST live in `orchestrator.py` or `executor.py` and MUST remain under the constitutional LOC limit at all times.
 
 ### Interface Contracts
 - All external modules (tools, supervisors, memory, validators) MUST implement well-defined interfaces
