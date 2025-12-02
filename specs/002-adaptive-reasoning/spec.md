@@ -31,6 +31,19 @@
 - Q: Should developers be able to see why adaptive depth adjusted reasoning depth or TTL? → A: Yes - add acceptance scenario showing execution metadata reveals adjustment reason (e.g., high ambiguity, missing details)
 - Q: How should conflicts between semantic validation repairs and recursive planner refinements be handled? → A: Surface the conflict in metadata and apply a deterministic resolution strategy (recursive planner output wins, semantic validation logs advisory)
 
+## Master Constraint: LLM-Based Reasoning Requirement
+
+**All semantic, cognitive, or evaluative functionality MUST be implemented using LLM-based reasoning.**
+
+Heuristic or lexical methods (including static word lists, simple regex patterns, keyword matching, or rule-based logic) MAY be used only as secondary signals to inform LLM reasoning inputs and MUST NOT serve as primary decision-making mechanisms.
+
+This constraint applies to all User Stories and Functional Requirements that involve:
+- Semantic analysis (specificity, relevance, consistency detection)
+- Cognitive assessment (complexity evaluation, ambiguity detection, information sufficiency)
+- Evaluative functions (convergence determination, quality scoring, issue classification)
+
+**Rationale**: To ensure the system leverages the full reasoning capabilities of LLMs rather than relying on brittle pattern-matching approaches that cannot handle nuanced, context-dependent semantic understanding.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Multi-Pass Execution with Convergence (Priority: P1)
@@ -38,6 +51,8 @@
 As a developer, I can submit a complex task to Aeon, and the system automatically executes multiple reasoning passes until it converges on a complete, coherent solution or reaches a termination condition.
 
 **Why this priority**: This is the foundational transformation from single-pass to multi-pass execution. Without this capability, all other Sprint 2 features (recursive planning, convergence detection, adaptive depth) cannot function. It represents the core evolution of the system architecture. The multi-pass loop follows a deterministic sequence of phases for a given configuration and input, even if LLM outputs vary - ensuring predictable, debuggable control flow.
+
+**Master Constraint**: The evaluate phase (convergence assessment) MUST use LLM-based reasoning as the primary mechanism for determining convergence status. Heuristic methods MAY be used only as secondary signals to inform LLM inputs.
 
 **Independent Test**: Can be fully tested by submitting a complex, ambiguous task (e.g., "design a system architecture for a web application with user authentication") and verifying that Aeon executes multiple passes (plan → execute → evaluate → refine → re-execute) until convergence is achieved or TTL expires. The test delivers value by proving the system can iteratively improve its reasoning through multiple cycles.
 
@@ -57,6 +72,8 @@ As a developer, I can submit a complex task to Aeon, and the system automaticall
 As a developer, I can submit tasks with ambiguous or incomplete requirements, and Aeon automatically detects missing details, generates follow-up questions, creates subplans for complex steps, and refines plan fragments without discarding the entire plan.
 
 **Why this priority**: Recursive planning is essential for handling real-world tasks that are inherently ambiguous or complex. This capability enables the system to improve plans incrementally and handle hierarchical problem decomposition. It directly supports the multi-pass execution loop.
+
+**Master Constraint**: Ambiguity detection, low-specificity detection, and follow-up question generation MUST use LLM-based reasoning as the primary mechanism. Heuristic methods (word lists, regex patterns) MAY be used only as secondary signals to inform LLM inputs.
 
 **Independent Test**: Can be fully tested by submitting an ambiguous task (e.g., "build a REST API") and verifying that Aeon detects ambiguities, generates subplans or nested steps, refines specific plan fragments, and automatically incorporates semantic validation into the refinement process. The test delivers value by proving the system can handle incomplete specifications and improve plans recursively.
 
@@ -78,6 +95,8 @@ As a developer, I can receive a converged result from Aeon that indicates whethe
 
 **Why this priority**: Convergence detection is critical for determining when the system has achieved a satisfactory solution. Without this capability, the multi-pass loop would run indefinitely or terminate arbitrarily. This directly controls the termination condition for Sprint 2's execution model. The convergence engine consumes semantic validator output directly as input for coherence and consistency assessments, enabling detection of contradictions, omissions, and hallucinations identified by semantic validation.
 
+**Master Constraint**: Completeness, coherence, and consistency assessments MUST use LLM-based reasoning as the primary mechanism. Heuristic scoring methods MAY be used only as secondary signals to inform LLM evaluation inputs.
+
 **Independent Test**: Can be fully tested by executing a task through multiple passes and verifying that the convergence engine correctly identifies when completeness, coherence, and consistency criteria are met, returning convergence status (true/false), reason codes, and evaluation metadata. The test delivers value by proving the system can reliably determine solution quality and completion.
 
 **Acceptance Scenarios**:
@@ -98,6 +117,8 @@ As a developer, I can submit tasks of varying complexity, and Aeon automatically
 
 **Why this priority**: Adaptive depth enables the system to efficiently handle both simple and complex tasks without over-allocating resources to simple problems or under-processing complex ones. This optimizes system efficiency and improves user experience. Adaptive depth MAY adjust TTL allocations and reasoning depth both upward (when TaskProfile indicates high reasoning_depth or low information_sufficiency) and downward (when TaskProfile indicates low reasoning_depth and high information_sufficiency), enabling efficient resource utilization. However, it is secondary to core execution capabilities (P1) since the system can function with fixed depth while this feature enhances it.
 
+**Master Constraint**: TaskProfile inference and complexity assessment MUST use LLM-based reasoning as the primary mechanism. Token-pattern analysis and heuristic indicators MAY be used only as secondary signals to inform LLM reasoning inputs.
+
 **Independent Test**: Can be fully tested by submitting both tasks requiring shallow reasoning as inferred from the TaskProfile (e.g., "add two numbers") and tasks requiring deep reasoning as inferred from the TaskProfile (e.g., "design a distributed system architecture") and verifying that Aeon adjusts TTL, reasoning depth, and processing strategies appropriately based on TaskProfile dimensions. The test delivers value by proving the system can optimize resource allocation and reasoning effort based on task characteristics.
 
 **Acceptance Scenarios**:
@@ -117,6 +138,8 @@ As a developer, I can submit tasks of varying complexity, and Aeon automatically
 As a developer, I can receive semantic validation reports for plans, steps, and execution artifacts that identify specificity issues, logical relevance problems, do/say mismatches, hallucinated tools, and consistency violations.
 
 **Why this priority**: Semantic validation is the intelligence substrate that all other Tier-1 features depend on. It ensures plan quality, detects issues that require refinement, identifies convergence blockers, and informs adaptive depth decisions. Without semantic validation, recursive planning and convergence detection cannot function effectively. Semantic validation operates as a best-effort advisory system, not a truth oracle - validation reports provide suggestions and issue classifications, but may miss issues or produce false positives, and should not be treated as authoritative determinations.
+
+**Master Constraint**: All semantic validation (specificity, relevance, do/say mismatch, hallucination, consistency detection) MUST use LLM-based reasoning as the primary mechanism. Static word lists, regex patterns, or keyword matching MAY be used only as secondary signals to inform LLM validation inputs and MUST NOT serve as primary decision-making mechanisms.
 
 **Independent Test**: Can be fully tested by generating a plan with vague steps, irrelevant steps, steps that don't match their descriptions, or references to non-existent tools, and verifying that the semantic validation layer detects these issues, classifies them, assigns severity scores, and proposes semantic repairs. The test delivers value by proving the system can identify semantic quality issues that structural validation cannot catch.
 
@@ -195,25 +218,27 @@ This refactoring is a prerequisite for Sprint 2 implementation and must be compl
 - **FR-002**: The multi-pass loop SHALL execute each phase sequentially and deterministically, with clear boundaries between phases
 - **FR-003**: The multi-pass loop SHALL safely refine plans and steps without creating infinite loops through refinement attempt limits (e.g., 3 attempts per plan fragment with a global maximum of 10 total refinement attempts across all fragments) and convergence detection
 - **FR-004**: During the refinement phase, the system SHALL integrate supervisor functionality to repair structural or semantic issues before re-execution
-- **FR-067**: When supervisor repair fails during the refinement phase (e.g., after 2 repair attempts), the system SHALL treat it as an unrecoverable refinement failure, proceed with the current plan state (best available version), and continue to the next pass without applying refinement changes
+- **FR-067**: When supervisor repair fails during the refinement phase after 2 repair attempts, the system SHALL treat it as an unrecoverable refinement failure, proceed with the current plan state (best available version), and continue to the next pass without applying refinement changes
 - **FR-005**: During the refinement phase, the system SHALL allow updates to plan structure and step definitions while preserving the declarative nature of plans
 - **FR-006**: The multi-pass loop SHALL terminate when convergence is detected OR when TTL reaches zero, whichever occurs first
 - **FR-062**: When TTL expires before convergence is achieved, the system SHALL return the latest completed pass result (the most recent execution pass output), clearly labeled as non-converged, along with TTL-expired metadata including completeness score, coherence score, and other convergence assessment data from the convergence engine
-- **FR-063**: TTL expiration SHALL be checked at phase boundaries (between passes or at phase transitions) for multi-pass execution, and MAY be checked mid-phase only at safe step boundaries or for interruptible reasoning steps (LLM reasoning steps) to enable early termination during long-running steps
+- **FR-063**: TTL expiration SHALL be checked at phase boundaries (between passes or at phase transitions) for multi-pass execution, and MAY be checked mid-phase only at safe step boundaries (before tool call start or after tool completion) or for interruptible reasoning steps (LLM reasoning steps) to enable early termination during long-running steps
 - **FR-064**: When TTL expires mid-phase during individual step execution, the system SHALL NOT interrupt non-idempotent or side-effecting tool operations. Mid-phase TTL checks SHALL apply only at safe step boundaries (between tool invocations, before starting a tool call, or after tool completion) or for interruptible reasoning steps (LLM reasoning steps that can be safely terminated). When TTL expires at a safe boundary, the system SHALL terminate the phase and abandon the pending step (marking it incomplete) without interrupting any atomic operation, and return the latest completed pass result with TTL-expired metadata (if a complete pass exists), or return a partial result from the current incomplete pass if no passes have completed
 - **FR-007**: After each pass, the system SHALL evaluate the current state and determine whether another pass is needed before proceeding to refinement
 - **FR-008**: The kernel codebase SHALL remain under 800 lines of code (LOC) as measured by kernel/orchestrator.py and kernel/executor.py combined
 
 #### Recursive Planning & Re-Planning
 
+**Master Constraint**: Ambiguity detection, low-specificity detection, and follow-up question generation MUST use LLM-based reasoning as the primary mechanism. Heuristic methods (word lists, regex patterns) MAY be used only as secondary signals to inform LLM inputs.
+
 - **FR-009**: The system SHALL support creation of subplans and nested steps to decompose complex plan steps into detailed substeps
 - **FR-010**: The system SHALL support partial plan rewrites that modify only specific plan fragments without discarding the entire plan structure
-- **FR-069**: During refinement, when partial plan rewrites create inconsistencies with already-executed steps, the system SHALL detect these inconsistencies, mark conflicting executed steps as invalid (status: invalid), and allow refinement only for pending or future steps (steps with status: pending)
+- **FR-069**: During refinement, when partial plan rewrites create inconsistencies with already-executed steps, the system SHALL detect these inconsistencies using LLM-based reasoning as the primary mechanism, mark conflicting executed steps as invalid (status: invalid), and allow refinement only for pending or future steps (steps with status: pending)
 - **FR-070**: The system SHALL NOT allow refinement to modify steps that have already been executed (status: complete or failed), preserving the immutability of executed step results
 - **FR-065**: When a plan fragment reaches its per-fragment refinement attempt limit (e.g., 3 attempts), the system SHALL stop refining that fragment and either mark it as requiring manual intervention or proceed with the best available version of that fragment. When a fragment is marked as requiring manual intervention, the system SHALL include advisory metadata in execution results indicating the fragment needs human review, but SHALL NOT halt execution or throw an error - refinement stops for that fragment while execution continues with the best available version
 - **FR-066**: When the global refinement attempt limit is reached (e.g., 10 total attempts across all fragments), the system SHALL stop all refinement attempts and proceed with the best available plan state
-- **FR-011**: The system SHALL automatically generate follow-up questions when ambiguous or low-specificity requirements are detected in plan fragments
-- **FR-012**: The system SHALL detect ambiguous or low-specificity plan fragments and trigger refinement or question generation for those fragments
+- **FR-011**: The system SHALL automatically generate follow-up questions when ambiguous or low-specificity requirements are detected in plan fragments using LLM-based reasoning as the primary mechanism
+- **FR-012**: The system SHALL detect ambiguous or low-specificity plan fragments and trigger refinement or question generation for those fragments using LLM-based reasoning as the primary mechanism
 - **FR-013**: During recursive planning, the system SHALL integrate semantic validation directly into the recursion flow to validate refined fragments before acceptance
 - **FR-014**: Plans generated through recursive planning SHALL remain declarative (JSON/YAML structures) and SHALL NOT contain procedural logic or executable code
 - **FR-015**: The recursive planner SHALL preserve plan structure and relationships when refining fragments (e.g., step dependencies, goal alignment)
@@ -222,21 +247,25 @@ This refactoring is a prerequisite for Sprint 2 implementation and must be compl
 
 #### Convergence Engine
 
-- **FR-017**: The system SHALL implement a convergence engine that determines whether the task is finished through completeness, coherence, and consistency checks
-- **FR-018**: The convergence engine SHALL perform completeness checks to verify all goals are addressed and no required steps are missing
-- **FR-019**: The convergence engine SHALL perform coherence checks to verify logical consistency and detect contradictions
-- **FR-020**: The convergence engine SHALL perform cross-artifact consistency checks to verify alignment between plan, execution steps, and final answer
-- **FR-021**: The convergence engine SHALL detect contradictions, omissions, and hallucinations in execution artifacts
+**Master Constraint**: All convergence assessments (completeness, coherence, consistency) MUST use LLM-based reasoning as the primary mechanism. Heuristic scoring methods MAY be used only as secondary signals to inform LLM evaluation inputs.
+
+- **FR-017**: The system SHALL implement a convergence engine that determines whether the task is finished through completeness, coherence, and consistency checks using LLM-based reasoning as the primary mechanism
+- **FR-018**: The convergence engine SHALL perform completeness checks to verify all goals are addressed and no required steps are missing using LLM-based reasoning as the primary mechanism
+- **FR-019**: The convergence engine SHALL perform coherence checks to verify logical consistency and detect contradictions using LLM-based reasoning as the primary mechanism
+- **FR-020**: The convergence engine SHALL perform cross-artifact consistency checks to verify alignment between plan, execution steps, and final answer using LLM-based reasoning as the primary mechanism
+- **FR-021**: The convergence engine SHALL detect contradictions, omissions, and hallucinations in execution artifacts using LLM-based reasoning as the primary mechanism
 - **FR-068**: When convergence criteria conflict (e.g., complete but incoherent, or coherent but incomplete), the convergence engine SHALL return converged: false with reason codes indicating which specific criteria failed (e.g., "incomplete", "incoherent", "inconsistent"), allowing the multi-pass loop to continue refinement in subsequent passes
-- **FR-022**: The convergence engine SHALL support configurable convergence criteria that can be customized per task or use case. When no custom criteria are provided, the convergence engine SHALL use sensible default thresholds for completeness, coherence, and consistency checks
+- **FR-022**: When no custom criteria are provided, the convergence engine SHALL use sensible default thresholds for completeness, coherence, and consistency checks (see plan.md §4 "Convergence Engine - Algorithmic Guidance" for default values: completeness >= 0.95, coherence >= 0.90, consistency >= 0.90)
 - **FR-023**: The convergence engine SHALL return converged: true/false status indicating whether convergence was achieved
 - **FR-024**: The convergence engine SHALL return reason codes explaining why convergence was or was not achieved (e.g., "complete", "incoherent", "missing step", "contradiction detected")
 - **FR-025**: The convergence engine SHALL return evaluation metadata including completeness scores, coherence scores, detected issues lists, and artifact consistency status
 
 #### Adaptive Depth Heuristics
 
+**Master Constraint**: TaskProfile inference and complexity assessment MUST use LLM-based reasoning as the primary mechanism. Token-pattern analysis and heuristic indicators MAY be used only as secondary signals to inform LLM reasoning inputs.
+
 - **FR-026**: Adaptive depth SHALL consume the TaskProfile to adjust reasoning depth using reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, and confidence_requirement
-- **FR-027**: The system SHALL infer all TaskProfile dimensions using LLM-driven analysis of the task’s linguistic, structural, and contextual cues.
+- **FR-027**: The system SHALL infer all TaskProfile dimensions using LLM-driven analysis of the task's linguistic, structural, and contextual cues as the primary mechanism
 - **FR-NEW-004**: The TaskProfile inference SHALL assign concrete values to all five dimensions (reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement).
 - **FR-NEW-005**: The TaskProfile inference SHALL include a raw_inference natural-language explanation summarizing how each dimension was determined.
 - **FR-NEW-006**: The TaskProfile inference SHALL produce dimension values that are internally coherent and non-contradictory.
@@ -255,21 +284,41 @@ This refactoring is a prerequisite for Sprint 2 implementation and must be compl
 - **FR-031**: The adaptive depth heuristics SHALL integrate with semantic validation layer to inform complexity detection (e.g., using validation issue counts as complexity indicators)
 - **FR-032**: The adaptive depth heuristics SHALL integrate with convergence engine to inform depth decisions (e.g., deeper reasoning when convergence fails)
 - **FR-033**: The adaptive depth heuristics SHALL integrate with recursive planner to inform depth decisions (e.g., deeper reasoning when recursive refinement is needed)
-- **FR-034**: The adaptive depth heuristics MAY include token-pattern analysis to detect complexity indicators (vague language, weak verbs/nouns, logical gaps)
-- **FR-035**: The adaptive depth heuristics MAY detect missing details or gradients in task specifications and increase depth accordingly
+- **FR-034**: The adaptive depth heuristics MAY include token-pattern analysis to detect complexity indicators (vague language, weak verbs/nouns, logical gaps) as secondary signals to inform LLM reasoning inputs, but MUST NOT use these as primary decision-making mechanisms
+- **FR-035**: The adaptive depth heuristics MAY detect missing details or gradients in task specifications and increase depth accordingly, using LLM-based reasoning as the primary mechanism for detection
+
+#### TaskProfile Tier Stability Requirement
+
+A "tier" refers exclusively to the ordinal scale of `reasoning_depth`, which ranges from 1 to 5.
+Tier stability requires that repeated LLM-based TaskProfile inference for the same input MUST
+produce `reasoning_depth` values within ±1 tier of the initial inference. For example, if the
+initial inference returns a depth of 3, subsequent inferences may return 2, 3, or 4, but values
+of 1 or 5 violate this stability requirement.
+
+**Note**: In narrative text throughout this specification, qualitative terms like "low reasoning_depth"
+and "high reasoning_depth" refer to the numeric scale as follows: low = 1-2, moderate = 3, high = 4-5.
+
+Continuous dimensions (`information_sufficiency`) and other enum dimensions DO NOT use tier semantics
+and are not subject to tier-stability constraints.
+
+Examples:
+- Stable: initial depth = 4 → subsequent depths {3, 4, 5}
+- Unstable: initial depth = 2 → subsequent depths {4}
 
 #### Semantic Validation Layer
 
-- **FR-036**: The system SHALL implement a semantic validation layer that validates step specificity (concreteness and actionability of step descriptions)
-- **FR-037**: The semantic validation layer SHALL validate logical relevance of steps to the overall goal (each step contributes meaningfully to goal achievement)
-- **FR-038**: The semantic validation layer SHALL detect do/say mismatches where step descriptions don't match step actions or tool invocations
-- **FR-039**: The semantic validation layer SHALL detect hallucinated tools (tools referenced that don't exist in the tool registry) and nonexistent operations
-- **FR-040**: The semantic validation layer SHALL validate internal consistency of step sequences (logical flow, no circular dependencies, dependencies satisfied)
-- **FR-041**: The semantic validation layer SHALL perform cross-phase validation to ensure consistency between plan, execution steps, final answer, and memory artifacts
-- **FR-042**: The semantic validation layer SHALL produce validation reports containing detected issues, issue classifications, severity scores, and proposed semantic repairs
-- **FR-043**: The semantic validation layer SHALL classify validation issues by type (specificity, relevance, consistency, hallucination, do/say mismatch)
-- **FR-044**: The semantic validation layer SHALL assign severity scores to detected issues to prioritize repairs (e.g., high severity for contradictions, low severity for minor specificity issues)
-- **FR-045**: The semantic validation layer SHALL propose semantic repairs for detected issues (suggested step rewrites, tool replacements, logical corrections)
+**Master Constraint**: All semantic validation (specificity, relevance, do/say mismatch, hallucination, consistency detection) MUST use LLM-based reasoning as the primary mechanism. Static word lists, regex patterns, or keyword matching MAY be used only as secondary signals to inform LLM validation inputs and MUST NOT serve as primary decision-making mechanisms.
+
+- **FR-036**: The system SHALL implement a semantic validation layer that validates step specificity (concreteness and actionability of step descriptions) using LLM-based reasoning as the primary mechanism
+- **FR-037**: The semantic validation layer SHALL validate logical relevance of steps to the overall goal (each step contributes meaningfully to goal achievement) using LLM-based reasoning as the primary mechanism
+- **FR-038**: The semantic validation layer SHALL detect do/say mismatches where step descriptions don't match step actions or tool invocations using LLM-based reasoning as the primary mechanism
+- **FR-039**: The semantic validation layer SHALL detect hallucinated tools (tools referenced that don't exist in the tool registry) and nonexistent operations using LLM-based reasoning as the primary mechanism
+- **FR-040**: The semantic validation layer SHALL validate internal consistency of step sequences (logical flow, no circular dependencies, dependencies satisfied) using LLM-based reasoning as the primary mechanism
+- **FR-041**: The semantic validation layer SHALL perform cross-phase validation to ensure consistency between plan, execution steps, final answer, and memory artifacts using LLM-based reasoning as the primary mechanism
+- **FR-042**: The semantic validation layer SHALL produce validation reports containing detected issues, issue classifications, severity scores, and proposed semantic repairs using LLM-based reasoning as the primary mechanism
+- **FR-043**: The semantic validation layer SHALL classify validation issues by type (specificity, relevance, consistency, hallucination, do/say mismatch) using LLM-based reasoning as the primary mechanism
+- **FR-044**: The semantic validation layer SHALL assign severity scores to detected issues to prioritize repairs (e.g., high severity for contradictions, low severity for minor specificity issues) using LLM-based reasoning as the primary mechanism
+- **FR-045**: The semantic validation layer SHALL propose semantic repairs for detected issues (suggested step rewrites, tool replacements, logical corrections) using LLM-based reasoning as the primary mechanism
 - **FR-046**: The semantic validation layer SHALL be modular and independent of the kernel, operating through well-defined interfaces without direct kernel dependencies
 - **FR-081**: The semantic validation layer SHALL operate as a best-effort advisory system, not a truth oracle. Validation reports provide suggestions and issue classifications but may miss issues or produce false positives and should not be treated as authoritative determinations of correctness
 
@@ -330,12 +379,68 @@ This refactoring is a prerequisite for Sprint 2 implementation and must be compl
 
 - **TaskProfile Schema**:  TaskProfile defined later in the fuctional requirements should use the following initial schema -
     * profile_version: integer
-    * reasoning_depth: enum(low, medium, high)
+    * reasoning_depth: enum(1, 2, 3, 4, 5)  # Ordinal scale: 1=very shallow, 2=shallow, 3=moderate, 4=deep, 5=very deep
     * information_sufficiency: enum(low, medium, high)
     * expected_tool_usage: enum(none, minimal, moderate, extensive)
     * output_breadth: enum(narrow, moderate, broad)
     * confidence_requirement: enum(low, medium, high)
     * raw_inference: string
+
+### Schema Constraints for Core Data Models
+
+The following outlines the required fields and structural constraints for core data
+models used by the planner, evaluator, and supervisor. These definitions express
+the shape of the data but do NOT prescribe implementation. Cursor is responsible
+for generating code, classes, and concrete schemas consistent with these rules.
+
+#### ValidationIssue (required fields)
+- `issue_type` — enum representing the category of issue (specificity, relevance,
+  hallucination, inconsistency, etc.)
+- `severity` — enum {LOW, MEDIUM, HIGH, CRITICAL}
+- `description` — human-readable explanation produced by the LLM
+- `location` — optional; refers to step_id or plan section
+- `proposed_repair` — optional structured object describing a suggested fix
+
+#### SemanticValidationReport (required fields)
+- `issues` — list of ValidationIssue objects
+- `overall_severity` — enum summarizing highest-severity issue found
+
+#### ConvergenceAssessment (required fields)
+- `converged` — boolean
+- `reason_codes` — list of enums describing why convergence succeeded or failed
+- `scores` — object containing completeness/coherence/consistency values
+- `explanation` — human-readable summary from the LLM
+
+#### TaskProfile (required fields)
+- `reasoning_depth` — integer from 1–5 (ordinal tier used by Adaptive Depth)
+- `ambiguity_level` — float from 0.0 to 1.0
+- `information_sufficiency` — float from 0.0 to 1.0
+- `dependency_complexity` — integer count of dependent steps
+- `expected_step_count` — integer estimate of plan size
+
+#### RefinementAction (required fields)
+- `action_type` — enum {ADD, REMOVE, MODIFY, REPLACE}
+- `target_step_id` — identifier of step being changed
+- `new_step` — optional structured step
+- `justification` — explanation from the LLM
+
+#### ExecutionPass (required fields)
+- `pass_number` — integer counter
+- `phase` — enum {PLAN, EXECUTE, EVALUATE, REFINE, RE_EXECUTE}
+- `steps` — list of step objects with status
+- `validation_report` — SemanticValidationReport
+- `convergence` — ConvergenceAssessment
+- `taskprofile` — TaskProfile used for that pass
+
+#### ExecutionHistory (required fields)
+- `passes` — ordered list of ExecutionPass
+- `final_convergence` — ConvergenceAssessment
+- `final_output` — final LLM result object for the task
+
+#### SupervisorAssessment (required fields)
+- `blocking` — boolean indicating execution must stop
+- `issues` — list of surfaced blocking issues
+- `repairs` — list of RefinementAction objects deemed safe to apply
 
 ## Success Criteria *(mandatory)*
 
