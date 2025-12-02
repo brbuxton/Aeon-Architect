@@ -25,9 +25,9 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 [P] Verify Python 3.11+ environment and dependencies in requirements.txt
-- [ ] T002 [P] Review existing project structure in aeon/ package
-- [ ] T003 [P] Verify test infrastructure (pytest, coverage) in tests/ directory
+- [X] T001 [P] Verify Python 3.11+ environment and dependencies in requirements.txt
+- [X] T002 [P] Review existing project structure in aeon/ package
+- [X] T003 [P] Verify test infrastructure (pytest, coverage) in tests/ directory
 
 ---
 
@@ -39,27 +39,27 @@
 
 ### Kernel Refactoring - Analysis Phase
 
-- [ ] T004 Measure current LOC of aeon/kernel/orchestrator.py and aeon/kernel/executor.py
-- [ ] T005 Audit aeon/kernel/orchestrator.py to identify non-orchestration logic
-- [ ] T006 Audit aeon/kernel/executor.py to identify non-orchestration logic
-- [ ] T007 Document extractable functions, classes, or modules that can be moved externally
-- [ ] T008 Identify reduction targets to bring combined LOC below 700 lines
+- [X] T004 Measure current LOC of aeon/kernel/orchestrator.py and aeon/kernel/executor.py
+- [X] T005 Audit aeon/kernel/orchestrator.py to identify non-orchestration logic
+- [X] T006 Audit aeon/kernel/executor.py to identify non-orchestration logic
+- [X] T007 Document extractable functions, classes, or modules that can be moved externally
+- [X] T008 Identify reduction targets to bring combined LOC below 700 lines
 
 ### Kernel Refactoring - Extraction Phase
 
-- [ ] T009 [P] Move non-orchestration utility functions from orchestrator.py to appropriate external modules
-- [ ] T010 [P] Move non-orchestration utility functions from executor.py to appropriate external modules
-- [ ] T011 [P] Extract data transformation logic to external modules if found in kernel
-- [ ] T012 [P] Extract validation helpers to external modules if found in kernel
-- [ ] T013 Verify all extracted code maintains clean interfaces
-- [ ] T014 Preserve all existing functionality and interfaces during extraction
+- [X] T009 [P] Move non-orchestration utility functions from orchestrator.py to appropriate external modules
+- [X] T010 [P] Move non-orchestration utility functions from executor.py to appropriate external modules
+- [X] T011 [P] Extract data transformation logic to external modules if found in kernel
+- [X] T012 [P] Extract validation helpers to external modules if found in kernel
+- [X] T013 Verify all extracted code maintains clean interfaces
+- [X] T014 Preserve all existing functionality and interfaces during extraction
 
 ### Kernel Refactoring - Validation Phase
 
-- [ ] T015 Run full regression test suite in tests/ to confirm no behavioral changes
-- [ ] T016 Verify combined LOC of aeon/kernel/orchestrator.py and aeon/kernel/executor.py is below 700 lines
-- [ ] T017 Confirm all interfaces remain unchanged (no breaking changes)
-- [ ] T018 Document refactoring changes with before/after LOC measurements
+- [X] T015 Run full regression test suite in tests/ to confirm no behavioral changes
+- [X] T016 Verify combined LOC of aeon/kernel/orchestrator.py and aeon/kernel/executor.py is below 700 lines
+- [X] T017 Confirm all interfaces remain unchanged (no breaking changes)
+- [X] T018 Document refactoring changes with before/after LOC measurements
 
 **Checkpoint**: Kernel refactoring complete - LOC < 700, all tests pass, no behavioral drift. Sprint 2 user story implementation can now begin.
 

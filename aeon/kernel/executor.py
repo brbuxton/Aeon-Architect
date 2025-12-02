@@ -7,6 +7,7 @@ from aeon.exceptions import ToolError, ValidationError
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
 from aeon.plan.models import PlanStep, StepStatus
+from aeon.plan.prompts import build_reasoning_prompt
 from aeon.supervisor.repair import Supervisor
 from aeon.tools.registry import ToolRegistry
 from aeon.validation.schema import Validator
@@ -172,7 +173,7 @@ class StepExecutor:
         """
         try:
             # Build prompt with step description and memory context
-            prompt = self._build_reasoning_prompt(step, memory)
+            prompt = build_reasoning_prompt(step, memory)
 
             # Invoke LLM
             response = llm.generate(
@@ -232,33 +233,4 @@ class StepExecutor:
                 execution_mode="llm" if step.agent == "llm" else "fallback",
             )
 
-    def _build_reasoning_prompt(self, step: PlanStep, memory: Memory) -> str:
-        """
-        Build reasoning prompt with step description and memory context.
-
-        Args:
-            step: PlanStep to execute
-            memory: Memory interface
-
-        Returns:
-            Prompt string
-        """
-        # Start with step description
-        prompt = f"Task: {step.description}\n\n"
-
-        # Add memory context if available
-        try:
-            # Search for relevant memory entries (prefix with step_id or general context)
-            context_entries = memory.search("step_")
-            if context_entries:
-                prompt += "Context from previous steps:\n"
-                for key, value in context_entries[:5]:  # Limit to 5 most recent
-                    prompt += f"- {key}: {value}\n"
-                prompt += "\n"
-        except Exception:
-            # If memory search fails, continue without context
-            pass
-
-        prompt += "Please provide your reasoning and result."
-        return prompt
 

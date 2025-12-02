@@ -12,7 +12,9 @@ from aeon.observability.logger import JSONLLogger
 from aeon.plan.executor import PlanExecutor
 from aeon.plan.models import Plan, PlanStep, StepStatus
 from aeon.plan.parser import PlanParser
+from aeon.plan.prompts import construct_plan_generation_prompt, get_plan_generation_system_prompt
 from aeon.plan.validator import PlanValidator
+from aeon.tools.invocation import handle_tool_error, invoke_tool
 from aeon.tools.models import ToolCall
 from aeon.tools.registry import ToolRegistry
 from aeon.validation.schema import Validator
@@ -69,8 +71,8 @@ class Orchestrator:
             PlanError: If plan parsing/validation fails
         """
         # Construct prompt for plan generation
-        system_prompt = self._get_plan_generation_system_prompt()
-        prompt = self._construct_plan_generation_prompt(request)
+        system_prompt = get_plan_generation_system_prompt()
+        prompt = construct_plan_generation_prompt(request, self.tool_registry)
 
         try:
             # Generate LLM response
@@ -82,7 +84,7 @@ class Orchestrator:
             )
 
             # Extract plan JSON from LLM response
-            plan_json = self._extract_plan_from_response(response)
+            plan_json = self.parser.extract_plan_from_llm_response(response, self.supervisor)
 
             # Parse and validate plan
             try:
@@ -112,114 +114,6 @@ class Orchestrator:
         except Exception as e:
             raise PlanError(f"Unexpected error during plan generation: {str(e)}") from e
 
-    def _get_plan_generation_system_prompt(self) -> str:
-        """Get system prompt for plan generation."""
-        return """You are a planning assistant. Generate declarative plans in JSON format.
-A plan must have:
-- "goal": string describing the objective
-- "steps": array of step objects, each with:
-  - "step_id": unique identifier (string)
-  - "description": what the step does (string)
-  - "status": "pending" (always pending for new plans)
-  - "tool": (optional) name of registered tool for tool-based execution
-  - "agent": (optional) "llm" for explicit LLM reasoning steps
-
-IMPORTANT: Only reference tools that exist in the available tools list. Do not invent tools.
-If a step requires a tool, use the "tool" field with the exact tool name from the available list.
-If a step requires reasoning without a tool, use "agent": "llm".
-
-Return only valid JSON."""
-
-    def _construct_plan_generation_prompt(self, request: str) -> str:
-        """
-        Construct prompt for plan generation (T115).
-        
-        Includes tool registry if available.
-        """
-        prompt = f"""Generate a plan to accomplish the following request:
-
-{request}
-
-"""
-        
-        # Include tool registry if available (T115)
-        if self.tool_registry:
-            available_tools = self.tool_registry.export_tools_for_llm()
-            if available_tools:
-                prompt += "Available tools:\n"
-                for tool in available_tools:
-                    prompt += f"- {tool['name']}: {tool.get('description', 'No description')}\n"
-                    if tool.get('input_schema'):
-                        import json
-                        prompt += f"  Input schema: {json.dumps(tool['input_schema'], indent=2)}\n"
-                prompt += "\n"
-                prompt += "You may reference these tools in step.tool fields. Do not invent tools.\n\n"
-        
-        prompt += "Return a JSON plan with goal and steps."
-        return prompt
-
-    def _extract_plan_from_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Extract plan JSON from LLM response.
-
-        Args:
-            response: LLM response dict
-
-        Returns:
-            Plan JSON dict
-
-        Raises:
-            PlanError: If plan extraction fails
-        """
-        text = response.get("text", "")
-        
-        import json
-        import re
-        
-        # First, try to extract JSON from markdown code blocks (```json ... ```)
-        code_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
-        if code_block_match:
-            try:
-                return json.loads(code_block_match.group(1))
-            except json.JSONDecodeError:
-                pass
-        
-        # Try to find JSON object with proper brace matching
-        # Find the first { and then match braces to find the complete JSON object
-        brace_start = text.find('{')
-        if brace_start >= 0:
-            brace_count = 0
-            brace_end = -1
-            for i in range(brace_start, len(text)):
-                if text[i] == '{':
-                    brace_count += 1
-                elif text[i] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        brace_end = i
-                        break
-            
-            if brace_end > brace_start:
-                json_str = text[brace_start:brace_end + 1]
-                try:
-                    return json.loads(json_str)
-                except json.JSONDecodeError:
-                    pass
-        
-        # If no JSON found, try parsing entire text
-        try:
-            return json.loads(text.strip())
-        except json.JSONDecodeError as e:
-            # If supervisor is available, try to repair the malformed JSON
-            if self.supervisor:
-                try:
-                    repaired_json = self.supervisor.repair_json(text)
-                    return repaired_json
-                except SupervisorError as se:
-                    raise PlanError(
-                        f"Failed to extract plan JSON and supervisor repair failed: {str(se)}"
-                    ) from se
-            raise PlanError(f"Failed to extract plan JSON from response: {str(e)}") from e
 
     def execute(self, request: str, plan: Optional[Plan] = None) -> Dict[str, Any]:
         """
@@ -426,97 +320,6 @@ Return only valid JSON."""
 
         self.logger.log_entry(log_entry)
     
-    def _invoke_tool(
-        self,
-        tool_name: str,
-        arguments: Dict[str, Any],
-        step_id: str,
-        state: OrchestrationState,
-    ) -> Dict[str, Any]:
-        """
-        Invoke a tool with validated arguments.
-
-        Args:
-            tool_name: Name of the tool to invoke
-            arguments: Arguments to pass to the tool
-            step_id: ID of the step that triggered this tool call
-            state: Current orchestration state
-
-        Returns:
-            Tool result dict
-
-        Raises:
-            ToolError: If tool invocation fails
-            ValidationError: If input/output validation fails
-        """
-        if not self.tool_registry:
-            raise ToolError("Tool registry not available")
-        
-        tool = self.tool_registry.get(tool_name)
-        if not tool:
-            raise ToolError(f"Tool '{tool_name}' not found in registry")
-        
-        # Validate input
-        try:
-            tool.validate_input(**arguments)
-        except ValidationError as e:
-            raise ToolError(f"Input validation failed for tool '{tool_name}': {str(e)}") from e
-        
-        # Invoke tool
-        try:
-            result = tool.invoke(**arguments)
-        except ToolError:
-            raise
-        except Exception as e:
-            raise ToolError(f"Tool '{tool_name}' execution failed: {str(e)}") from e
-        
-        # Validate output
-        try:
-            tool.validate_output(result)
-        except ValidationError as e:
-            raise ToolError(f"Output validation failed for tool '{tool_name}': {str(e)}") from e
-        
-        # Log tool call to history
-        tool_call = ToolCall(
-            tool_name=tool_name,
-            arguments=arguments,
-            result=result,
-            timestamp=datetime.now().isoformat(),
-            step_id=step_id,
-        )
-        state.tool_history.append(tool_call.model_dump())
-        
-        return result
-    
-    def _handle_tool_error(
-        self,
-        tool_name: str,
-        error: Exception,
-        step_id: str,
-        state: OrchestrationState,
-    ) -> None:
-        """
-        Handle tool invocation error.
-
-        Args:
-            tool_name: Name of the tool that failed
-            error: The error that occurred
-            step_id: ID of the step that triggered this tool call
-            state: Current orchestration state
-        """
-        # Log failed tool call
-        tool_call = ToolCall(
-            tool_name=tool_name,
-            arguments={},
-            error={"type": type(error).__name__, "message": str(error)},
-            timestamp=datetime.now().isoformat(),
-            step_id=step_id,
-        )
-        state.tool_history.append(tool_call.model_dump())
-        
-        # Mark step as failed but don't raise - allow execution to continue
-        # This enables partial success scenarios
-        state.fail_current_step(error=f"Tool '{tool_name}' failed: {str(error)}")
 
 
 
