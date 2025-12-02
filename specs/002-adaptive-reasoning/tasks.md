@@ -69,28 +69,38 @@
 
 **Goal**: Implement semantic validation layer that validates step specificity, logical relevance, do/say mismatches, hallucinated tools, and consistency violations. This is foundational for other Sprint 2 features.
 
-**Master Constraint**: All semantic validation MUST use LLM-based reasoning as the primary mechanism. Heuristics MAY only detect structural defects (duplicate IDs, malformed objects). Validation MUST produce deterministic JSON outputs parsed into ValidationIssue.
+**Master Constraint**: All semantic validation MUST use LLM-based reasoning as the SOLE semantic mechanism. Structural validation (duplicate IDs, malformed objects, missing attributes) MAY use deterministic checks, but MUST NOT influence semantic judgments. All semantic outputs (severity, issue type, repair proposals) MUST come directly from LLM-generated JSON. Validation MUST produce deterministic JSON outputs parsed into ValidationIssue.
 
-**Independent Test**: Generate a plan with vague steps, irrelevant steps, steps that don't match their descriptions, or references to non-existent tools, and verify that the semantic validation layer detects these issues, classifies them, assigns severity scores, and proposes semantic repairs.
+**Explicit Prohibitions**: The semantic validator MUST NOT use:
+- Keyword lists or lexical pattern matching for semantic judgments
+- Regex-logic for semantic analysis (regex MAY only be used for structural validation like ID format checking)
+- Weak-verb dictionaries or vague-phrase lists as decision logic
+- Handcrafted rule sets for semantic evaluation
+- Heuristic severity/issue scoring (all scoring MUST be LLM-generated)
+- Classifier-like logic or pattern-matching triggers for issue classification
+
+**Independent Test**: Generate a plan with vague steps, irrelevant steps, steps that don't match their descriptions, or references to non-existent tools, and verify that the semantic validation layer detects these issues, classifies them, assigns severity scores, and proposes semantic repairs - all through LLM-based reasoning.
 
 ### Implementation for User Story 5
 
-- [ ] T019 [P] [US5] Create ValidationIssue model in aeon/validation/semantic_models.py
-- [ ] T020 [P] [US5] Create SemanticValidationReport model in aeon/validation/semantic_models.py
+- [ ] T019 [P] [US5] Create ValidationIssue model with strict schema fields (issue_type, severity, description, location, proposed_repair) in aeon/validation/semantic_models.py
+- [ ] T020 [P] [US5] Create SemanticValidationReport model with strict schema fields (issues, overall_severity) in aeon/validation/semantic_models.py
 - [ ] T021 [P] [US5] Create semantic validation interface in aeon/validation/semantic_interface.py
-- [ ] T022 [US5] Implement LLM-based step specificity validator using structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T023 [US5] Implement LLM-based logical relevance validator using structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T024 [US5] Implement LLM-based do/say mismatch detector using structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T025 [US5] Implement LLM-based hallucinated tool detector using structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T026 [US5] Implement LLM-based internal consistency checker using structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T027 [US5] Implement LLM-based cross-phase consistency validator using structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T028 [US5] Implement LLM-based issue classification and severity scoring with structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T029 [US5] Implement LLM-based semantic repair proposal generator with structured JSON output in aeon/validation/semantic_validator.py
-- [ ] T030 [US5] Implement structural defect detection (duplicate IDs, malformed objects, missing attributes) as pre-validation filter in aeon/validation/semantic_validator.py
-- [ ] T031 [US5] Integrate semantic validator with tool registry for tool existence checks
-- [ ] T032 [US5] Implement supervisor-friendly hooks: get_issues() method returning ValidationIssue list in aeon/validation/semantic_validator.py
-- [ ] T033 [US5] Implement supervisor-friendly hooks: get_rationale() method returning LLM reasoning explanations in aeon/validation/semantic_validator.py
-- [ ] T034 [US5] Implement supervisor-friendly hooks: summarize() method for execution history integration in aeon/validation/semantic_validator.py
+- [ ] T022 [US5] Implement LLM-based step specificity validator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use keyword lists, weak-verb dictionaries, or regex-logic for semantics. All outputs (specificity assessment, severity, issue type) MUST come from LLM-generated JSON.
+- [ ] T023 [US5] Implement LLM-based logical relevance validator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use keyword lists, regex-logic, or handcrafted rule sets. All outputs (relevance assessment, severity, issue type) MUST come from LLM-generated JSON.
+- [ ] T024 [US5] Implement LLM-based do/say mismatch detector with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use pattern-matching or classifier-like logic. All outputs (mismatch detection, severity, issue type) MUST come from LLM-generated JSON.
+- [ ] T025 [US5] Implement LLM-based hallucinated tool detector with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. Tool existence checks from registry MAY inform LLM context but MUST NOT determine hallucination independently. All outputs (hallucination detection, severity, issue type) MUST come from LLM-generated JSON.
+- [ ] T026 [US5] Implement LLM-based internal consistency checker with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use rule-based logic or heuristic consistency scoring. All outputs (consistency assessment, severity, issue type) MUST come from LLM-generated JSON.
+- [ ] T027 [US5] Implement LLM-based cross-phase consistency validator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use rule-based logic or heuristic consistency scoring. All outputs (consistency assessment, severity, issue type) MUST come from LLM-generated JSON.
+- [ ] T028 [US5] Implement LLM-based issue classification and severity scoring with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use classifier-like logic, keyword triggers, or heuristic severity mappings. All outputs (issue type, severity) MUST come from LLM-generated JSON.
+- [ ] T029 [US5] Implement LLM-based semantic repair proposal generator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT construct, template, or infer repairs algorithmically. All repair proposals MUST come from LLM-generated JSON.
+- [ ] T029a [US5] Implement schema validation and retry logic for LLM outputs in aeon/validation/semantic_validator.py. MUST validate all LLM responses against ValidationIssue and SemanticValidationReport schemas. MUST retry with corrective prompts when JSON is malformed or schema-noncompliant. MUST NOT attempt heuristic fixes or partial parsing.
+- [ ] T029b [US5] Implement pure structural validation layer (duplicate IDs, malformed objects, missing required attributes only) as pre-validation filter in aeon/validation/semantic_validator.py. MUST be separate from semantic validation. MUST NOT influence semantic judgments. Results MAY be passed to LLM as context only.
+- [ ] T029c [US5] Implement strict enforcement of ValidationIssue and SemanticValidationReport schema fields in aeon/validation/semantic_validator.py. MUST reject any LLM output that does not strictly match schema. MUST trigger retry with schema violation details when fields are missing, wrong type, or extra fields present.
+- [ ] T030 [US5] Integrate semantic validator with tool registry for tool existence checks. Tool registry results MUST be passed to LLM as context only, not used to independently determine hallucination.
+- [ ] T032 [US5] Implement supervisor-friendly hooks: get_issues() method returning ValidationIssue list parsed from LLM-generated JSON in aeon/validation/semantic_validator.py
+- [ ] T033 [US5] Implement supervisor-friendly hooks: get_rationale() method returning LLM reasoning explanations from structured LLM output in aeon/validation/semantic_validator.py
+- [ ] T034 [US5] Implement supervisor-friendly hooks: summarize() method for execution history integration returning structured summary from LLM-generated JSON in aeon/validation/semantic_validator.py
 - [ ] T035 [US5] Add logging for semantic validation operations in aeon/observability/logger.py
 
 **Checkpoint**: At this point, User Story 5 should be fully functional and testable independently. Semantic validation can detect issues and produce validation reports.
@@ -446,10 +456,10 @@ With multiple developers:
 
 ## Task Summary
 
-- **Total Tasks**: 143
+- **Total Tasks**: 146
 - **Phase 1 (Setup)**: 3 tasks
 - **Phase 2 (Foundational - Kernel Refactoring)**: 15 tasks
-- **Phase 3 (User Story 5 - Semantic Validation)**: 17 tasks (added supervisor hooks)
+- **Phase 3 (User Story 5 - Semantic Validation)**: 20 tasks (added supervisor hooks, schema validation, structural validation layer, strict schema enforcement, explicit LLM-only constraints)
 - **Phase 4 (User Story 3 - Convergence Engine)**: 15 tasks (added supervisor hooks, LLM-based requirements)
 - **Phase 5 (User Story 1 - Multi-Pass Execution)**: 18 tasks (added LLM-driven refinement requirements)
 - **Phase 6 (User Story 2 - Recursive Planning)**: 24 tasks (added delta-style edits, supervisor hooks)
@@ -475,5 +485,5 @@ With multiple developers:
 
 **MVP**: Phases 1-5 (Setup + Foundational + User Stories 5, 3, 1)
 - This delivers core multi-pass execution with convergence detection and semantic validation
-- Total MVP tasks: 68 tasks (updated with Master Constraint and supervisor hooks)
+- Total MVP tasks: 71 tasks (updated with Master Constraint, supervisor hooks, schema validation, and explicit LLM-only constraints)
 - Can be delivered incrementally: Setup → Foundational → US5 → US3 → US1

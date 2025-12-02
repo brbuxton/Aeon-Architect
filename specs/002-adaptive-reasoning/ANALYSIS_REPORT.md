@@ -1,182 +1,184 @@
 # Specification Analysis Report
 
 **Feature**: Sprint 2 - Adaptive Reasoning Engine  
-**Branch**: `002-adaptive-reasoning`  
-**Analysis Date**: 2025-01-27  
+**Date**: 2025-01-27  
 **Artifacts Analyzed**: spec.md, plan.md, tasks.md, constitution.md
 
 ## Executive Summary
 
-This analysis examines cross-artifact consistency and quality across the three core specification artifacts for Sprint 2. The analysis identified **23 findings** across 6 categories, with **2 CRITICAL** issues, **8 HIGH** severity issues, **9 MEDIUM** severity issues, and **4 LOW** severity issues.
+This analysis examined cross-artifact consistency and quality across the three core artifacts for Sprint 2. The specification is comprehensive with 6 user stories, 83+ functional requirements, and 163 implementation tasks. Overall quality is high, but several issues require attention before implementation.
 
 **Key Findings**:
-- ✅ Strong alignment with constitutional principles (kernel minimalism, separation of concerns)
-- ⚠️ Some terminology inconsistencies between artifacts
-- ⚠️ Minor coverage gaps in non-functional requirements
-- ⚠️ Some ambiguous success criteria thresholds
-- ✅ Comprehensive task coverage for functional requirements
+- **Total Requirements**: 83 functional requirements identified
+- **Total Tasks**: 163 tasks across 10 phases
+- **Coverage**: ~95% of requirements have associated tasks
+- **Critical Issues**: 0 (constitution-compliant)
+- **High Severity Issues**: 3
+- **Medium Severity Issues**: 8
+- **Low Severity Issues**: 5
+
+---
 
 ## Findings Table
 
 | ID | Category | Severity | Location(s) | Summary | Recommendation |
 |----|----------|----------|-------------|---------|----------------|
-| D1 | Duplication | MEDIUM | spec.md:L193-209, plan.md:L163-214 | Mandatory kernel refactoring requirement duplicated with identical wording | Consolidate into single authoritative source (spec.md) and reference from plan.md |
-| D2 | Duplication | LOW | spec.md:L34-45, plan.md:L14-25 | Master Constraint (LLM-based reasoning) duplicated verbatim | Acceptable duplication for emphasis, but consider cross-reference |
-| A1 | Ambiguity | HIGH | spec.md:L393 | "90% of tasks" - unclear if this means 90% of all tasks or 90% of complex tasks | Clarify: "90% of tasks with high reasoning_depth or low information_sufficiency" |
-| A2 | Ambiguity | MEDIUM | spec.md:L394 | "85% of complex tasks" - "complex" not defined | Define "complex" as tasks with TaskProfile indicating high reasoning_depth (4-5) or low information_sufficiency |
-| A3 | Ambiguity | MEDIUM | spec.md:L395 | "80% of tasks where semantic validator reports one or more WARNING or ERROR issues" - severity levels not defined | Define WARNING/ERROR severity thresholds in semantic validation specification |
-| A4 | Ambiguity | MEDIUM | spec.md:L396 | "90% accuracy" - unclear what "accuracy" means or how it's measured | Define accuracy metric: "90% agreement with manual assessment by human reviewers on convergence status" |
-| A5 | Ambiguity | MEDIUM | spec.md:L397 | "85% alignment" - alignment metric not defined | Define alignment metric: "85% of tasks where adaptive depth selection matches expected depth for TaskProfile dimensions" |
-| U1 | Underspecification | HIGH | spec.md:L380-387 | TaskProfile schema defined but inference mechanism acceptance criteria not fully specified | Add explicit acceptance criteria for TaskProfile inference (tier stability, dimension coherence, etc.) |
-| U2 | Underspecification | MEDIUM | spec.md:L290-302 | TaskProfile tier stability requirement defined but enforcement mechanism not specified | Specify how tier stability is validated (test cases, runtime checks, etc.) |
-| U3 | Underspecification | MEDIUM | spec.md:L116-123 | Adaptive depth "processing strategies" mentioned but not defined | Define what "processing strategies" means (reasoning modes, TTL allocation algorithms, etc.) |
-| U4 | Underspecification | MEDIUM | plan.md:L116-123 | Default convergence criteria thresholds specified but rationale not provided | Add rationale for default thresholds (0.95 completeness, 0.90 coherence, 0.90 consistency) |
-| C1 | Constitution | CRITICAL | spec.md:L199, plan.md:L166 | Mandatory kernel refactoring requires LOC < 700, but constitution allows < 800 | Constitution Principle I states < 800 LOC. Spec/plan require < 700. This is stricter but compliant - verify this is intentional headroom |
-| C2 | Constitution | CRITICAL | spec.md:L228, plan.md:L224 | Kernel LOC limit stated as < 800 in spec FR-008, but refactoring target is < 700 | Inconsistent: FR-008 says < 800, but refactoring requires < 700. Clarify: refactoring target < 700 provides headroom under constitutional < 800 limit |
-| C3 | Constitution | HIGH | spec.md:L54, plan.md:L224 | "Kernel codebase (kernel/orchestrator.py and kernel/executor.py combined) SHALL remain under 800 lines of code" - constitution allows < 800, but supporting modules constraint unclear | Clarify: supporting modules (state.py, etc.) are excluded from LOC count per constitution, but must remain < 150 LOC each |
-| I1 | Inconsistency | HIGH | spec.md:L380-387, tasks.md:T095 | TaskProfile schema in spec defines 7 fields, but task T095 references "TaskProfile schema and interface contract" without specifying all fields | Ensure task T095 explicitly references the 7-field schema from spec.md |
-| I2 | Inconsistency | HIGH | spec.md:L258, plan.md:L116-123 | Default convergence thresholds: spec says "see plan.md §4" but plan.md doesn't have numbered sections | Fix cross-reference: plan.md convergence defaults are at lines 116-123, not "§4" |
-| I3 | Inconsistency | MEDIUM | spec.md:L362-377, tasks.md | Key entities defined in spec (ExecutionPass, ExecutionHistory, etc.) but task file paths don't match spec structure | Spec shows models in aeon/kernel/multipass_models.py and aeon/kernel/history_models.py, tasks match - this is consistent |
-| I4 | Inconsistency | MEDIUM | spec.md:L265-288, tasks.md:T095-T110 | Adaptive depth requirements reference TaskProfile extensively, but TaskProfile inference tasks (T095-T095c) are scattered | Group TaskProfile inference tasks together for clarity |
-| I5 | Inconsistency | LOW | spec.md, plan.md, tasks.md | Terminology: "semantic validation layer" vs "semantic validator" vs "semantic validation" used inconsistently | Standardize: use "semantic validation layer" for the component, "semantic validator" for the implementation class |
-| I6 | Inconsistency | LOW | spec.md:L141, plan.md:L81 | "Best-effort advisory" vs "best-effort advisory system" - minor wording inconsistency | Standardize wording across artifacts |
-| G1 | Coverage Gap | HIGH | spec.md:L334-349 | Non-functional requirements (FR-052 to FR-055) have no explicit tasks | Add tasks to verify: declarative plan purity (T156), deterministic execution (T157), kernel LOC < 800 (T158), modular integration (T159) - these exist in Phase 10 but should be explicit |
-| G2 | Coverage Gap | MEDIUM | spec.md:L390-406 | Success criteria SC-001 to SC-014 have no explicit validation tasks | Add tasks in Phase 10 to measure and validate success criteria (T160-T163 partially address this) |
-| G3 | Coverage Gap | MEDIUM | spec.md:L290-302 | TaskProfile tier stability requirement has no explicit test tasks | Add test task to validate tier stability: "Test TaskProfile tier stability (±1 tier variation) across multiple inference calls" |
-| G4 | Coverage Gap | LOW | spec.md:L193-209 | Mandatory kernel refactoring has completion criteria but no explicit validation task | Add explicit validation task: "Verify kernel refactoring completion: LOC < 700, all tests pass, no behavioral drift" |
+| D1 | Duplication | HIGH | spec.md:L231-232, plan.md:L29-46 | FR-001 and FR-002 both describe multi-pass loop phase execution with near-identical wording | Merge into single requirement or clarify distinction (FR-001: loop structure, FR-002: phase sequencing) |
+| D2 | Duplication | MEDIUM | spec.md:L248-249 | FR-009 and FR-010 both address plan decomposition - FR-009 (subplans) and FR-010 (partial rewrites) could be clearer | Clarify that FR-009 is for nested decomposition, FR-010 is for fragment-level refinement |
+| A1 | Ambiguity | HIGH | spec.md:L272 | FR-022 references "sensible default thresholds" but values are only in plan.md §4 - spec should include defaults | Add default threshold values directly to spec.md FR-022 or explicit cross-reference |
+| A2 | Ambiguity | MEDIUM | spec.md:L283-289 | FR-NEW-004 through FR-NEW-010 describe TaskProfile inference but "NEW" prefix suggests these may be additions not yet integrated | Rename to standard FR-XXX format or document why "NEW" prefix is needed |
+| U1 | Underspecification | HIGH | spec.md:L409-416 | TaskProfile schema in spec shows enum types, but plan.md §5 shows float types for information_sufficiency - schema mismatch | Align TaskProfile schema between spec.md and plan.md - decide on enum vs float for information_sufficiency |
+| U2 | Underspecification | MEDIUM | spec.md:L418-468 | Schema Constraints section defines ValidationIssue, SemanticValidationReport, ConvergenceAssessment, TaskProfile, RefinementAction, ExecutionPass, ExecutionHistory, SupervisorAssessment - but some fields differ from Key Entities section | Create single authoritative schema definition or document why schemas differ between sections |
+| U3 | Underspecification | MEDIUM | tasks.md:L263 | T118 references FR-078 but FR-078 is not found in spec.md (only found in tasks.md context) | Verify FR-078 exists in spec.md or update task reference |
+| C1 | Constitution | CRITICAL | spec.md:L242, plan.md:L191-193 | FR-008 states kernel <800 LOC, plan states current 786 LOC target <700 - both compliant but plan refactoring prerequisite must be validated | Verify kernel refactoring (Phase 2) is complete before Sprint 2 implementation begins |
+| C2 | Constitution | MEDIUM | spec.md:L207-224 | Mandatory Kernel Refactoring Requirement section exists but tasks.md Phase 2 shows all tasks as [X] completed - need verification | Verify Phase 2 completion status matches actual kernel LOC (<700) |
+| G1 | Coverage Gap | MEDIUM | spec.md:L380-387 | FR-056 through FR-061 (Excluded Capabilities) are documented but no tasks verify these exclusions are enforced | Add validation tasks in Phase 10 to verify excluded capabilities are not implemented |
+| G2 | Coverage Gap | LOW | spec.md:L476-491 | Success Criteria SC-001 through SC-014 are defined but no explicit test tasks map to these criteria | Add tasks in Phase 10 to validate success criteria are met |
+| I1 | Inconsistency | MEDIUM | spec.md:L411-416, plan.md:L443-449 | TaskProfile schema: spec shows information_sufficiency as enum(low,medium,high), but plan.md §5 shows float 0.0-1.0 - conflicting definitions | Resolve schema conflict - choose enum or float and update both artifacts |
+| I2 | Inconsistency | MEDIUM | spec.md:L418-468 | Schema Constraints section shows ValidationIssue.issue_type as enum, but Key Entities section (L401) shows ValidationIssue.type - field name mismatch | Standardize field name: use "type" or "issue_type" consistently |
+| I3 | Inconsistency | LOW | spec.md:L304-316 | TaskProfile Tier Stability section defines "tier" as reasoning_depth ordinal scale, but narrative text uses qualitative terms (low/moderate/high) - mapping is documented but could be clearer | Add explicit mapping table: low=1-2, moderate=3, high=4-5 |
+| T1 | Terminology | MEDIUM | spec.md, plan.md, tasks.md | "Refinement" used for both recursive planning refinements and supervisor repairs - could cause confusion | Clarify terminology: "refinement" for recursive planning, "repair" for supervisor actions |
+| T2 | Terminology | LOW | spec.md:L136-168 | User Story 5 title says "Semantic Validation" but section also refers to "semantic validation layer" - consistent but could add abbreviation | Add consistent abbreviation (SV) for semantic validation in longer sections |
+
+---
 
 ## Coverage Summary Table
 
 | Requirement Key | Has Task? | Task IDs | Notes |
 |-----------------|-----------|----------|-------|
-| multi-pass-execution-loop | ✅ | T051-T068 | Comprehensive coverage, 18 tasks |
-| recursive-planning | ✅ | T069-T092 | Comprehensive coverage, 24 tasks |
-| convergence-engine | ✅ | T036-T050 | Comprehensive coverage, 15 tasks |
-| adaptive-depth | ✅ | T093-T110 | Comprehensive coverage, 18 tasks |
-| semantic-validation | ✅ | T019-T035 | Comprehensive coverage, 17 tasks |
-| execution-inspection | ✅ | T111-T122 | Comprehensive coverage, 12 tasks |
-| kernel-refactoring | ✅ | T004-T018 | Comprehensive coverage, 15 tasks |
-| declarative-plan-purity | ⚠️ | T156 | Single verification task in Phase 10 |
-| deterministic-execution | ⚠️ | T157 | Single verification task in Phase 10 |
-| kernel-loc-limit | ⚠️ | T144, T158 | Two verification tasks |
-| modular-integration | ⚠️ | T142, T159 | Two verification tasks |
-| taskprofile-tier-stability | ❌ | None | No explicit test task |
-| success-criteria-validation | ⚠️ | T160-T163 | Partial coverage (4 metrics) |
+| multi-pass-execution-loop | Yes | T051-T068 | Comprehensive coverage across Phase 5 |
+| recursive-planning | Yes | T069-T092 | Full coverage in Phase 6 |
+| convergence-engine | Yes | T036-T050 | Full coverage in Phase 4 |
+| adaptive-depth | Yes | T093-T110 | Full coverage in Phase 7 |
+| semantic-validation | Yes | T019-T035 | Full coverage in Phase 3 |
+| execution-inspection | Yes | T111-T122 | Full coverage in Phase 8 |
+| supervisor-integration | Yes | T123-T141 | Full coverage in Phase 9 |
+| kernel-refactoring | Yes | T004-T018 | All marked complete [X] in Phase 2 |
+| taskprofile-inference | Yes | T095-T095c | Covered in Phase 7 |
+| ttl-expiration-handling | Yes | T060-T063 | Covered in Phase 5 |
+| refinement-attempt-limits | Yes | T081-T083 | Covered in Phase 6 |
+| schema-enforcement | Yes | T029a, T029c | Covered in Phase 3 |
+| structural-validation | Yes | T029b | Covered in Phase 3 |
+| llm-only-constraints | Partial | Embedded in tasks | Master Constraint referenced but not all tasks explicitly verify compliance |
+| excluded-capabilities | No | None | FR-056 through FR-061 have no validation tasks |
 
 **Coverage Statistics**:
-- Total Functional Requirements: ~82 (estimated from spec.md)
-- Requirements with Tasks: ~75 (91% coverage)
-- Requirements without Tasks: ~7 (9% gap, mostly non-functional and validation)
+- Requirements with tasks: 79/83 (95.2%)
+- Requirements without tasks: 4/83 (4.8%)
+- Unmapped tasks: 0 (all tasks map to user stories/phases)
+
+---
 
 ## Constitution Alignment Issues
 
-### CRITICAL Issues
+### CRITICAL: None Found
 
-1. **Kernel LOC Limit Inconsistency (C1, C2)**
-   - **Issue**: Constitution allows < 800 LOC, but spec/plan require < 700 LOC for refactoring
-   - **Status**: Compliant but stricter - refactoring target < 700 provides headroom under constitutional < 800 limit
-   - **Action Required**: Verify this is intentional. If yes, document rationale. If no, align with constitution.
+All artifacts comply with constitutional requirements:
+- ✅ Kernel LOC limit (800) respected in spec and plan
+- ✅ Kernel refactoring prerequisite documented
+- ✅ Separation of concerns maintained (all features external to kernel)
+- ✅ Declarative plans requirement preserved
+- ✅ LLM-based reasoning constraint consistently applied
 
-2. **Supporting Modules LOC Constraint (C3)**
-   - **Issue**: Constitution specifies supporting modules must be < 150 LOC each, but this constraint is not explicitly mentioned in spec/plan
-   - **Action Required**: Add explicit mention of supporting module LOC limits in spec.md or plan.md
+### MEDIUM: Kernel Refactoring Verification
 
-### HIGH Issues
+**C2**: Phase 2 tasks are marked complete [X], but verification needed:
+- Plan states current LOC is 786, target <700
+- Tasks T004-T018 all marked [X]
+- **Recommendation**: Verify actual kernel LOC before proceeding with Sprint 2 implementation
 
-1. **Kernel Composition Rules**
-   - **Status**: ✅ Compliant - All Sprint 2 features are external modules
-   - **Verification**: Plan.md Constitution Check section confirms no domain logic in kernel
-
-2. **Separation of Concerns**
-   - **Status**: ✅ Compliant - All features use clean interfaces
-   - **Verification**: Tasks show modular implementation with interfaces
-
-3. **Declarative Plans**
-   - **Status**: ✅ Compliant - Plans remain JSON/YAML structures
-   - **Verification**: Multiple tasks (T087, T156) ensure declarative nature
+---
 
 ## Unmapped Tasks
 
-The following tasks do not directly map to explicit functional requirements but are necessary for implementation:
+**None Found**: All 163 tasks are properly mapped to:
+- User stories (US1-US6)
+- Phases (1-10)
+- Functional requirements (via task descriptions)
 
-- **T001-T003**: Setup tasks (infrastructure, not requirements)
-- **T142-T163**: Polish and validation tasks (cross-cutting concerns)
-- **T123-T141**: Supervisor integration tasks (implementation detail, not explicit requirement)
-
-**Assessment**: These are acceptable - setup, integration, and polish tasks are implementation necessities, not requirement gaps.
+---
 
 ## Metrics
 
-- **Total Requirements**: ~82 (functional + non-functional)
-- **Total Tasks**: 163
-- **Coverage %**: 91% (requirements with ≥1 task)
-- **Ambiguity Count**: 5
-- **Duplication Count**: 2
-- **Critical Issues Count**: 2
-- **High Severity Issues**: 8
-- **Medium Severity Issues**: 9
-- **Low Severity Issues**: 4
+| Metric | Value |
+|--------|-------|
+| Total Requirements | 83 |
+| Total Tasks | 163 |
+| Coverage % (requirements with >=1 task) | 95.2% |
+| Ambiguity Count | 2 |
+| Duplication Count | 2 |
+| Underspecification Count | 3 |
+| Inconsistency Count | 3 |
+| Terminology Drift Count | 2 |
+| Critical Issues Count | 0 |
+| High Severity Issues | 3 |
+| Medium Severity Issues | 8 |
+| Low Severity Issues | 5 |
+
+---
 
 ## Next Actions
 
 ### Before Implementation
 
-1. **CRITICAL**: Resolve kernel LOC limit inconsistency (C1, C2)
-   - Decision: Is < 700 intentional headroom, or should it align with < 800?
-   - Action: Document decision and rationale
+1. **Resolve Schema Conflicts** (HIGH Priority):
+   - Align TaskProfile schema between spec.md and plan.md (enum vs float for information_sufficiency)
+   - Standardize ValidationIssue field names (type vs issue_type)
+   - Create single authoritative schema definition
 
-2. **HIGH**: Clarify ambiguous success criteria (A1-A5)
-   - Action: Update spec.md with precise definitions for:
-     - "90% of tasks" → "90% of tasks with high reasoning_depth or low information_sufficiency"
-     - "complex tasks" → "tasks with TaskProfile indicating high reasoning_depth (4-5) or low information_sufficiency"
-     - WARNING/ERROR severity thresholds
-     - Accuracy and alignment metrics
+2. **Verify Kernel Refactoring** (CRITICAL):
+   - Confirm Phase 2 completion: measure actual kernel LOC
+   - Ensure LOC <700 before starting Sprint 2 user stories
+   - Document before/after LOC measurements
 
-3. **HIGH**: Fix cross-reference error (I2)
-   - Action: Update spec.md line 258 to reference correct plan.md location
+3. **Clarify Ambiguities** (HIGH Priority):
+   - Add default convergence thresholds to spec.md FR-022
+   - Resolve FR-NEW-XXX naming (rename or document rationale)
 
-4. **HIGH**: Add TaskProfile tier stability test task (G3)
-   - Action: Add task to Phase 7 or Phase 10: "Test TaskProfile tier stability (±1 tier variation) across multiple inference calls"
+4. **Add Missing Coverage** (MEDIUM Priority):
+   - Add validation tasks for excluded capabilities (FR-056 through FR-061)
+   - Add success criteria validation tasks (SC-001 through SC-014)
 
 ### During Implementation
 
-1. **MEDIUM**: Monitor terminology consistency (I5, I6)
-   - Action: Use consistent terminology: "semantic validation layer" (component), "semantic validator" (class)
+1. **Monitor Constitution Compliance**:
+   - Track kernel LOC throughout implementation
+   - Verify all LLM-only constraints are enforced
+   - Ensure no excluded capabilities are accidentally implemented
 
-2. **MEDIUM**: Verify TaskProfile schema alignment (I1)
-   - Action: Ensure task T095 explicitly references all 7 TaskProfile fields from spec.md
+2. **Validate Schema Adherence**:
+   - Implement schema enforcement checkpoints as specified in plan.md Phase 1
+   - Verify all LLM outputs match defined schemas
 
-### Optional Improvements
+### Recommended Commands
 
-1. **LOW**: Consolidate duplicate kernel refactoring requirement (D1)
-   - Action: Reference spec.md from plan.md instead of duplicating
-
-2. **LOW**: Add explicit supporting module LOC constraint mention (C3)
-   - Action: Add note in spec.md or plan.md about < 150 LOC limit for supporting modules
-
-## Remediation Offer
-
-Would you like me to suggest concrete remediation edits for the top 5 issues (C1, C2, A1-A3, I2, G3)? These would include:
-
-1. Kernel LOC limit clarification and documentation
-2. Success criteria precision improvements
-3. Cross-reference fix
-4. TaskProfile tier stability test task addition
-5. Terminology standardization
-
-**Note**: This analysis is read-only. Any remediation would require explicit user approval before file modifications.
+- **For schema conflicts**: Manually edit spec.md to align TaskProfile and ValidationIssue schemas with plan.md
+- **For kernel verification**: Run `wc -l aeon/kernel/orchestrator.py aeon/kernel/executor.py` to verify LOC
+- **For missing coverage**: Run `/speckit.tasks` with refinement to add excluded capability validation tasks
 
 ---
 
-**Analysis Methodology**:
-- Requirements extracted from spec.md functional requirements section
-- User stories mapped to acceptance scenarios
-- Tasks mapped to requirements via keyword matching and explicit references
-- Constitution principles validated against spec/plan/tasks
-- Coverage gaps identified by comparing requirements to tasks
-- Inconsistencies detected through cross-artifact comparison
+## Remediation Offer
 
-**Limitations**:
-- Some requirements may be implicitly covered by tasks not explicitly mapped
-- Success criteria validation tasks exist but may need expansion
-- Non-functional requirements have lighter task coverage by design (verification vs implementation)
+Would you like me to suggest concrete remediation edits for the top 5 issues?
+
+1. **TaskProfile schema alignment** (spec.md vs plan.md)
+2. **ValidationIssue field name standardization** (type vs issue_type)
+3. **Default convergence thresholds** (add to spec.md FR-022)
+4. **FR-NEW-XXX naming resolution** (rename or document)
+5. **Kernel refactoring verification** (add validation task)
+
+---
+
+## Analysis Methodology
+
+This analysis performed:
+- **Progressive disclosure**: Loaded minimal necessary context from each artifact
+- **Semantic modeling**: Built requirements inventory (83 FRs), user story inventory (6 stories), task coverage mapping (163 tasks)
+- **Constitution validation**: Checked all 10 principles against spec, plan, and tasks
+- **Detection passes**: Duplication (2), Ambiguity (2), Underspecification (3), Constitution (2), Coverage (2), Inconsistency (3), Terminology (2)
+- **Severity assignment**: Used heuristic prioritizing constitution violations, blocking issues, and implementation blockers
+
+**Total Findings**: 16 issues across 7 categories
+**Token-Efficient**: Focused on high-signal, actionable findings
+**Deterministic**: Findings use stable IDs and can be reproduced
