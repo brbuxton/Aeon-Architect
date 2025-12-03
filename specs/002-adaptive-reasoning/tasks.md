@@ -1,9 +1,7 @@
 # Tasks: Sprint 2 - Adaptive Reasoning Engine
 
 **Input**: Design documents from `/specs/002-adaptive-reasoning/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories)
-
-**Tests**: Tests are included to meet constitutional requirement for test coverage and behavioral validation.
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -15,9 +13,8 @@
 
 ## Path Conventions
 
-- **Single project**: `aeon/` package at repository root
-- **Tests**: `tests/` at repository root
-- All paths follow existing project structure
+- **Single project**: `aeon/`, `tests/` at repository root
+- All paths shown below use absolute paths from repository root
 
 ---
 
@@ -25,309 +22,312 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [X] T001 [P] Verify Python 3.11+ environment and dependencies in requirements.txt
-- [X] T002 [P] Review existing project structure in aeon/ package
-- [X] T003 [P] Verify test infrastructure (pytest, coverage) in tests/ directory
+- [ ] T001 Create module directories per implementation plan: aeon/convergence/, aeon/adaptive/, tests/unit/convergence/, tests/unit/adaptive/
+- [ ] T002 [P] Create __init__.py files for new modules: aeon/convergence/__init__.py, aeon/adaptive/__init__.py
+- [ ] T003 [P] Configure pytest test structure for new modules in tests/unit/convergence/ and tests/unit/adaptive/
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: MANDATORY kernel refactoring that MUST be complete before ANY Sprint 2 user story can be implemented
+**Purpose**: MANDATORY kernel refactoring per Constitution Principle I (Kernel Minimalism) that MUST be complete before ANY Sprint 2 user story can be implemented
 
-**⚠️ CRITICAL**: No Sprint 2 user story work can begin until this phase is complete
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 ### Kernel Refactoring - Analysis Phase
 
-- [X] T004 Measure current LOC of aeon/kernel/orchestrator.py and aeon/kernel/executor.py
-- [X] T005 Audit aeon/kernel/orchestrator.py to identify non-orchestration logic
-- [X] T006 Audit aeon/kernel/executor.py to identify non-orchestration logic
-- [X] T007 Document extractable functions, classes, or modules that can be moved externally
-- [X] T008 Identify reduction targets to bring combined LOC below 700 lines
+- [ ] T004 Measure current kernel LOC: aeon/kernel/orchestrator.py + aeon/kernel/executor.py (baseline: 561 LOC)
+- [ ] T005 Analyze orchestrator.py for extractable non-orchestration logic in aeon/kernel/orchestrator.py
+- [ ] T006 Analyze executor.py for extractable non-orchestration logic in aeon/kernel/executor.py
+- [ ] T007 Document identified extractable logic and target modules in refactoring plan
 
 ### Kernel Refactoring - Extraction Phase
 
-- [X] T009 [P] Move non-orchestration utility functions from orchestrator.py to appropriate external modules
-- [X] T010 [P] Move non-orchestration utility functions from executor.py to appropriate external modules
-- [X] T011 [P] Extract data transformation logic to external modules if found in kernel
-- [X] T012 [P] Extract validation helpers to external modules if found in kernel
-- [X] T013 Verify all extracted code maintains clean interfaces
-- [X] T014 Preserve all existing functionality and interfaces during extraction
+- [ ] T008 [P] Extract non-orchestration logic from orchestrator.py to appropriate external modules
+- [ ] T009 [P] Extract non-orchestration logic from executor.py to appropriate external modules
+- [ ] T010 Refactor orchestrator.py to use extracted modules while maintaining interface in aeon/kernel/orchestrator.py
+- [ ] T011 Refactor executor.py to use extracted modules while maintaining interface in aeon/kernel/executor.py
+- [ ] T012 Verify kernel LOC < 700 after refactoring (target: <700 LOC)
 
 ### Kernel Refactoring - Validation Phase
 
-- [X] T015 Run full regression test suite in tests/ to confirm no behavioral changes
-- [X] T016 Verify combined LOC of aeon/kernel/orchestrator.py and aeon/kernel/executor.py is below 700 lines
-- [X] T017 Confirm all interfaces remain unchanged (no breaking changes)
-- [X] T018 Document refactoring changes with before/after LOC measurements
+- [ ] T013 Run full Sprint 1 test suite to verify behavioral preservation: pytest tests/
+- [ ] T014 Verify all existing tests pass without modification
+- [ ] T015 [P] Add regression tests for kernel refactoring in tests/unit/kernel/test_refactoring.py
+- [ ] T016 Document before/after LOC measurements and refactoring changes
+- [ ] T017 Verify no behavioral drift introduced by refactoring
 
 **Checkpoint**: Kernel refactoring complete - LOC < 700, all tests pass, no behavioral drift. Sprint 2 user story implementation can now begin.
 
 ---
 
-## Phase 3: User Story 5 - Semantic Validation of Plans and Execution Artifacts (Priority: P1)
+## Phase 3: User Story 1 - Multi-Pass Execution with Convergence (Priority: P1) 🎯 MVP
 
-**Goal**: Implement semantic validation layer that validates step specificity, logical relevance, do/say mismatches, hallucinated tools, and consistency violations. This is foundational for other Sprint 2 features.
+**Goal**: Implement multi-pass execution loop that iteratively executes, evaluates, and refines plans until convergence or TTL expiration.
 
-**Master Constraint**: All semantic validation MUST use LLM-based reasoning as the SOLE semantic mechanism. Structural validation (duplicate IDs, malformed objects, missing attributes) MAY use deterministic checks, but MUST NOT influence semantic judgments. All semantic outputs (severity, issue type, repair proposals) MUST come directly from LLM-generated JSON. Validation MUST produce deterministic JSON outputs parsed into ValidationIssue.
+**Independent Test**: Submit a complex task (e.g., "design a system architecture for a web application with user authentication") and verify that Aeon executes multiple passes (plan → execute → evaluate → refine → re-execute) until convergence is achieved or TTL expires.
 
-**Explicit Prohibitions**: The semantic validator MUST NOT use:
-- Keyword lists or lexical pattern matching for semantic judgments
-- Regex-logic for semantic analysis (regex MAY only be used for structural validation like ID format checking)
-- Weak-verb dictionaries or vague-phrase lists as decision logic
-- Handcrafted rule sets for semantic evaluation
-- Heuristic severity/issue scoring (all scoring MUST be LLM-generated)
-- Classifier-like logic or pattern-matching triggers for issue classification
+**Dependencies**: Requires Phase 2 (kernel refactoring) completion. This story is foundational for US2, US3, US5.
 
-**Independent Test**: Generate a plan with vague steps, irrelevant steps, steps that don't match their descriptions, or references to non-existent tools, and verify that the semantic validation layer detects these issues, classifies them, assigns severity scores, and proposes semantic repairs - all through LLM-based reasoning.
+### Tests for User Story 1
 
-### Implementation for User Story 5
+- [ ] T018 [P] [US1] Integration test for multi-pass execution loop in tests/integration/test_multi_pass_execution.py
+- [ ] T019 [P] [US1] Integration test for TTL expiration at phase boundary in tests/integration/test_ttl_expiration.py
+- [ ] T020 [P] [US1] Integration test for TTL expiration mid-phase at safe boundary in tests/integration/test_ttl_expiration.py
+- [ ] T021 [P] [US1] Integration test for deterministic phase sequence in tests/integration/test_deterministic_phases.py
 
-- [ ] T019 [P] [US5] Create ValidationIssue model with strict schema fields (issue_type, severity, description, location, proposed_repair) in aeon/validation/semantic_models.py
-- [ ] T020 [P] [US5] Create SemanticValidationReport model with strict schema fields (issues, overall_severity) in aeon/validation/semantic_models.py
-- [ ] T021 [P] [US5] Create semantic validation interface in aeon/validation/semantic_interface.py
-- [ ] T022 [US5] Implement LLM-based step specificity validator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use keyword lists, weak-verb dictionaries, or regex-logic for semantics. All outputs (specificity assessment, severity, issue type) MUST come from LLM-generated JSON.
-- [ ] T023 [US5] Implement LLM-based logical relevance validator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use keyword lists, regex-logic, or handcrafted rule sets. All outputs (relevance assessment, severity, issue type) MUST come from LLM-generated JSON.
-- [ ] T024 [US5] Implement LLM-based do/say mismatch detector with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use pattern-matching or classifier-like logic. All outputs (mismatch detection, severity, issue type) MUST come from LLM-generated JSON.
-- [ ] T025 [US5] Implement LLM-based hallucinated tool detector with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. Tool existence checks from registry MAY inform LLM context but MUST NOT determine hallucination independently. All outputs (hallucination detection, severity, issue type) MUST come from LLM-generated JSON.
-- [ ] T026 [US5] Implement LLM-based internal consistency checker with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use rule-based logic or heuristic consistency scoring. All outputs (consistency assessment, severity, issue type) MUST come from LLM-generated JSON.
-- [ ] T027 [US5] Implement LLM-based cross-phase consistency validator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use rule-based logic or heuristic consistency scoring. All outputs (consistency assessment, severity, issue type) MUST come from LLM-generated JSON.
-- [ ] T028 [US5] Implement LLM-based issue classification and severity scoring with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT use classifier-like logic, keyword triggers, or heuristic severity mappings. All outputs (issue type, severity) MUST come from LLM-generated JSON.
-- [ ] T029 [US5] Implement LLM-based semantic repair proposal generator with structured prompts and schema-compliant JSON responses in aeon/validation/semantic_validator.py. MUST use LLM reasoning as sole mechanism. MUST NOT construct, template, or infer repairs algorithmically. All repair proposals MUST come from LLM-generated JSON.
-- [ ] T029a [US5] Implement schema validation and retry logic for LLM outputs in aeon/validation/semantic_validator.py. MUST validate all LLM responses against ValidationIssue and SemanticValidationReport schemas. MUST retry with corrective prompts when JSON is malformed or schema-noncompliant. MUST NOT attempt heuristic fixes or partial parsing.
-- [ ] T029b [US5] Implement pure structural validation layer (duplicate IDs, malformed objects, missing required attributes only) as pre-validation filter in aeon/validation/semantic_validator.py. MUST be separate from semantic validation. MUST NOT influence semantic judgments. Results MAY be passed to LLM as context only.
-- [ ] T029c [US5] Implement strict enforcement of ValidationIssue and SemanticValidationReport schema fields in aeon/validation/semantic_validator.py. MUST reject any LLM output that does not strictly match schema. MUST trigger retry with schema violation details when fields are missing, wrong type, or extra fields present.
-- [ ] T030 [US5] Integrate semantic validator with tool registry for tool existence checks. Tool registry results MUST be passed to LLM as context only, not used to independently determine hallucination.
-- [ ] T032 [US5] Implement supervisor-friendly hooks: get_issues() method returning ValidationIssue list parsed from LLM-generated JSON in aeon/validation/semantic_validator.py
-- [ ] T033 [US5] Implement supervisor-friendly hooks: get_rationale() method returning LLM reasoning explanations from structured LLM output in aeon/validation/semantic_validator.py
-- [ ] T034 [US5] Implement supervisor-friendly hooks: summarize() method for execution history integration returning structured summary from LLM-generated JSON in aeon/validation/semantic_validator.py
-- [ ] T035 [US5] Add logging for semantic validation operations in aeon/observability/logger.py
+### Data Models for User Story 1
 
-**Checkpoint**: At this point, User Story 5 should be fully functional and testable independently. Semantic validation can detect issues and produce validation reports.
-
----
-
-## Phase 4: User Story 3 - Convergence Detection and Completion Assessment (Priority: P1)
-
-**Goal**: Implement convergence engine that determines whether tasks are finished through completeness, coherence, and consistency checks. This directly controls termination condition for multi-pass execution.
-
-**Master Constraint**: Convergence criteria MUST be judged by LLM-based explanation. Completeness/coherence/consistency MUST use LLM-internal reasoning, not lexical-fuzzy matching. LLM MUST return structured reason-code set. Convergence MUST NEVER be calculated via keyword overlap, empty-issue lists, or rule-based scoring only.
-
-**Independent Test**: Execute a task through multiple passes and verify that the convergence engine correctly identifies when completeness, coherence, and consistency criteria are met, returning convergence status (true/false), reason codes, and evaluation metadata.
-
-### Implementation for User Story 3
-
-- [ ] T036 [P] [US3] Create ConvergenceAssessment model in aeon/convergence/models.py
-- [ ] T037 [P] [US3] Create convergence engine interface in aeon/convergence/interface.py
-- [ ] T038 [US3] Implement LLM-based completeness checker with structured reason codes in aeon/convergence/engine.py
-- [ ] T039 [US3] Implement LLM-based coherence checker with structured reason codes in aeon/convergence/engine.py
-- [ ] T040 [US3] Implement LLM-based cross-artifact consistency checker with structured reason codes in aeon/convergence/engine.py
-- [ ] T041 [US3] Integrate convergence engine with semantic validation layer to consume validation reports
-- [ ] T042 [US3] Implement LLM-based contradiction, omission, and hallucination detection using semantic validation input in aeon/convergence/engine.py
-- [ ] T043 [US3] Implement configurable convergence criteria with sensible defaults in aeon/convergence/engine.py
-- [ ] T044 [US3] Implement LLM-based reason code generation for convergence status with structured output in aeon/convergence/engine.py
-- [ ] T045 [US3] Implement LLM-based evaluation metadata generation (completeness score, coherence score, detected issues) with structured output in aeon/convergence/engine.py
-- [ ] T046 [US3] Handle conflicting convergence criteria (complete but incoherent, etc.) with LLM-generated reason codes in aeon/convergence/engine.py
-- [ ] T047 [US3] Implement supervisor-friendly hooks: get_issues() method returning detected issues list in aeon/convergence/engine.py
-- [ ] T048 [US3] Implement supervisor-friendly hooks: get_rationale() method returning LLM reasoning explanations in aeon/convergence/engine.py
-- [ ] T049 [US3] Implement supervisor-friendly hooks: summarize() method for execution history integration in aeon/convergence/engine.py
-- [ ] T050 [US3] Add logging for convergence assessments in aeon/observability/logger.py
-
-**Checkpoint**: At this point, User Story 3 should be fully functional and testable independently. Convergence engine can evaluate execution results and determine convergence status.
-
----
-
-## Phase 5: User Story 1 - Multi-Pass Execution with Convergence (Priority: P1) 🎯 MVP
-
-**Goal**: Implement multi-pass execution loop with deterministic phase boundaries (plan → execute → evaluate → refine → re-execute → converge → stop). This is the foundational transformation from single-pass to multi-pass execution.
-
-**Independent Test**: Submit a complex, ambiguous task (e.g., "design a system architecture for a web application with user authentication") and verify that Aeon executes multiple passes (plan → execute → evaluate → refine → re-execute) until convergence is achieved or TTL expires.
+- [ ] T022 [P] [US1] Create ExecutionPass model in aeon/kernel/models.py (or new models file)
+- [ ] T023 [P] [US1] Create ExecutionHistory model in aeon/kernel/models.py
+- [ ] T024 [P] [US1] Create TTLExpirationResponse model in aeon/kernel/models.py
+- [ ] T025 [US1] Extend PlanStep model with step_index, total_steps, incoming_context, handoff_to_next fields in aeon/plan/models.py
+- [ ] T026 [US1] Add clarity_state field to PlanStep model in aeon/plan/models.py
+- [ ] T027 [US1] Add "invalid" status to StepStatus enum in aeon/plan/models.py
+- [ ] T028 [US1] Add step_output field to PlanStep model in aeon/plan/models.py
+- [ ] T029 [US1] Add dependencies and provides fields to PlanStep model in aeon/plan/models.py
 
 ### Implementation for User Story 1
 
-**Master Constraint**: Refinement MUST be driven by structured LLM feedback only. The loop MUST treat the LLM as the cognitive core. Refinement MUST be targeted (modify only steps flagged by validator). No heuristic-based convergence shortcuts allowed.
+- [ ] T030 [US1] Implement pass management in orchestrator (pass_number tracking, phase transitions) in aeon/kernel/orchestrator.py
+- [ ] T031 [US1] Implement phase sequencing logic (EXECUTE → EVALUATE → REFINE → RE_EXECUTE) in aeon/kernel/orchestrator.py
+- [ ] T032 [US1] Implement TTL boundary checks at phase boundaries in aeon/kernel/orchestrator.py
+- [ ] T033 [US1] Implement TTL safe boundary detection for mid-phase checks in aeon/kernel/orchestrator.py
+- [ ] T034 [US1] Implement batch step execution (all ready steps in parallel) in aeon/kernel/executor.py
+- [ ] T035 [US1] Implement step execution prompt construction with step_index, total_steps, incoming_context, handoff_to_next in aeon/kernel/executor.py
+- [ ] T036 [US1] Implement clarity_state handling (CLEAR, PARTIALLY_CLEAR, BLOCKED) in aeon/kernel/executor.py
+- [ ] T037 [US1] Implement step status transitions including "invalid" status in aeon/kernel/executor.py
+- [ ] T038 [US1] Implement ExecutionPass creation and recording in aeon/kernel/orchestrator.py
+- [ ] T039 [US1] Implement ExecutionHistory collection and return in aeon/kernel/orchestrator.py
+- [ ] T040 [US1] Implement TTL expiration response generation (phase_boundary vs mid_phase) in aeon/kernel/orchestrator.py
+- [ ] T041 [US1] Integrate orchestrator with convergence engine interface (placeholder for US3) in aeon/kernel/orchestrator.py
+- [ ] T042 [US1] Integrate orchestrator with semantic validator interface (placeholder for US5) in aeon/kernel/orchestrator.py
+- [ ] T043 [US1] Integrate orchestrator with recursive planner interface (placeholder for US2) in aeon/kernel/orchestrator.py
 
-- [ ] T051 [P] [US1] Create ExecutionPass model in aeon/kernel/multipass_models.py
-- [ ] T052 [P] [US1] Create RefinementAction model in aeon/kernel/multipass_models.py
-- [ ] T053 [US1] Upgrade existing orchestrator.py from single-pass to multi-pass loop architecture in aeon/kernel/orchestrator.py
-- [ ] T054 [US1] Implement phase boundary management (plan → execute → evaluate → refine → re-execute) with LLM-driven phase transitions in aeon/kernel/orchestrator.py
-- [ ] T055 [US1] Integrate convergence engine into evaluate phase in aeon/kernel/orchestrator.py
-- [ ] T056 [US1] Integrate semantic validation into evaluate phase in aeon/kernel/orchestrator.py
-- [ ] T057 [US1] Implement LLM-driven refinement phase with attempt limits (3 per fragment, 10 global) in aeon/kernel/orchestrator.py
-- [ ] T058 [US1] Implement targeted refinement (modify only steps flagged by validator, not wholesale regeneration) in aeon/kernel/orchestrator.py
-- [ ] T059 [US1] Integrate supervisor repair pipeline into refinement phase in aeon/kernel/orchestrator.py
-- [ ] T060 [US1] Implement TTL expiration handling at phase boundaries in aeon/kernel/orchestrator.py
-- [ ] T061 [US1] Implement mid-phase TTL expiration at safe step boundaries in aeon/kernel/orchestrator.py
-- [ ] T062 [US1] Implement termination logic (convergence OR TTL expiration) in aeon/kernel/orchestrator.py
-- [ ] T063 [US1] Implement TTL-expired result formatting with metadata in aeon/kernel/orchestrator.py
-- [ ] T064 [US1] Implement deterministic phase sequence enforcement in aeon/kernel/orchestrator.py
-- [ ] T065 [US1] Handle supervisor repair failures during refinement phase in aeon/kernel/orchestrator.py
-- [ ] T066 [US1] Preserve declarative plan nature during refinement in aeon/kernel/orchestrator.py
-- [ ] T067 [US1] Add logging for multi-pass execution phases in aeon/observability/logger.py
-- [ ] T068 [US1] Update kernel orchestrator to use multi-pass loop for complex tasks
-
-**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. Multi-pass execution loop can iterate through passes until convergence or TTL expiration.
+**Checkpoint**: At this point, User Story 1 should be fully functional with placeholder integrations. Multi-pass loop executes, records history, handles TTL expiration.
 
 ---
 
-## Phase 6: User Story 2 - Recursive Planning and Plan Refinement (Priority: P1)
+## Phase 4: User Story 2 - Recursive Planning and Plan Refinement (Priority: P1)
 
-**Goal**: Implement recursive planning that detects missing details, generates follow-up questions, creates subplans for complex steps, and refines plan fragments without discarding the entire plan.
+**Goal**: Implement recursive planning that generates initial plans, creates subplans for complex steps, and refines plan fragments using LLM-based reasoning.
 
 **Independent Test**: Submit an ambiguous task (e.g., "build a REST API") and verify that Aeon detects ambiguities, generates subplans or nested steps, refines specific plan fragments, and automatically incorporates semantic validation into the refinement process.
 
+**Dependencies**: Requires Phase 2 (kernel refactoring) and Phase 3 (US1 - multi-pass loop). Integrates with US5 (semantic validation).
+
+### Tests for User Story 2
+
+- [ ] T044 [P] [US2] Unit test for RecursivePlanner.generate_plan() in tests/unit/plan/test_recursive.py
+- [ ] T045 [P] [US2] Unit test for RecursivePlanner.refine_plan() in tests/unit/plan/test_recursive.py
+- [ ] T046 [P] [US2] Unit test for RecursivePlanner.create_subplan() in tests/unit/plan/test_recursive.py
+- [ ] T047 [P] [US2] Integration test for recursive planning with ambiguous tasks in tests/integration/test_recursive_planning.py
+- [ ] T048 [P] [US2] Integration test for plan refinement with validation issues in tests/integration/test_plan_refinement.py
+- [ ] T049 [P] [US2] Integration test for nesting depth limit handling in tests/integration/test_nesting_depth.py
+
+### Data Models for User Story 2
+
+- [ ] T050 [P] [US2] Create RefinementAction model in aeon/plan/models.py
+- [ ] T051 [P] [US2] Create Subplan model in aeon/plan/models.py
+
 ### Implementation for User Story 2
 
-**Master Constraint**: Subplans MUST be generated by LLM decomposition, not heuristic splitting. Refinements MUST be delta-style edits, not full-plan rewrites. Planner MUST output structured graph with rationale. Planner MUST preserve stable IDs between passes. Planner MUST produce explainable changes. Planner MUST consider validator issues as constraints.
+- [ ] T052 [US2] Create RecursivePlanner class in aeon/plan/recursive.py
+- [ ] T053 [US2] Implement RecursivePlanner.__init__() with LLM adapter and tool registry in aeon/plan/recursive.py
+- [ ] T054 [US2] Implement RecursivePlanner.generate_plan() with step_index, total_steps, incoming_context, handoff_to_next in aeon/plan/recursive.py
+- [ ] T055 [US2] Implement RecursivePlanner.refine_plan() with delta-style operations (ADD/MODIFY/REMOVE), supervisor repair integration for structural/semantic issues before re-execution (FR-004), and unrecoverable failure handling after 2 repair attempts (FR-067) in aeon/plan/recursive.py
+- [ ] T056 [US2] Implement refinement trigger collection (validation issues, convergence reason_codes, blocked steps) in aeon/plan/recursive.py
+- [ ] T057 [US2] Implement executed step protection (cannot refine steps with status "complete" or "failed") in aeon/plan/recursive.py
+- [ ] T058 [US2] Implement RecursivePlanner.create_subplan() with nesting depth limit (max 5) in aeon/plan/recursive.py
+- [ ] T059 [US2] Implement graceful failure for nesting depth exceeded in aeon/plan/recursive.py
+- [ ] T060 [US2] Implement step ID stability preservation during refinement in aeon/plan/recursive.py
+- [ ] T061 [US2] Integrate recursive planner with orchestrator multi-pass loop in aeon/kernel/orchestrator.py
+- [ ] T062 [US2] Implement Phase B: Initial Plan & Pre-Execution Refinement (Plan → Validate → Refine) in aeon/kernel/orchestrator.py
+- [ ] T063 [US2] Implement refinement attempt limits (3 per fragment, 10 global) in aeon/plan/recursive.py
+- [ ] T064 [US2] Implement manual intervention marking for fragments at refinement limit in aeon/plan/recursive.py
 
-- [ ] T069 [P] [US2] Create Subplan model in aeon/plan/recursive_models.py
-- [ ] T070 [P] [US2] Create recursive planner interface in aeon/plan/recursive_interface.py
-- [ ] T071 [US2] Implement LLM-based ambiguous fragment detector with structured output in aeon/plan/recursive_planner.py
-- [ ] T072 [US2] Implement LLM-based low-specificity fragment detector with structured output in aeon/plan/recursive_planner.py
-- [ ] T073 [US2] Implement LLM-based follow-up question generator with structured output in aeon/plan/recursive_planner.py
-- [ ] T074 [US2] Implement LLM-based subplan creator for complex steps with structured graph output and rationale in aeon/plan/recursive_planner.py
-- [ ] T075 [US2] Implement LLM-based nested step generator with structured graph output in aeon/plan/recursive_planner.py
-- [ ] T076 [US2] Implement delta-style partial plan fragment rewrite (add, modify, remove operations) in aeon/plan/recursive_planner.py
-- [ ] T077 [US2] Implement stable ID preservation across refinement operations in aeon/plan/recursive_planner.py
-- [ ] T078 [US2] Implement explainable changes with LLM-generated rationale for each refinement in aeon/plan/recursive_planner.py
-- [ ] T079 [US2] Integrate semantic validation into recursive planning flow, treating validator issues as constraints in aeon/plan/recursive_planner.py
-- [ ] T080 [US2] Implement plan structure preservation during refinement in aeon/plan/recursive_planner.py
-- [ ] T081 [US2] Implement per-fragment refinement attempt limits (3 attempts) in aeon/plan/recursive_planner.py
-- [ ] T082 [US2] Implement global refinement attempt limit (10 total) in aeon/plan/recursive_planner.py
-- [ ] T083 [US2] Implement manual intervention marking for fragments at limit in aeon/plan/recursive_planner.py
-- [ ] T084 [US2] Implement nesting depth limit enforcement of 5 levels in aeon/plan/recursive_planner.py
-- [ ] T085 [US2] Implement graceful failure handling for depth limit exceeded in aeon/plan/recursive_planner.py
-- [ ] T086 [US2] Implement conflict resolution between semantic validation and recursive planner refinements in aeon/plan/recursive_planner.py
-- [ ] T087 [US2] Ensure plans remain declarative (JSON/YAML) during recursive planning in aeon/plan/recursive_planner.py
-- [ ] T088 [US2] Implement supervisor-friendly hooks: get_delta() method returning structured refinement operations in aeon/plan/recursive_planner.py
-- [ ] T089 [US2] Implement supervisor-friendly hooks: get_rationale() method returning LLM reasoning explanations in aeon/plan/recursive_planner.py
-- [ ] T090 [US2] Implement supervisor-friendly hooks: summarize() method for execution history integration in aeon/plan/recursive_planner.py
-- [ ] T091 [US2] Add logging for recursive planning operations in aeon/observability/logger.py
-- [ ] T092 [US2] Integrate recursive planner with multi-pass loop refinement phase
-
-**Checkpoint**: At this point, User Story 2 should be fully functional and testable independently. Recursive planning can detect ambiguities, create subplans, and refine plan fragments.
+**Checkpoint**: At this point, User Story 2 should be fully functional. Recursive planning generates plans, creates subplans, and refines fragments while preserving plan structure.
 
 ---
 
-## Phase 7: User Story 4 - Adaptive Reasoning Depth Based on Task Complexity (Priority: P2)
+## Phase 5: User Story 3 - Convergence Detection and Completion Assessment (Priority: P1)
 
-**Goal**: Implement adaptive depth heuristics that adjust reasoning depth, TTL allocations, and processing strategies based on detected complexity, ambiguity, or uncertainty levels.
+**Goal**: Implement convergence engine that determines whether task execution has converged on a complete, coherent, consistent solution using LLM-based reasoning.
 
-**Independent Test**: Submit both simple tasks (e.g., "add two numbers") and complex tasks (e.g., "design a distributed system architecture") and verify that Aeon adjusts TTL, reasoning depth, and processing strategies appropriately based on detected complexity.
+**Independent Test**: Execute a task through multiple passes and verify that the convergence engine correctly identifies when completeness, coherence, and consistency criteria are met, returning convergence status (true/false), reason codes, and evaluation metadata.
+
+**Dependencies**: Requires Phase 2 (kernel refactoring) and Phase 3 (US1 - multi-pass loop). Integrates with US5 (semantic validation - consumes validation report).
+
+### Tests for User Story 3
+
+- [ ] T065 [P] [US3] Unit test for ConvergenceEngine.assess() with converged result in tests/unit/convergence/test_engine.py
+- [ ] T066 [P] [US3] Unit test for ConvergenceEngine.assess() with non-converged result in tests/unit/convergence/test_engine.py
+- [ ] T067 [P] [US3] Unit test for default thresholds in tests/unit/convergence/test_engine.py
+- [ ] T068 [P] [US3] Unit test for custom convergence criteria in tests/unit/convergence/test_engine.py
+- [ ] T069 [P] [US3] Integration test for convergence detection in multi-pass execution in tests/integration/test_convergence.py
+- [ ] T070 [P] [US3] Integration test for convergence with conflicting criteria in tests/integration/test_convergence.py
+
+### Data Models for User Story 3
+
+- [ ] T071 [P] [US3] Create ConvergenceAssessment model in aeon/convergence/models.py
+
+### Implementation for User Story 3
+
+- [ ] T072 [US3] Create ConvergenceEngine class in aeon/convergence/engine.py
+- [ ] T073 [US3] Implement ConvergenceEngine.__init__() with LLM adapter and default thresholds in aeon/convergence/engine.py
+- [ ] T074 [US3] Implement ConvergenceEngine.assess() with LLM-based reasoning for completeness check in aeon/convergence/engine.py
+- [ ] T075 [US3] Implement ConvergenceEngine.assess() with LLM-based reasoning for coherence check in aeon/convergence/engine.py
+- [ ] T076 [US3] Implement ConvergenceEngine.assess() with LLM-based reasoning for consistency check in aeon/convergence/engine.py
+- [ ] T077 [US3] Implement semantic validation report consumption in ConvergenceEngine.assess() in aeon/convergence/engine.py
+- [ ] T078 [US3] Implement reason code generation (converged: true/false with explanation) in aeon/convergence/engine.py
+- [ ] T079 [US3] Implement evaluation metadata generation (completeness score, coherence score, detected issues) in aeon/convergence/engine.py
+- [ ] T080 [US3] Implement custom criteria support in ConvergenceEngine.assess() in aeon/convergence/engine.py
+- [ ] T081 [US3] Implement default thresholds (completeness >= 0.95, coherence >= 0.90, consistency >= 0.90) in aeon/convergence/engine.py
+- [ ] T082 [US3] Implement conflict handling (converged: false when criteria conflict) in aeon/convergence/engine.py
+- [ ] T083 [US3] Integrate convergence engine with orchestrator evaluate phase in aeon/kernel/orchestrator.py
+- [ ] T084 [US3] Implement supervisor repair_json() integration for LLM output schema violations in aeon/convergence/engine.py
+
+**Checkpoint**: At this point, User Story 3 should be fully functional. Convergence engine assesses execution state and determines convergence status with detailed metadata.
+
+---
+
+## Phase 6: User Story 4 - Adaptive Reasoning Depth Based on Task Complexity (Priority: P2)
+
+**Goal**: Implement adaptive depth heuristics that infer TaskProfile for tasks and adjust reasoning depth, TTL allocations, and processing strategies based on task complexity.
+
+**Independent Test**: Submit both simple tasks (e.g., "add two numbers") and complex tasks (e.g., "design a distributed system architecture") and verify that Aeon adjusts TTL, reasoning depth, and processing strategies appropriately based on TaskProfile dimensions.
+
+**Dependencies**: Requires Phase 2 (kernel refactoring) and Phase 3 (US1 - multi-pass loop). Integrates with US3 (convergence) and US5 (semantic validation) for TaskProfile updates.
+
+### Tests for User Story 4
+
+- [ ] T085 [P] [US4] Unit test for AdaptiveDepth.infer_task_profile() in tests/unit/adaptive/test_heuristics.py
+- [ ] T086 [P] [US4] Unit test for AdaptiveDepth.allocate_ttl() in tests/unit/adaptive/test_heuristics.py
+- [ ] T087 [P] [US4] Unit test for AdaptiveDepth.update_task_profile() in tests/unit/adaptive/test_heuristics.py
+- [ ] T088 [P] [US4] Unit test for tier stability requirement (±1 tier) in tests/unit/adaptive/test_heuristics.py
+- [ ] T089 [P] [US4] Integration test for adaptive depth with simple tasks in tests/integration/test_adaptive_depth.py
+- [ ] T090 [P] [US4] Integration test for adaptive depth with complex tasks in tests/integration/test_adaptive_depth.py
+- [ ] T091 [P] [US4] Integration test for TaskProfile update at pass boundaries in tests/integration/test_adaptive_depth.py
+
+### Data Models for User Story 4
+
+- [ ] T092 [P] [US4] Create TaskProfile model in aeon/adaptive/models.py
+- [ ] T093 [P] [US4] Create AdaptiveDepthConfiguration model in aeon/adaptive/models.py
 
 ### Implementation for User Story 4
 
-**Master Constraint**: Depth decisions MUST use LLM-based "task complexity self-assessment." TTL increases/decreases MUST be determined by LLM analysis of ambiguity, uncertainty, dependency depth, reasoning complexity. No "word count," "token length," or heuristic approximations allowed.
+- [ ] T094 [US4] Create AdaptiveDepth class in aeon/adaptive/heuristics.py
+- [ ] T095 [US4] Implement AdaptiveDepth.__init__() with LLM adapter and global TTL limit in aeon/adaptive/heuristics.py
+- [ ] T096 [US4] Implement AdaptiveDepth.infer_task_profile() with LLM-based reasoning for all dimensions in aeon/adaptive/heuristics.py
+- [ ] T097 [US4] Implement TaskProfile dimension inference (reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement) in aeon/adaptive/heuristics.py
+- [ ] T098 [US4] Implement raw_inference field generation in AdaptiveDepth.infer_task_profile() in aeon/adaptive/heuristics.py
+- [ ] T099 [US4] Implement tier stability validation (±1 tier for reasoning_depth) in aeon/adaptive/heuristics.py
+- [ ] T100 [US4] Implement AdaptiveDepth.allocate_ttl() with deterministic function mapping TaskProfile to TTL in aeon/adaptive/heuristics.py
+- [ ] T101 [US4] Implement TTL capping at global limit in AdaptiveDepth.allocate_ttl() in aeon/adaptive/heuristics.py
+- [ ] T102 [US4] Implement AdaptiveDepth.update_task_profile() with trigger conditions (convergence failure AND validation issues AND clarity_state BLOCKED) in aeon/adaptive/heuristics.py
+- [ ] T103 [US4] Implement bidirectional TTL adjustment (increase and decrease based on complexity) in aeon/adaptive/heuristics.py
+- [ ] T104 [US4] Implement TaskProfile version tracking in aeon/adaptive/heuristics.py
+- [ ] T105 [US4] Integrate adaptive depth with orchestrator Phase A (TaskProfile & TTL) in aeon/kernel/orchestrator.py
+- [ ] T106 [US4] Integrate adaptive depth with orchestrator Phase D (TaskProfile updates at pass boundaries) in aeon/kernel/orchestrator.py
+- [ ] T107 [US4] Implement supervisor repair_json() integration for LLM output schema violations in aeon/adaptive/heuristics.py
+- [ ] T108 [US4] Record adjustment_reason in execution metadata in aeon/adaptive/heuristics.py
 
-- [ ] T093 [P] [US4] Create AdaptiveDepthConfiguration model in aeon/adaptive/models.py
-- [ ] T094 [P] [US4] Create adaptive depth interface in aeon/adaptive/interface.py
-- [ ] T095 [US4] Implement LLM-based TaskProfile inference engine and define TaskProfile schema and interface contract in aeon/adaptive/heuristics.py
-- [ ] T095a [US4] Create TaskProfile model with fields: profile_version, reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement, raw_inference in aeon/adaptive/models.py
-- [ ] T095b [US4] Implement TaskProfile versioning and update triggers at pass boundaries in aeon/adaptive/heuristics.py
-- [ ] T095c [US4] Add recording of TaskProfile version transitions to execution history, including initial_profile_version, updated_profile_versions[], and revision_reason metadata.
-- [ ] T096 [US4] Implement LLM-based information_sufficiency dimension extraction in aeon/adaptive/heuristics.py
-- [ ] T097 [US4] Implement token-pattern analysis as secondary signal (not primary) for complexity indicators in aeon/adaptive/heuristics.py
-- [ ] T098 [US4] Implement LLM-based TTL allocation based on TaskProfile reasoning_depth and information_sufficiency in aeon/adaptive/heuristics.py
-- [ ] T099 [US4] Implement LLM-based reasoning_depth selection based on TaskProfile in aeon/adaptive/heuristics.py
-- [ ] T100 [US4] Implement global TTL and resource cap enforcement in aeon/adaptive/heuristics.py
-- [ ] T101 [US4] Implement LLM-based bidirectional TTL adjustment (increase and decrease) in aeon/adaptive/heuristics.py
-- [ ] T102 [US4] Implement LLM-based complexity assessment revision during execution in aeon/adaptive/heuristics.py
-- [ ] T103 [US4] Integrate with semantic validation for complexity indicators (as secondary signals) in aeon/adaptive/heuristics.py
-- [ ] T104 [US4] Integrate with convergence engine for depth decisions in aeon/adaptive/heuristics.py
-- [ ] T105 [US4] Integrate with recursive planner for depth decisions in aeon/adaptive/heuristics.py
-- [ ] T106 [US4] Implement LLM-based adjustment reason tracking in aeon/adaptive/heuristics.py
-- [ ] T107 [US4] Implement supervisor-friendly hooks: get_rationale() method returning LLM reasoning explanations in aeon/adaptive/heuristics.py
-- [ ] T108 [US4] Implement supervisor-friendly hooks: summarize() method for execution history integration in aeon/adaptive/heuristics.py
-- [ ] T109 [US4] Add logging for adaptive depth adjustments in aeon/observability/logger.py
-- [ ] T110 [US4] Integrate adaptive depth with multi-pass loop for TTL allocation
+**Checkpoint**: At this point, User Story 4 should be fully functional. Adaptive depth infers TaskProfile, allocates TTL, and updates profile based on execution feedback.
 
-**Checkpoint**: At this point, User Story 4 should be fully functional and testable independently. Adaptive depth can detect complexity and adjust reasoning depth and TTL allocations.
+---
+
+## Phase 7: User Story 5 - Semantic Validation of Plans and Execution Artifacts (Priority: P1)
+
+**Goal**: Implement semantic validation layer that validates plans, steps, and execution artifacts for semantic quality issues using LLM-based reasoning.
+
+**Independent Test**: Generate a plan with vague steps, irrelevant steps, steps that don't match their descriptions, or references to non-existent tools, and verify that the semantic validation layer detects these issues, classifies them, assigns severity scores, and proposes semantic repairs.
+
+**Dependencies**: Requires Phase 2 (kernel refactoring) and Phase 3 (US1 - multi-pass loop). Used by US2 (recursive planning), US3 (convergence engine), and US4 (adaptive depth).
+
+### Tests for User Story 5
+
+- [ ] T109 [P] [US5] Unit test for SemanticValidator.validate() with plan artifact in tests/unit/validation/test_semantic.py
+- [ ] T110 [P] [US5] Unit test for SemanticValidator.validate() with step artifact in tests/unit/validation/test_semantic.py
+- [ ] T111 [P] [US5] Unit test for SemanticValidator.validate() with execution artifact in tests/unit/validation/test_semantic.py
+- [ ] T112 [P] [US5] Unit test for SemanticValidator.validate() with cross-phase validation in tests/unit/validation/test_semantic.py
+- [ ] T113 [P] [US5] Unit test for hallucinated tool detection in tests/unit/validation/test_semantic.py
+- [ ] T114 [P] [US5] Integration test for semantic validation in plan refinement flow in tests/integration/test_semantic_validation.py
+- [ ] T115 [P] [US5] Integration test for semantic validation in convergence assessment in tests/integration/test_semantic_validation.py
+
+### Data Models for User Story 5
+
+- [ ] T116 [P] [US5] Create ValidationIssue model in aeon/validation/models.py
+- [ ] T117 [P] [US5] Create SemanticValidationReport model in aeon/validation/models.py
+
+### Implementation for User Story 5
+
+- [ ] T118 [US5] Create SemanticValidator class in aeon/validation/semantic.py
+- [ ] T119 [US5] Implement SemanticValidator.__init__() with LLM adapter and tool registry in aeon/validation/semantic.py
+- [ ] T120 [US5] Implement SemanticValidator.validate() with LLM-based reasoning for specificity check in aeon/validation/semantic.py
+- [ ] T121 [US5] Implement SemanticValidator.validate() with LLM-based reasoning for relevance check in aeon/validation/semantic.py
+- [ ] T122 [US5] Implement SemanticValidator.validate() with LLM-based reasoning for do/say mismatch detection in aeon/validation/semantic.py
+- [ ] T123 [US5] Implement SemanticValidator.validate() with LLM-based reasoning for hallucination detection in aeon/validation/semantic.py
+- [ ] T124 [US5] Implement SemanticValidator.validate() with LLM-based reasoning for consistency check in aeon/validation/semantic.py
+- [ ] T125 [US5] Implement structural checks (duplicate IDs, missing attributes) before LLM delegation in aeon/validation/semantic.py
+- [ ] T126 [US5] Implement LLM-determined severity assignment in aeon/validation/semantic.py
+- [ ] T127 [US5] Implement LLM-classified issue types in aeon/validation/semantic.py
+- [ ] T128 [US5] Implement LLM-generated proposed repairs in aeon/validation/semantic.py
+- [ ] T129 [US5] Implement issue_summary generation (counts by type) in aeon/validation/semantic.py
+- [ ] T130 [US5] Implement overall_severity calculation (highest severity) in aeon/validation/semantic.py
+- [ ] T131 [US5] Integrate semantic validator with orchestrator evaluate phase in aeon/kernel/orchestrator.py
+- [ ] T132 [US5] Integrate semantic validator with recursive planner refinement flow in aeon/plan/recursive.py
+- [ ] T133 [US5] Implement conflict resolution (recursive planner wins, semantic validation logged as advisory) in aeon/plan/recursive.py
+- [ ] T134 [US5] Implement supervisor repair_json() integration for LLM output schema violations in aeon/validation/semantic.py
+
+**Checkpoint**: At this point, User Story 5 should be fully functional. Semantic validation detects issues, classifies them, and proposes repairs using LLM-based reasoning.
 
 ---
 
 ## Phase 8: User Story 6 - Inspect Multi-Pass Execution (Priority: P2)
 
-**Goal**: Implement execution inspection capability that provides structured history of passes including plans, refinements, and convergence assessments for debugging and tuning.
+**Goal**: Implement execution history inspection that provides structured history of passes including plans, refinements, and convergence assessments.
 
 **Independent Test**: Execute a multi-pass task, complete it (converged or TTL expired), and verify that developers can access and review a structured execution history containing: pass sequence with phase transitions, plan state snapshots per pass, refinement actions and changes, convergence assessments with scores and reason codes, and semantic validation reports.
 
+**Dependencies**: Requires Phase 2 (kernel refactoring), Phase 3 (US1 - ExecutionHistory), Phase 4 (US2 - RefinementAction), Phase 5 (US3 - ConvergenceAssessment), Phase 7 (US5 - SemanticValidationReport).
+
+### Tests for User Story 6
+
+- [ ] T135 [P] [US6] Integration test for execution history access in tests/integration/test_execution_history.py
+- [ ] T136 [P] [US6] Integration test for execution history pass sequence in tests/integration/test_execution_history.py
+- [ ] T137 [P] [US6] Integration test for execution history plan snapshots in tests/integration/test_execution_history.py
+- [ ] T138 [P] [US6] Integration test for execution history refinement actions in tests/integration/test_execution_history.py
+- [ ] T139 [P] [US6] Integration test for execution history convergence assessments in tests/integration/test_execution_history.py
+- [ ] T140 [P] [US6] Integration test for execution history semantic validation reports in tests/integration/test_execution_history.py
+
 ### Implementation for User Story 6
 
-- [ ] T111 [P] [US6] Create ExecutionHistory model in aeon/kernel/history_models.py
-- [ ] T112 [P] [US6] Create execution history interface in aeon/kernel/history_interface.py
-- [ ] T113 [US6] Implement pass sequence recording in aeon/kernel/history_recorder.py
-- [ ] T114 [US6] Implement plan state snapshot capture per pass in aeon/kernel/history_recorder.py
-- [ ] T115 [US6] Implement refinement action recording in aeon/kernel/history_recorder.py
-- [ ] T116 [US6] Implement convergence assessment recording in aeon/kernel/history_recorder.py
-- [ ] T117 [US6] Implement semantic validation report recording in aeon/kernel/history_recorder.py
-- [ ] T118 [US6] Implement adaptive depth configuration recording, including TaskProfile snapshot and adjustment_reason, in execution history for each pass (FR-078), in aeon/kernel/history_recorder.py
-- [ ] T119 [US6] Implement timing information capture in aeon/kernel/history_recorder.py
-- [ ] T120 [US6] Implement execution history accessor/query interface in aeon/kernel/history_recorder.py
-- [ ] T121 [US6] Integrate history recording with multi-pass loop in aeon/kernel/orchestrator.py
-- [ ] T122 [US6] Add logging for execution history operations in aeon/observability/logger.py
+- [ ] T141 [US6] Enhance ExecutionHistory model with overall_statistics calculation in aeon/kernel/models.py
+- [ ] T142 [US6] Implement execution history serialization for inspection in aeon/kernel/orchestrator.py
+- [ ] T143 [US6] Implement execution history pass filtering and querying in aeon/kernel/orchestrator.py
+- [ ] T144 [US6] Add execution history inspection helpers (get_pass, get_refinements, get_convergence) in aeon/kernel/orchestrator.py
+- [ ] T145 [US6] Document execution history inspection API in quickstart.md examples
 
-**Checkpoint**: At this point, User Story 6 should be fully functional and testable independently. Developers can inspect execution history for debugging and tuning.
+**Checkpoint**: At this point, User Story 6 should be fully functional. Developers can inspect execution history with all pass details, refinements, and assessments.
 
 ---
 
-## Phase 9: Supervisor Integration & Repair Pipeline (Mandatory)
+## Phase 9: Polish & Cross-Cutting Concerns
 
-**Purpose**: Implement supervisor integration requirements ensuring all cognitive modules expose supervisor-friendly hooks and the supervisor orchestrates semantic repair workflows.
+**Purpose**: Improvements that affect multiple user stories
 
-**Master Constraint**: Supervisor MUST NOT perform any semantic reasoning. Supervisor MUST delegate all semantic judgments to LLM-backed modules. Supervisor MUST use only structured signals (issues, deltas, rationale).
-
-### Supervisor Integration Requirements
-
-- [ ] T123 [P] Create SupervisorAssessment model in aeon/supervisor/models.py
-- [ ] T124 [P] Create SupervisorRepairPipeline class in aeon/supervisor/repair_pipeline.py
-- [ ] T125 [SUP] Implement SupervisorRepairPipeline.supervise(plan, artifacts) → SupervisorAssessment method in aeon/supervisor/repair_pipeline.py
-- [ ] T126 [SUP] Implement SupervisorRepairPipeline.apply_repairs(plan, repairs) → RefinedPlan method in aeon/supervisor/repair_pipeline.py
-- [ ] T127 [SUP] Implement SupervisorRepairPipeline.log_pass(pass_context) method in aeon/supervisor/repair_pipeline.py
-- [ ] T128 [SUP] Implement SupervisorRepairPipeline.should_continue(pass_context) → bool method in aeon/supervisor/repair_pipeline.py
-- [ ] T129 [SUP] Implement SupervisorRepairPipeline.finalize(plan, artifacts) → FinalResult method in aeon/supervisor/repair_pipeline.py
-- [ ] T130 [SUP] Implement supervisor consumption of SemanticValidationReport in aeon/supervisor/repair_pipeline.py
-- [ ] T131 [SUP] Implement supervisor application of targeted refinement actions (delta-style, not full-plan regeneration) in aeon/supervisor/repair_pipeline.py
-- [ ] T132 [SUP] Implement structured repair log per pass in aeon/supervisor/repair_pipeline.py
-- [ ] T133 [SUP] Implement supervisor update of ExecutionHistory with repair deltas in aeon/supervisor/repair_pipeline.py
-- [ ] T134 [SUP] Implement supervisor integration of all cognitive outputs (SemanticValidationReport, RecursivePlanner deltas, ConvergenceAssessment, AdaptiveDepth decisions) in aeon/supervisor/repair_pipeline.py
-- [ ] T135 [SUP] Implement unified SupervisorAssessment object generation each pass in aeon/supervisor/repair_pipeline.py
-- [ ] T136 [SUP] Implement multi-pass iteration tracking (passes, refinements, corrections) in aeon/supervisor/repair_pipeline.py
-- [ ] T137 [SUP] Implement termination condition detection in supervisor in aeon/supervisor/repair_pipeline.py
-- [ ] T138 [SUP] Implement escalation of blocking issues to caller via structured output in aeon/supervisor/repair_pipeline.py
-- [ ] T139 [SUP] Ensure supervisor uses only structured signals (no semantic inference) in aeon/supervisor/repair_pipeline.py
-- [ ] T140 [SUP] Verify all cognitive modules expose required supervisor hooks (get_issues, get_delta, get_rationale, summarize) in aeon/supervisor/repair_pipeline.py
-- [ ] T141 [SUP] Integrate SupervisorRepairPipeline with multi-pass loop refinement phase in aeon/kernel/orchestrator.py
-
-**Checkpoint**: At this point, supervisor integration is complete. All cognitive modules expose supervisor-friendly hooks, and supervisor orchestrates semantic repair workflows without performing semantic reasoning.
-
----
-
-## Phase 10: Polish & Cross-Cutting Concerns
-
-**Purpose**: Integration, testing, and improvements that affect multiple user stories
-
-- [ ] T142 [P] Verify all Tier-1 features integrate seamlessly without circular dependencies
-- [ ] T143 [P] Run integration tests for multi-pass execution with all features in tests/integration/
-- [ ] T144 [P] Verify kernel LOC remains under 800 lines (should be <700 after refactoring)
-- [ ] T145 [P] Update documentation in README.md and docs/ with Sprint 2 capabilities
-- [ ] T146 [P] Add comprehensive integration tests in tests/integration/test_multipass_integration.py
-- [ ] T147 [P] Add unit tests for new modules in tests/unit/
-- [ ] T148 [P] Verify declarative plan purity maintained throughout all features
-- [ ] T149 [P] Verify deterministic execution model maintained (same inputs produce same phase transitions)
-- [ ] T150 [P] Verify all semantic/cognitive/evaluative functionality uses LLM-based reasoning (Master Constraint compliance)
-- [ ] T151 [P] Verify all cognitive modules expose supervisor-friendly hooks
-- [ ] T152 [P] Verify supervisor uses only structured signals (no semantic inference)
-- [ ] T153 [P] Performance testing and optimization across all Sprint 2 features
+- [ ] T146 [P] Update documentation with Sprint 2 capabilities in README.md
+- [ ] T147 [P] Add usage examples to quickstart.md based on implementation
+- [ ] T148 [P] Code cleanup and refactoring for consistency across modules
+- [ ] T149 [P] Verify kernel LOC remains under 800 lines (should be <700 after refactoring)
+- [ ] T150 [P] Add integration tests for end-to-end multi-pass execution scenarios in tests/integration/
+- [ ] T151 [P] Add contract tests for all interfaces in tests/contract/
+- [ ] T152 [P] Performance optimization for multi-pass execution
+- [ ] T153 [P] Error handling improvements across all modules
 - [ ] T154 [P] Code cleanup and refactoring for consistency
-- [ ] T155 [P] Security review for new interfaces and modules
-- [ ] T156 [P] Verify declarative plan compliance
-- [ ] T157 [P] Verify deterministic execution
-- [ ] T158 [P] Verify kernel LOC remains <800
-- [ ] T159 [P] Verify modular integration boundaries
-- [ ] T160 [P] Measure convergence rate
-- [ ] T161 [P] Evaluate refinement efficiency
-- [ ] T162 [P] Validate semantic-issue detection accuracy
-- [ ] T163 [P] Measure taskprofile stability accuracy
+- [ ] T155 Run quickstart.md validation and update examples
+- [ ] T156 [P] Add logging enhancements for multi-pass execution debugging
+- [ ] T157 [P] Add observability metrics for pass counts, refinement counts, convergence rates
 
 ---
 
@@ -336,104 +336,92 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies - can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all Sprint 2 user stories
-- **User Stories (Phase 3+)**: All depend on Foundational phase completion
-  - User Story 5 (Semantic Validation) can start immediately after Foundational
-  - User Story 3 (Convergence Engine) depends on User Story 5 (needs semantic validation)
-  - User Story 1 (Multi-Pass Execution) depends on User Story 3 (needs convergence engine)
-  - User Story 2 (Recursive Planning) depends on User Story 5 (needs semantic validation)
-  - User Story 4 (Adaptive Depth) depends on User Stories 3 and 5 (needs convergence and semantic validation)
-  - User Story 6 (Execution Inspection) depends on User Story 1 (needs multi-pass execution)
-- **Supervisor Integration (Phase 9)**: Depends on User Stories 1, 2, 3, 4, 5 (needs all cognitive modules)
-- **Polish (Phase 10)**: Depends on all desired user stories and supervisor integration being complete
+- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **User Stories (Phase 3-8)**: All depend on Foundational phase completion
+  - User stories can then proceed in parallel (if staffed)
+  - Or sequentially in priority order (P1: US1, US2, US3, US5 → P2: US4, US6)
+- **Polish (Phase 9)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 5 (P1) - Semantic Validation**: Can start after Foundational (Phase 2) - No dependencies on other stories
-- **User Story 3 (P1) - Convergence Engine**: Depends on User Story 5 (semantic validation)
-- **User Story 1 (P1) - Multi-Pass Execution**: Depends on User Story 3 (convergence engine) and User Story 5 (semantic validation)
-- **User Story 2 (P1) - Recursive Planning**: Depends on User Story 5 (semantic validation)
-- **User Story 4 (P2) - Adaptive Depth**: Depends on User Stories 3 and 5 (convergence engine and semantic validation)
-- **User Story 6 (P2) - Execution Inspection**: Depends on User Story 1 (multi-pass execution)
+- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories. **FOUNDATIONAL for other stories.**
+- **User Story 2 (P1)**: Can start after Foundational (Phase 2) and US1 - Integrates with US1 multi-pass loop, uses US5 semantic validation
+- **User Story 3 (P1)**: Can start after Foundational (Phase 2) and US1 - Integrates with US1 multi-pass loop, consumes US5 semantic validation
+- **User Story 4 (P2)**: Can start after Foundational (Phase 2) and US1 - Integrates with US1, US3, US5 for TaskProfile updates
+- **User Story 5 (P1)**: Can start after Foundational (Phase 2) and US1 - Used by US2, US3, US4
+- **User Story 6 (P2)**: Can start after Foundational (Phase 2) and US1, US2, US3, US5 - Depends on ExecutionHistory from US1, RefinementAction from US2, ConvergenceAssessment from US3, SemanticValidationReport from US5
 
 ### Within Each User Story
 
-- Models before services/interfaces
-- Interfaces before implementations
+- Tests (if included) MUST be written and FAIL before implementation
+- Data models before implementation
 - Core implementation before integration
 - Story complete before moving to next priority
 
 ### Parallel Opportunities
 
 - All Setup tasks marked [P] can run in parallel
-- All Foundational extraction tasks marked [P] can run in parallel (within Phase 2)
-- User Stories 5 and 2 can potentially start in parallel after Foundational (both depend only on Foundational)
-- Models within a story marked [P] can run in parallel
+- All Foundational tasks marked [P] can run in parallel (within Phase 2)
+- Once Foundational phase completes, P1 user stories (US1, US2, US3, US5) can start in parallel (if team capacity allows)
+- All tests for a user story marked [P] can run in parallel
+- Data models within a story marked [P] can run in parallel
 - Different user stories can be worked on in parallel by different team members (respecting dependencies)
-
----
-
-## Parallel Example: User Story 5
-
-```bash
-# Launch all models for User Story 5 together:
-Task: "Create ValidationIssue model in aeon/validation/semantic_models.py"
-Task: "Create SemanticValidationReport model in aeon/validation/semantic_models.py"
-Task: "Create semantic validation interface in aeon/validation/semantic_interface.py"
-```
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```bash
-# Launch all models for User Story 1 together:
-Task: "Create ExecutionPass model in aeon/kernel/multipass_models.py"
-Task: "Create RefinementAction model in aeon/kernel/multipass_models.py"
+# Launch all tests for User Story 1 together:
+Task: "Integration test for multi-pass execution loop in tests/integration/test_multi_pass_execution.py"
+Task: "Integration test for TTL expiration at phase boundary in tests/integration/test_ttl_expiration.py"
+Task: "Integration test for TTL expiration mid-phase at safe boundary in tests/integration/test_ttl_expiration.py"
+Task: "Integration test for deterministic phase sequence in tests/integration/test_deterministic_phases.py"
+
+# Launch all data models for User Story 1 together:
+Task: "Create ExecutionPass model in aeon/kernel/models.py"
+Task: "Create ExecutionHistory model in aeon/kernel/models.py"
+Task: "Create TTLExpirationResponse model in aeon/kernel/models.py"
 ```
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (Core Multi-Pass Execution)
+### MVP First (User Story 1 Only)
 
 1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (MANDATORY kernel refactoring - CRITICAL - blocks all stories)
-3. Complete Phase 3: User Story 5 (Semantic Validation)
-4. Complete Phase 4: User Story 3 (Convergence Engine)
-5. Complete Phase 5: User Story 1 (Multi-Pass Execution)
-6. **STOP and VALIDATE**: Test multi-pass execution independently
-7. Deploy/demo if ready
+2. Complete Phase 2: Foundational (CRITICAL - blocks all stories) - **MANDATORY kernel refactoring**
+3. Complete Phase 3: User Story 1 (Multi-Pass Execution)
+4. **STOP and VALIDATE**: Test User Story 1 independently
+5. Deploy/demo if ready
 
 ### Incremental Delivery
 
-1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 5 (Semantic Validation) → Test independently
-3. Add User Story 3 (Convergence Engine) → Test independently
-4. Add User Story 1 (Multi-Pass Execution) → Test independently → Deploy/Demo (MVP!)
-5. Add User Story 2 (Recursive Planning) → Test independently → Deploy/Demo
+1. Complete Setup + Foundational → Foundation ready (kernel refactored, LOC < 700)
+2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
+3. Add User Story 5 (Semantic Validation) → Test independently → Deploy/Demo (enables US2, US3)
+4. Add User Story 2 (Recursive Planning) → Test independently → Deploy/Demo
+5. Add User Story 3 (Convergence) → Test independently → Deploy/Demo
 6. Add User Story 4 (Adaptive Depth) → Test independently → Deploy/Demo
-7. Add User Story 6 (Execution Inspection) → Test independently → Deploy/Demo
+7. Add User Story 6 (Inspection) → Test independently → Deploy/Demo
 8. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy
 
 With multiple developers:
 
-1. Team completes Setup + Foundational together (MANDATORY)
+1. Team completes Setup + Foundational together (kernel refactoring is critical)
 2. Once Foundational is done:
-   - Developer A: User Story 5 (Semantic Validation)
-   - Developer B: (waiting for dependencies)
-3. Once User Story 5 is done:
-   - Developer A: User Story 3 (Convergence Engine)
-   - Developer B: User Story 2 (Recursive Planning) - both depend on US5
-4. Once User Story 3 is done:
-   - Developer A: User Story 1 (Multi-Pass Execution)
-   - Developer B: User Story 4 (Adaptive Depth) - depends on US3 and US5
-5. Once User Story 1 is done:
-   - Developer A: User Story 6 (Execution Inspection)
-   - Developer B: Polish & Integration
+   - Developer A: User Story 1 (Multi-Pass Execution) - **FOUNDATIONAL**
+   - Developer B: User Story 5 (Semantic Validation) - **ENABLES OTHERS**
+3. Once US1 and US5 are done:
+   - Developer A: User Story 2 (Recursive Planning)
+   - Developer B: User Story 3 (Convergence)
+   - Developer C: User Story 4 (Adaptive Depth)
+4. Once US2, US3, US4 are done:
+   - Developer A: User Story 6 (Inspection)
+5. Stories complete and integrate independently
 
 ---
 
@@ -442,48 +430,52 @@ With multiple developers:
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
+- Verify tests fail before implementing
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
 - **CRITICAL**: Phase 2 (kernel refactoring) MUST be completed before any Sprint 2 user story work begins
 - Kernel LOC must remain under 800 lines (target <700 after refactoring)
-- All Sprint 2 features must operate as modular components external to kernel
-- **MASTER CONSTRAINT**: All semantic, cognitive, or evaluative functionality MUST use LLM-based reasoning as primary mechanism
-- **SUPERVISOR INTEGRATION**: All cognitive modules MUST expose supervisor-friendly hooks (get_issues, get_delta, get_rationale, summarize)
-- **ALGORITHMIC GUIDANCE**: Refinements MUST be delta-style edits, not full-plan rewrites. All outputs MUST be structured JSON, not free-form text
+- All semantic reasoning MUST use LLM-based reasoning as primary mechanism
+- Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
 
 ---
 
-## Task Summary
+## Summary
 
-- **Total Tasks**: 146
-- **Phase 1 (Setup)**: 3 tasks
-- **Phase 2 (Foundational - Kernel Refactoring)**: 15 tasks
-- **Phase 3 (User Story 5 - Semantic Validation)**: 20 tasks (added supervisor hooks, schema validation, structural validation layer, strict schema enforcement, explicit LLM-only constraints)
-- **Phase 4 (User Story 3 - Convergence Engine)**: 15 tasks (added supervisor hooks, LLM-based requirements)
-- **Phase 5 (User Story 1 - Multi-Pass Execution)**: 18 tasks (added LLM-driven refinement requirements)
-- **Phase 6 (User Story 2 - Recursive Planning)**: 24 tasks (added delta-style edits, supervisor hooks)
-- **Phase 7 (User Story 4 - Adaptive Depth)**: 18 tasks (added LLM-based complexity assessment, supervisor hooks)
-- **Phase 8 (User Story 6 - Execution Inspection)**: 12 tasks
-- **Phase 9 (Supervisor Integration)**: 19 tasks (new phase)
-- **Phase 10 (Polish)**: 14 tasks (added Master Constraint compliance checks)
+**Total Tasks**: 157
+- Phase 1 (Setup): 3 tasks
+- Phase 2 (Foundational - Kernel Refactoring): 14 tasks
+- Phase 3 (User Story 1): 22 tasks
+- Phase 4 (User Story 2): 21 tasks
+- Phase 5 (User Story 3): 20 tasks
+- Phase 6 (User Story 4): 24 tasks
+- Phase 7 (User Story 5): 26 tasks
+- Phase 8 (User Story 6): 11 tasks
+- Phase 9 (Polish): 12 tasks
 
-### Parallel Opportunities
+**Task Count per User Story**:
+- US1: 22 tasks
+- US2: 21 tasks
+- US3: 20 tasks
+- US4: 24 tasks
+- US5: 26 tasks
+- US6: 11 tasks
 
-- **Phase 1**: 3 parallel tasks
-- **Phase 2**: 4 parallel extraction tasks
-- **Phase 3**: 3 parallel model/interface tasks
-- **Phase 4**: 2 parallel model/interface tasks
-- **Phase 5**: 2 parallel model tasks
-- **Phase 6**: 2 parallel model/interface tasks
-- **Phase 7**: 2 parallel model/interface tasks
-- **Phase 8**: 2 parallel model/interface tasks
-- **Phase 9**: 2 parallel supervisor model tasks
-- **Phase 10**: 14 parallel polish tasks
+**Parallel Opportunities Identified**: 
+- All [P] marked tasks can run in parallel within their phase
+- User stories can be worked on in parallel after foundational phase (respecting dependencies)
 
-### Suggested MVP Scope
+**Independent Test Criteria**:
+- US1: Submit complex task, verify multi-pass loop executes until convergence or TTL expires
+- US2: Submit ambiguous task, verify recursive planning detects ambiguities and refines fragments
+- US3: Execute task through multiple passes, verify convergence engine identifies convergence status
+- US4: Submit simple and complex tasks, verify adaptive depth adjusts TTL and reasoning depth
+- US5: Generate plan with issues, verify semantic validation detects and classifies issues
+- US6: Execute multi-pass task, verify execution history provides structured pass information
 
-**MVP**: Phases 1-5 (Setup + Foundational + User Stories 5, 3, 1)
-- This delivers core multi-pass execution with convergence detection and semantic validation
-- Total MVP tasks: 71 tasks (updated with Master Constraint, supervisor hooks, schema validation, and explicit LLM-only constraints)
-- Can be delivered incrementally: Setup → Foundational → US5 → US3 → US1
+**Suggested MVP Scope**: 
+- Phase 1: Setup
+- Phase 2: Foundational (MANDATORY kernel refactoring - CRITICAL - blocks all stories)
+- Phase 3: User Story 1 (Multi-Pass Execution with Convergence) - **MVP**
+
+**Format Validation**: ✅ All tasks follow the checklist format (checkbox, ID, [P] marker where applicable, [Story] label, file paths)

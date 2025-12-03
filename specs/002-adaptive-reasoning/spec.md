@@ -31,6 +31,14 @@
 - Q: Should developers be able to see why adaptive depth adjusted reasoning depth or TTL? → A: Yes - add acceptance scenario showing execution metadata reveals adjustment reason (e.g., high ambiguity, missing details)
 - Q: How should conflicts between semantic validation repairs and recursive planner refinements be handled? → A: Surface the conflict in metadata and apply a deterministic resolution strategy (recursive planner output wins, semantic validation logs advisory)
 
+### Session 2025-12-03
+
+- Q: How should step batch selection work during execution - execute one step at a time, all ready steps in parallel, fixed-size batches, or dynamic sizing? → A: Execute all ready steps in parallel (all steps with status=pending and dependencies satisfied execute concurrently)
+- Q: When clarity_state == BLOCKED, what happens to step output, status, and whether the step should be re-executed after refinement? → A: Preserve step output, mark step as invalid (status: invalid), and trigger refinement (output may be used after refinement)
+- Q: What are the specific criteria that trigger a TaskProfile update at pass boundaries when convergence analysis indicates a mismatch? → A: Multiple indicators required (convergence failure + validation issues + clarity_state patterns suggest mismatch) - TaskProfile update triggered when all these signals together indicate complexity mismatch
+- Q: Where is the JSON repair method referenced in Phase A and FR-085 actually defined - should we explicitly reference Sprint 1 supervisor? → A: Explicitly reference Sprint 1 supervisor repair_json() method (cross-reference to Sprint 1 spec or interfaces)
+- Q: How should ExecutionHistory be stored and accessed - in-memory only, persistent file storage, or configurable? → A: In-memory only for Sprint 2, return as part of execution result (no persistent storage)
+
 ## Master Constraint: LLM-Based Reasoning Requirement
 
 **All semantic, cognitive, or evaluative functionality MUST be implemented using LLM-based reasoning.**
@@ -43,6 +51,152 @@ This constraint applies to all User Stories and Functional Requirements that inv
 - Evaluative functions (convergence determination, quality scoring, issue classification)
 
 **Rationale**: To ensure the system leverages the full reasoning capabilities of LLMs rather than relying on brittle pattern-matching approaches that cannot handle nuanced, context-dependent semantic understanding.
+
+## CORE EXECUTION MODEL
+
+The canonical lifecycle for a task follows a deterministic multi-pass control loop with adaptive depth, recursive planning, semantic validation, convergence, and refinement.
+
+The system MUST implement the following concrete sequence:
+
+### Phase A: TaskProfile & TTL
+
+- Call the LLM once to infer a TaskProfile for the task.
+- TaskProfile inference is the ONLY semantic step for complexity/ambiguity assessment.
+- The LLM MUST return qualitative fields (reasoning_depth, information_sufficiency, etc).
+- Host-side code MAY map these fields/principles to numeric TTL and iteration caps using a deterministic function. This mapping MUST NOT introduce additional semantic decisions.
+
+**Constraints**:
+- For a given pass, TaskProfile inference MUST NOT be re-run just because of JSON/schema errors.
+- Repair JSON/schema issues by using the Sprint 1 supervisor repair_json() method (see Sprint 1 supervisor interface: aeon.supervisor.repair.Supervisor.repair_json()). This method is available as a dependency from Sprint 1.
+
+### Phase B: Initial Plan & Pre-Execution Refinement
+
+Pass 0 MUST follow this exact sequence:
+
+1. **PLAN PHASE**:
+   - Invoke the recursive planner to generate an initial declarative plan.
+   - Steps MUST include:
+     - step_index (1-based)
+     - total_steps
+     - incoming_context (may be empty initially)
+     - handoff_to_next (may be empty initially)
+     - dependencies and provides fields as defined in spec.md.
+
+2. **PLAN VALIDATION**:
+   - Invoke the semantic validator on the plan only.
+   - Receive a SemanticValidationReport in strict JSON schema.
+
+3. **PLAN REFINEMENT**:
+   - Invoke the recursive planner in refinement mode, using validation issues as hard constraints.
+   - Apply ONLY delta-style changes (ADD/MODIFY/REMOVE), preserving stable step IDs where possible.
+   - Update incoming_context/handoff_to_next fields as needed.
+
+Only after this Plan → Validate → Refine sequence may the system begin executing steps.
+
+### Phase C: Execution Passes (1..N)
+
+For each execution pass, the orchestrator MUST:
+
+1. **EXECUTE BATCH**:
+   - Select all steps that are:
+     - status=pending
+     - dependencies satisfied
+   - Execute all selected steps in parallel (concurrent execution)
+   - For each step:
+     - Build the LLM prompt including:
+       - "You are executing step {step_index} of {total_steps}."
+       - "Incoming context from previous steps: {incoming_context}."
+       - "Your goal for this step: {description}."
+       - "You should prepare handoff for the next step as: {handoff_to_next}."
+     - The step execution LLM MUST return:
+       - step_output
+       - clarity_state: one of {CLEAR, PARTIALLY_CLEAR, BLOCKED}
+     - The executor MUST NOT perform semantic reasoning. It just passes inputs/outputs through.
+     - If clarity_state == BLOCKED: preserve step_output, mark step status as invalid, and include the step in refinement triggers (the output may be used after refinement)
+
+2. **EVALUATE**:
+   - Run the semantic validator on the updated plan + executed steps + partial outputs.
+   - Run the convergence engine using semantic validator output.
+   - Get a ConvergenceAssessment (converged flag, reason_codes, scores).
+
+3. **DECIDE**:
+   - If converged == true → terminate and return final result + ExecutionHistory.
+   - If converged == false AND TTL remains:
+       - Move to REFINEMENT.
+   - If TTL expired → return TTL-expired result as defined in spec.md.
+
+4. **REFINEMENT**:
+   - Collect refinement triggers:
+       - Validation issues
+       - Convergence reason_codes
+       - Any steps whose clarity_state == BLOCKED
+   - Invoke recursive planner in refinement mode with these triggers as constraints.
+   - Produce delta-style RefinementActions targeting:
+       - Future/unexecuted steps, or
+       - Plan fragments that do not invalidate already completed work.
+   - Apply deltas, update plan, and continue to the next pass.
+
+**Constraints**:
+- The LLM NEVER directly controls the loop. It only emits structured signals:
+    - ValidationIssue
+    - ConvergenceAssessment
+    - RefinementAction
+    - clarity_state
+- The orchestrator decides when to start a new pass based on TTL and convergence.
+
+### Phase D: Adaptive Depth Integration
+
+- TaskProfile is computed at the start of the lifecycle and MAY be updated only at pass boundaries when convergence analysis indicates a mismatch between expected and observed complexity.
+- TaskProfile update trigger: Multiple indicators required - convergence failure AND validation issues AND clarity_state patterns (BLOCKED states) together suggest a complexity mismatch. All these signals must be present to trigger a TaskProfile update.
+- Adaptive depth code MUST:
+  - Use LLM-based TaskProfile inference for semantic aspects.
+  - Use deterministic functions to convert TaskProfile into numeric TTL and caps.
+  - Respect all global TTL and resource limits.
+
+## STEP SCHEMA AND PROMPTING
+
+Update the Step data model to include:
+
+- step_index: int
+- total_steps: int
+- incoming_context: Optional[str]
+- handoff_to_next: Optional[str]
+
+Executor code MUST always construct the step execution prompt using these fields, so every step is aware of what came before and what must be handed off next.
+
+## LLM-ONLY SEMANTIC RULE
+
+Re-iterate and honor the spec constraint:
+
+- All semantic judgments (ambiguity, specificity, relevance, consistency, hallucination, convergence, complexity) MUST be LLM-based.
+- Host logic MAY:
+  - Validate structure (types, required fields).
+  - Map LLM symbolic outputs into numeric TTL or iteration counts.
+  - Sequence phases and enforce deterministic control flow.
+
+## ORCHESTRATOR REQUIREMENTS
+
+- Multi-pass loop MUST follow this order inside each pass:
+  EXECUTE → VALIDATE → CONVERGENCE → REFINEMENT → NEXT PASS
+- Initial pass MUST include the Plan → Validate → Refine pre-execution phase.
+- TTL checks MUST occur at pass boundaries and at explicitly defined safe boundaries only.
+- ExecutionHistory MUST record for each pass:
+    - TaskProfile snapshot
+    - Plan snapshot
+    - Executed steps and outputs
+    - SemanticValidationReport
+    - ConvergenceAssessment
+    - RefinementActions
+    - clarity_state occurrences
+    - TTL and timing metadata
+
+## WHAT YOU MUST NOT DO
+
+- Do NOT implement semantic heuristics, keyword lists, or pattern rules.
+- Do NOT let the LLM change the control flow directly.
+- Do NOT execute the entire plan before allowing any refinement.
+- Do NOT regenerate the full plan unless the LLM explicitly requests it AND the orchestrator records this as a special-case RefinementAction.
+- Do NOT create new JSON repair implementations or duplicate the Sprint 1 supervisor repair_json() functionality. Use the existing aeon.supervisor.repair.Supervisor.repair_json() method for all JSON/schema repair needs.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -195,11 +349,11 @@ As a developer, I can inspect a completed multi-pass execution and see a structu
 - What happens when convergence criteria are never met within the TTL limit? (Answer: System returns latest completed pass result clearly labeled as non-converged, with TTL-expired metadata including quality metrics from convergence engine)
 - What happens when TTL expires mid-phase during individual step execution? (Answer: TTL expiration is checked only at safe step boundaries or for interruptible reasoning steps. Non-idempotent or side-effecting tool operations are never interrupted. When TTL expires at a safe boundary, system terminates the phase and abandons the pending step (marking it incomplete) without interrupting any atomic operation, and returns latest completed pass result if available, or partial result from current incomplete pass if no passes have completed)
 - How does adaptive depth handle tasks that start simple but become complex during execution? (Answer: Adaptive depth MAY revise its complexity assessment during execution based on new information and adjust reasoning depth and TTL allocations within configured caps accordingly)
-- What happens when semantic validation detects contradictions that cannot be resolved through refinement?
+- What happens when semantic validation detects contradictions that cannot be resolved through refinement? (Answer: System marks conflicting fragments for manual intervention, logs conflict in metadata, continues with best available state)
 - How does the system handle partial plan rewrites that create inconsistencies with already-executed steps? (Answer: System detects inconsistencies during refinement, marks conflicting executed steps as invalid, and allows refinement only for pending/future steps to preserve execution integrity)
 - What happens when recursive planning generates an infinite refinement loop (same fragment refined repeatedly)? (Answer: Per-fragment and global refinement attempt limits prevent infinite loops - fragment reaches limit after 3 attempts, global limit stops all refinement after 10 total attempts)
 - How does convergence detection handle cases where completeness, coherence, and consistency conflict (e.g., complete but incoherent)? (Answer: Convergence engine returns converged: false with reason codes indicating which criteria failed, allowing multi-pass loop to continue refinement)
-- What happens when semantic validation identifies hallucinations in the convergence engine's own assessments?
+- What happens when semantic validation identifies hallucinations in the convergence engine's own assessments? (Answer: Treat the output as validation advisory, log for inspection, but do not invalidate convergence assessment (semantic validation is best-effort))
 - How does the system handle adaptive depth adjustments that exceed maximum TTL limits? (Answer: Adaptive depth heuristics cap TTL allocations at the configured maximum rather than exceeding it. When heuristics would exceed limits, TTL is set to the configured maximum and all resource caps are respected)
 - What happens when semantic validation proposes repairs that conflict with recursive planner refinements? (Answer: The conflict is surfaced in execution metadata/logs and resolved deterministically by applying the recursive planner's refinement while logging the semantic validation repair as an advisory)
 - How does the multi-pass loop handle supervisor repair failures during the refinement phase? (Answer: Supervisor repair failures are treated as unrecoverable refinement failures; system proceeds with current plan state and continues to next pass without applying refinement changes)
@@ -229,6 +383,16 @@ This refactoring is a prerequisite for Sprint 2 implementation and must be compl
 #### Multi-Pass Execution Loop
 
 - **FR-001**: The system SHALL implement a multi-pass execution loop with deterministic phase boundaries: plan → execute → evaluate → refine → re-execute → converge → stop and SHALL execute each phase sequentially and deterministically, with clear boundaries between phases
+- **FR-084**: The system SHALL implement Phase A: TaskProfile & TTL, calling the LLM once to infer a TaskProfile for the task. TaskProfile inference SHALL be the ONLY semantic step for complexity/ambiguity assessment. The LLM MUST return qualitative fields (reasoning_depth, information_sufficiency, etc). Host-side code MAY map these fields/principles to numeric TTL and iteration caps using a deterministic function. This mapping MUST NOT introduce additional semantic decisions.
+- **FR-085**: For a given pass, TaskProfile inference MUST NOT be re-run just because of JSON/schema errors. JSON/schema issues SHALL be repaired using the Sprint 1 supervisor repair_json() method (see Sprint 1 supervisor interface: aeon.supervisor.repair.Supervisor.repair_json()). This method is available as a dependency from Sprint 1.
+- **FR-086**: The system SHALL implement Phase B: Initial Plan & Pre-Execution Refinement. Pass 0 MUST follow this exact sequence: (1) PLAN PHASE: Invoke the recursive planner to generate an initial declarative plan with steps including step_index (1-based), total_steps, incoming_context (may be empty initially), handoff_to_next (may be empty initially), dependencies and provides fields; (2) PLAN VALIDATION: Invoke the semantic validator on the plan only and receive a SemanticValidationReport in strict JSON schema; (3) PLAN REFINEMENT: Invoke the recursive planner in refinement mode using validation issues as hard constraints, applying ONLY delta-style changes (ADD/MODIFY/REMOVE) preserving stable step IDs where possible, and updating incoming_context/handoff_to_next fields as needed. Only after this Plan → Validate → Refine sequence may the system begin executing steps.
+- **FR-087**: The system SHALL implement Phase C: Execution Passes (1..N). For each execution pass, the orchestrator MUST: (1) EXECUTE BATCH: Select all steps that are status=pending and dependencies satisfied, then execute all selected steps in parallel (concurrent execution); (2) EVALUATE: Run the semantic validator on the updated plan + executed steps + partial outputs, run the convergence engine using semantic validator output, and get a ConvergenceAssessment; (3) DECIDE: If converged == true → terminate, if converged == false AND TTL remains → move to REFINEMENT, if TTL expired → return TTL-expired result; (4) REFINEMENT: Collect refinement triggers (validation issues, convergence reason_codes, any steps whose clarity_state == BLOCKED), invoke recursive planner in refinement mode with these triggers as constraints, produce delta-style RefinementActions targeting future/unexecuted steps, apply deltas, update plan, and continue to the next pass.
+- **FR-088**: The LLM MUST NEVER directly control the loop. The LLM only emits structured signals: ValidationIssue, ConvergenceAssessment, RefinementAction, clarity_state. The orchestrator decides when to start a new pass based on TTL and convergence.
+- **FR-089**: The system SHALL update the Step data model to include: step_index (int), total_steps (int), incoming_context (Optional[str]), handoff_to_next (Optional[str]).
+- **FR-090**: Executor code MUST always construct the step execution prompt using these fields: "You are executing step {step_index} of {total_steps}.", "Incoming context from previous steps: {incoming_context}.", "Your goal for this step: {description}.", "You should prepare handoff for the next step as: {handoff_to_next}." so every step is aware of what came before and what must be handed off next.
+- **FR-091**: The step execution LLM MUST return: step_output and clarity_state (one of {CLEAR, PARTIALLY_CLEAR, BLOCKED}).
+- **FR-092**: The executor MUST NOT perform semantic reasoning. It just passes inputs/outputs through.
+- **FR-093**: When a step's clarity_state == BLOCKED, the system SHALL preserve the step_output, mark the step status as invalid, and include the step in refinement triggers. The preserved output may be used after refinement completes.
 - **FR-003**: The multi-pass loop SHALL safely refine plans and steps without creating infinite loops through refinement attempt limits (e.g., 3 attempts per plan fragment with a global maximum of 10 total refinement attempts across all fragments) and convergence detection
 - **FR-004**: During the refinement phase, the system SHALL integrate supervisor functionality to repair structural or semantic issues before re-execution
 - **FR-067**: When supervisor repair fails during the refinement phase after 2 repair attempts, the system SHALL treat it as an unrecoverable refinement failure, proceed with the current plan state (best available version), and continue to the next pass without applying refinement changes
@@ -292,6 +456,7 @@ This refactoring is a prerequisite for Sprint 2 implementation and must be compl
 - **FR-NEW-001**: The system SHALL maintain versioned TaskProfile metadata across passes, updating dimensions only at pass boundaries
 - **FR-NEW-002**: The system SHALL record TaskProfile version transitions in execution history
 - **FR-NEW-003**: The system SHALL revise TaskProfile dimensions when validators, convergence analysis, or recursive planning reveal new information
+- **FR-094**: TaskProfile updates at pass boundaries SHALL be triggered only when multiple indicators together suggest a complexity mismatch: convergence failure (converged == false) AND validation issues present AND clarity_state patterns (BLOCKED states) indicate mismatch. All these signals must be present to trigger a TaskProfile update.
 - **FR-077**: The adaptive depth heuristics SHALL respect global TTL and resource caps and MUST NOT silently exceed configured limits. When adaptive heuristics would exceed limits, they SHALL cap TTL allocations at the configured maximum rather than exceeding it
 - **FR-080**: The adaptive depth heuristics MAY revise their complexity assessment during execution based on new information (e.g., semantic validation results, convergence failures, recursive planner needs) and adjust reasoning depth and TTL allocations within configured caps accordingly. Adaptive depth MAY reduce TTL allocations or reasoning depth when tasks are detected to be simpler than previously estimated, not only increase them when complexity is high
 - **FR-031**: The adaptive depth heuristics SHALL integrate with semantic validation layer to inform complexity detection (e.g., using validation issue counts as complexity indicators)
@@ -334,7 +499,7 @@ Examples:
 
 5. **No Embedded Semantic Rules**: The semantic validator MUST NOT embed semantic rules or decision logic. It may only perform structural checks (duplicate IDs, missing attributes) before delegating to the LLM.
 
-6. **Strict Schema Adherence**: All outputs MUST strictly adhere to the schemas defined in the Key Entities and Schema Constraints sections (ValidationIssue, SemanticValidationReport, ConvergenceAssessment, TaskProfile, etc.). If the LLM deviates from schema, validator MUST request a structured retry rather than repairing output heuristically.
+6. **Strict Schema Adherence**: All outputs MUST strictly adhere to the schemas defined in the Key Entities and Schema Constraints sections (ValidationIssue, SemanticValidationReport, ConvergenceAssessment, TaskProfile, etc.). If the LLM deviates from schema, validator MUST use the Sprint 1 supervisor repair_json() method (aeon.supervisor.repair.Supervisor.repair_json()) for structured retry rather than repairing output heuristically or implementing a new repair mechanism. The system SHALL NOT create duplicate or parallel JSON repair implementations.
 
 - **FR-036**: The system SHALL implement a semantic validation layer that validates step specificity (concreteness and actionability of step descriptions) using LLM-based reasoning as the primary mechanism. The validator MUST NOT use semantic rules, static keyword lists, pattern-matching triggers, or handcrafted heuristics as primary decision-makers
 - **FR-037**: The semantic validation layer SHALL validate logical relevance of steps to the overall goal (each step contributes meaningfully to goal achievement) using LLM-based reasoning as the primary mechanism. The validator MUST NOT use semantic rules, static keyword lists, pattern-matching triggers, or handcrafted heuristics as primary decision-makers
@@ -348,7 +513,7 @@ Examples:
 - **FR-045**: The semantic validation layer SHALL propose semantic repairs for detected issues (suggested step rewrites, tool replacements, logical corrections) using LLM-based reasoning as the primary mechanism. The system MUST NOT construct, template, or infer repairs algorithmically. All repairs must be structured LLM output
 - **FR-046**: The semantic validation layer SHALL be modular and independent of the kernel, operating through well-defined interfaces without direct kernel dependencies. The semantic validator MUST NOT embed semantic rules or decision logic. It may only perform structural checks (duplicate IDs, missing attributes) before delegating to the LLM
 - **FR-081**: The semantic validation layer SHALL operate as a best-effort advisory system, not a truth oracle. Validation reports provide suggestions and issue classifications but may miss issues or produce false positives and should not be treated as authoritative determinations of correctness
-- **FR-082**: The semantic validation layer SHALL ensure all outputs strictly adhere to the schemas defined in the Key Entities and Schema Constraints sections (ValidationIssue, SemanticValidationReport, ConvergenceAssessment, TaskProfile, etc.). If the LLM deviates from schema, the validator MUST request a structured retry from the LLM rather than repairing output heuristically
+- **FR-082**: The semantic validation layer SHALL ensure all outputs strictly adhere to the schemas defined in the Key Entities and Schema Constraints sections (ValidationIssue, SemanticValidationReport, ConvergenceAssessment, TaskProfile, etc.). If the LLM deviates from schema, the validator MUST use the Sprint 1 supervisor repair_json() method (aeon.supervisor.repair.Supervisor.repair_json()) for structured retry rather than repairing output heuristically or implementing a new repair mechanism. The system SHALL NOT create duplicate or parallel JSON repair implementations.
 
 #### Integration Requirements
 
@@ -375,6 +540,7 @@ Examples:
 - **FR-075**: The execution history SHALL include semantic validation reports for each pass showing: issue classifications, severity scores, and proposed repairs
 - **FR-076**: The execution history SHALL enable developers to identify patterns across passes (e.g., fragments requiring multiple refinements, convergence blockers, effectiveness of adaptive depth adjustments) for debugging and tuning
 - **FR-078**: The execution history SHALL record adaptive depth configuration details for each pass, including adjustment_reason indicating why reasoning depth or TTL was adjusted (e.g., high ambiguity, missing details, logical gaps), so developers can inspect adjustment causes
+- **FR-095**: ExecutionHistory SHALL be stored in-memory only for Sprint 2 (no persistent file storage). The ExecutionHistory object SHALL be returned as part of the execution result when execution completes (converged or TTL expired), enabling developers to inspect the history programmatically without requiring file I/O.
 
 #### Excluded Capabilities for Sprint 2
 
@@ -389,7 +555,7 @@ Examples:
 
 - **Execution Pass**: A single iteration of the multi-pass loop containing: pass_number (sequential identifier), phase (plan, execute, evaluate, refine), plan_state (snapshot of plan at pass start), execution_results (step outputs, tool results), evaluation_results (convergence assessment, semantic validation report), refinement_changes (plan/step modifications if any), ttl_remaining (cycles left), timing_information (start_time, end_time, duration)
 
-- **Execution History**: Structured history of completed multi-pass execution containing: execution_id (unique identifier), task_input (original task description), configuration (convergence criteria, TTL, adaptive depth settings), passes (array of Execution Pass objects), final_result (converged or TTL expired result), overall_statistics (total_passes, total_refinements, convergence_achieved, total_time)
+- **Execution History**: Structured history of completed multi-pass execution containing: execution_id (unique identifier), task_input (original task description), configuration (convergence criteria, TTL, adaptive depth settings), passes (array of Execution Pass objects), final_result (converged or TTL expired result), overall_statistics (total_passes, total_refinements, convergence_achieved, total_time). Stored in-memory only for Sprint 2 (no persistent file storage) and returned as part of the execution result.
 
 - **Refinement Action**: A modification to plan or steps during refinement phase containing: type (plan_update, step_add, step_remove, step_modify, subplan_create, step_mark_invalid), target (step_id or plan section), changes (modified content), reason (why refinement was needed), semantic_validation_input (validation issues that triggered refinement), inconsistency_detected (boolean, true if refinement creates inconsistency with executed steps)
 
@@ -402,6 +568,8 @@ Examples:
 - **Adaptive Depth Configuration**: Settings used by adaptive depth heuristics containing: detected_complexity (score or category), ambiguity_score (numeric), uncertainty_score (numeric), allocated_ttl (cycles allocated), reasoning_mode (deep, shallow, balanced), adjustment_reason (why depth was adjusted), heuristics_used (which heuristics contributed to decision)
 
 - **Subplan**: A nested plan structure within a parent plan step containing: parent_step_id (which step this subplan expands), subplan_goal (objective of the subplan), substeps (array of step objects following same structure as main plan steps), depth_level (nesting depth), created_by (which system component created it - recursive_planner, refinement, etc.)
+
+- **Step**: A single step in a plan containing: step_index (int, 1-based), total_steps (int), incoming_context (Optional[str] - context from previous steps), handoff_to_next (Optional[str] - context to pass to next step), description (step goal/description), dependencies (array of step IDs), provides (array of provided artifacts), status (pending, running, complete, failed, invalid), step_output (output from execution), clarity_state (CLEAR, PARTIALLY_CLEAR, BLOCKED - returned by step execution LLM)
 
 - **TTL Expiration Response**: Result returned when TTL expires before convergence containing: converged (false), result_type (ttl_expired), latest_pass_result (output from the most recent completed execution pass, or null if no passes completed), partial_result (output from current incomplete pass if TTL expired mid-phase and no passes completed), expiration_point (phase_boundary or mid_phase), ttl_expired_metadata (object containing completeness_score, coherence_score, consistency_status, detected_issues, reason_codes indicating why convergence was not achieved, pass_number indicating which pass was the latest or current), termination_reason ("ttl_expired")
 
@@ -452,10 +620,22 @@ for generating code, classes, and concrete schemas consistent with these rules.
 - `new_step` — optional structured step
 - `justification` — explanation from the LLM
 
+#### Step (required fields)
+- `step_index` — integer (1-based step number)
+- `total_steps` — integer (total number of steps in plan)
+- `incoming_context` — optional string (context from previous steps)
+- `handoff_to_next` — optional string (context to pass to next step)
+- `description` — string (step goal/description)
+- `dependencies` — list of step IDs that must complete before this step
+- `provides` — list of artifacts provided by this step
+- `status` — enum {pending, running, complete, failed, invalid}
+- `step_output` — optional output from step execution
+- `clarity_state` — enum {CLEAR, PARTIALLY_CLEAR, BLOCKED} (returned by step execution LLM)
+
 #### ExecutionPass (required fields)
 - `pass_number` — integer counter
 - `phase` — enum {PLAN, EXECUTE, EVALUATE, REFINE, RE_EXECUTE}
-- `steps` — list of step objects with status
+- `steps` — list of Step objects with status
 - `validation_report` — SemanticValidationReport
 - `convergence` — ConvergenceAssessment
 - `taskprofile` — TaskProfile used for that pass
