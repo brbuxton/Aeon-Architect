@@ -146,7 +146,7 @@
 - Database storage: Rejected - out of scope for Sprint 2, adds dependencies
 
 **Implementation Approach**:
-- Create ExecutionHistory model in aeon/kernel/models.py (data structure only)
+- Create ExecutionHistory model in aeon/kernel/state.py (data structure only)
 - Store ExecutionPass objects in-memory during multi-pass execution
 - Return ExecutionHistory as part of execution result
 - Include pass sequence, plan snapshots, refinement actions, convergence assessments, semantic validation reports
