@@ -1,7 +1,10 @@
 """Orchestration state management."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
 
 from aeon.plan.models import Plan, PlanStep, StepStatus
 from aeon.memory.interface import Memory
@@ -59,4 +62,44 @@ class OrchestrationState:
             self.supervisor_actions.append({"type": "step_failure", "message": error})
 
 
+class ExecutionPass(BaseModel):
+    """Represents a single iteration of the multi-pass loop."""
+
+    pass_number: int = Field(..., ge=0, description="Sequential identifier (0 for initial plan, 1-N for execution passes)")
+    phase: Literal["A", "B", "C", "D"] = Field(..., description="Current phase (A=TaskProfile, B=Initial Plan, C=Execution, D=Adaptive Depth)")
+    plan_state: Dict[str, Any] = Field(..., description="Snapshot of plan at pass start (JSON-serializable)")
+    execution_results: List[Dict[str, Any]] = Field(default_factory=list, description="Step outputs and tool results (JSON-serializable)")
+    evaluation_results: Dict[str, Any] = Field(default_factory=dict, description="Convergence assessment and semantic validation report (JSON-serializable)")
+    refinement_changes: List[Dict[str, Any]] = Field(default_factory=list, description="Plan/step modifications if any (JSON-serializable)")
+    ttl_remaining: int = Field(..., ge=0, description="TTL cycles remaining")
+    timing_information: Dict[str, Any] = Field(default_factory=dict, description="Contains start_time, end_time, duration (ISO 8601 timestamps)")
+
+    model_config = {"extra": "forbid"}
+
+
+class ExecutionHistory(BaseModel):
+    """Structured history of completed multi-pass execution."""
+
+    execution_id: str = Field(..., description="Unique identifier for execution")
+    task_input: str = Field(..., description="Original task description")
+    configuration: Dict[str, Any] = Field(default_factory=dict, description="Convergence criteria, TTL, adaptive depth settings (JSON-serializable)")
+    passes: List[ExecutionPass] = Field(..., min_length=1, description="Ordered list of execution passes")
+    final_result: Dict[str, Any] = Field(default_factory=dict, description="Converged or TTL-expired result (JSON-serializable)")
+    overall_statistics: Dict[str, Any] = Field(default_factory=dict, description="Contains total_passes, total_refinements, convergence_achieved, total_time")
+
+    model_config = {"extra": "forbid"}
+
+
+class TTLExpirationResponse(BaseModel):
+    """Response structure when TTL expires during execution."""
+
+    expiration_type: Literal["phase_boundary", "mid_phase"] = Field(..., description="Where TTL expired: at phase boundary or mid-phase")
+    phase: Literal["A", "B", "C", "D"] = Field(..., description="Phase where expiration occurred")
+    pass_number: int = Field(..., ge=0, description="Pass number where expiration occurred")
+    ttl_remaining: int = Field(..., ge=0, description="TTL cycles remaining (should be 0)")
+    plan_state: Dict[str, Any] = Field(..., description="Plan state at expiration (JSON-serializable)")
+    execution_results: List[Dict[str, Any]] = Field(default_factory=list, description="Partial execution results (JSON-serializable)")
+    message: str = Field(..., description="Human-readable expiration message")
+
+    model_config = {"extra": "forbid"}
 

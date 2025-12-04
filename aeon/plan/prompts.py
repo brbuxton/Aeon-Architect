@@ -63,7 +63,7 @@ def construct_plan_generation_prompt(request: str, tool_registry: Optional[Any] 
 
 def build_reasoning_prompt(step: PlanStep, memory: Memory) -> str:
     """
-    Build reasoning prompt with step description and memory context.
+    Build reasoning prompt with step description, context propagation fields, and memory context.
 
     Args:
         step: PlanStep to execute
@@ -75,12 +75,23 @@ def build_reasoning_prompt(step: PlanStep, memory: Memory) -> str:
     # Start with step description
     prompt = f"Task: {step.description}\n\n"
 
+    # Add step context (step_index, total_steps) if available
+    if hasattr(step, 'step_index') and step.step_index is not None:
+        prompt += f"Step {step.step_index}"
+        if hasattr(step, 'total_steps') and step.total_steps is not None:
+            prompt += f" of {step.total_steps}"
+        prompt += "\n\n"
+
+    # Add incoming context from previous steps if available
+    if hasattr(step, 'incoming_context') and step.incoming_context:
+        prompt += f"Context from previous steps:\n{step.incoming_context}\n\n"
+
     # Add memory context if available
     try:
         # Search for relevant memory entries (prefix with step_id or general context)
         context_entries = memory.search("step_")
         if context_entries:
-            prompt += "Context from previous steps:\n"
+            prompt += "Additional context from memory:\n"
             for key, value in context_entries[:5]:  # Limit to 5 most recent
                 prompt += f"- {key}: {value}\n"
             prompt += "\n"
@@ -88,5 +99,9 @@ def build_reasoning_prompt(step: PlanStep, memory: Memory) -> str:
         # If memory search fails, continue without context
         pass
 
-    prompt += "Please provide your reasoning and result."
+    prompt += "Please provide your reasoning and result. "
+    prompt += "If the task is clear and you can proceed, respond with clarity_state: CLEAR. "
+    prompt += "If the task is partially clear but needs more information, respond with clarity_state: PARTIALLY_CLEAR. "
+    prompt += "If the task is blocked and cannot proceed, respond with clarity_state: BLOCKED. "
+    prompt += "Include a 'handoff_to_next' field with context to pass to the next step."
     return prompt
