@@ -3,9 +3,9 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
-from aeon.observability.models import LogEntry
+from aeon.observability.models import ExecutionMetrics, LogEntry
 
 
 class JSONLLogger:
@@ -51,6 +51,8 @@ class JSONLLogger:
         tool_calls: list = None,
         ttl_remaining: int = 0,
         errors: list = None,
+        pass_number: Optional[int] = None,
+        phase: Optional[str] = None,
     ) -> LogEntry:
         """
         Format a log entry from orchestration cycle data.
@@ -63,6 +65,8 @@ class JSONLLogger:
             tool_calls: Tool invocations in this cycle (optional)
             ttl_remaining: Cycles left before expiration
             errors: Errors in this cycle (optional)
+            pass_number: Pass number in multi-pass execution (optional, for Sprint 2)
+            phase: Current phase in multi-pass execution (optional, for Sprint 2)
 
         Returns:
             Formatted LogEntry
@@ -76,5 +80,54 @@ class JSONLLogger:
             ttl_remaining=ttl_remaining,
             errors=errors or [],
             timestamp=datetime.now().isoformat(),
+            pass_number=pass_number,
+            phase=phase,
         )
+
+    def log_multipass_entry(
+        self,
+        pass_number: int,
+        phase: str,
+        plan_state: dict,
+        execution_results: list = None,
+        evaluation_results: dict = None,
+        refinement_changes: list = None,
+        ttl_remaining: int = 0,
+        errors: list = None,
+    ) -> None:
+        """
+        Log a multi-pass execution entry (Sprint 2).
+
+        Args:
+            pass_number: Pass number in multi-pass execution
+            phase: Current phase (A, B, C, D)
+            plan_state: Snapshot of plan at pass start
+            execution_results: Step outputs and tool results (optional)
+            evaluation_results: Convergence assessment and semantic validation (optional)
+            refinement_changes: Plan/step modifications (optional)
+            ttl_remaining: TTL cycles remaining
+            errors: Errors in this pass (optional)
+        """
+        if not self.file_path:
+            return  # No-op if no file path provided
+
+        try:
+            entry = {
+                "type": "multipass_entry",
+                "pass_number": pass_number,
+                "phase": phase,
+                "plan_state": plan_state,
+                "execution_results": execution_results or [],
+                "evaluation_results": evaluation_results or {},
+                "refinement_changes": refinement_changes or [],
+                "ttl_remaining": ttl_remaining,
+                "errors": errors or [],
+                "timestamp": datetime.now().isoformat(),
+            }
+            with open(self.file_path, 'a', encoding='utf-8') as f:
+                json_str = json.dumps(entry, default=str)
+                f.write(json_str + '\n')
+        except Exception:
+            # Non-blocking: silently fail on write errors
+            pass
 

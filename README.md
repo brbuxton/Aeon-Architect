@@ -40,7 +40,9 @@ tests/
 └── contract/            # Contract tests
 ```
 
-## Features (Sprint 1)
+## Features
+
+### Sprint 1 Features ✅
 
 ### ✅ User Story 1: Plan Generation
 Generate declarative multi-step plans from natural language requests.
@@ -65,6 +67,26 @@ Generate JSONL logs for each orchestration cycle with all required fields.
 
 ### ✅ User Story 8: Multi-Mode Step Execution
 Execute steps via tools, explicit LLM reasoning, or fallback when tools are missing. Includes missing-tool detection, supervisor repair, and graceful fallback to LLM reasoning.
+
+### Sprint 2 Features ✅ (Adaptive Multi-Pass Reasoning Engine)
+
+### ✅ User Story 1: Multi-Pass Execution with Deterministic Phase Control
+Iteratively execute, evaluate, and refine plans until convergence or TTL expiration. Supports deterministic phase sequencing (Phase A: TaskProfile & TTL → Phase B: Initial Plan & Pre-Execution Refinement → Phase C: Execution Passes → Phase D: Adaptive Depth).
+
+### ✅ User Story 2: TaskProfile Inference and TTL Allocation
+Automatically infer task complexity characteristics (reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement) and allocate TTL accordingly before planning.
+
+### ✅ User Story 3: Recursive Planning and Plan Refinement
+Generate initial plans, create subplans for complex steps, and refine plan fragments using LLM-based reasoning with delta-style operations (ADD/MODIFY/REMOVE).
+
+### ✅ User Story 4: Semantic Validation of Plans and Execution Artifacts
+Validate plans, steps, and execution artifacts for semantic quality issues (specificity, relevance, consistency, hallucination, do/say mismatch) using LLM-based reasoning.
+
+### ✅ User Story 5: Convergence Detection and Completion Assessment
+Determine whether task execution has converged on a complete, coherent, consistent solution using LLM-based reasoning with configurable thresholds.
+
+### ✅ User Story 6: Adaptive Depth Integration
+Update TaskProfile at pass boundaries when complexity mismatch is detected, adjusting TTL, reasoning depth, and processing strategies dynamically.
 
 ## Installation
 
@@ -312,11 +334,20 @@ Coverage requirement: 100% test coverage for kernel core logic.
 
 ## Documentation
 
+### Sprint 1
 - [Specification](specs/001-aeon-core/spec.md)
 - [Implementation Plan](specs/001-aeon-core/plan.md)
 - [Tasks](specs/001-aeon-core/tasks.md)
 - [Data Model](specs/001-aeon-core/data-model.md)
 - [Interface Contracts](specs/001-aeon-core/contracts/interfaces.md)
+
+### Sprint 2
+- [Specification](specs/003-adaptive-reasoning/spec.md)
+- [Implementation Plan](specs/003-adaptive-reasoning/plan.md)
+- [Tasks](specs/003-adaptive-reasoning/tasks.md)
+- [Data Model](specs/003-adaptive-reasoning/data-model.md)
+- [Quickstart Guide](specs/003-adaptive-reasoning/quickstart.md)
+- [Interface Contracts](specs/003-adaptive-reasoning/contracts/interfaces.md)
 
 ## License
 
@@ -334,7 +365,17 @@ MIT
 - ✅ Orchestration Cycle Logging (US7)
 - ✅ Multi-Mode Step Execution (US8)
 
+✅ **Sprint 2 Complete** - Adaptive Multi-Pass Reasoning Engine implemented:
+- ✅ Multi-Pass Execution with Deterministic Phase Control (US1)
+- ✅ TaskProfile Inference and TTL Allocation (US2)
+- ✅ Recursive Planning and Plan Refinement (US3)
+- ✅ Semantic Validation of Plans and Execution Artifacts (US4)
+- ✅ Convergence Detection and Completion Assessment (US5)
+- ✅ Adaptive Depth Integration (US6)
+
 **Test Coverage:** 153 tests passing, 53% overall coverage (80-100% for core modules)
+
+**Note:** Kernel LOC currently exceeds the 800 LOC constitutional limit (1300 LOC). Refactoring is recommended to extract additional logic to external modules.
 
 
 

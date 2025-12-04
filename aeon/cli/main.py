@@ -159,6 +159,57 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
         print(f"\nStatus: {result['status']}")
         print(f"TTL remaining: {result['ttl_remaining']}")
 
+        # Display multi-pass execution information if available (Sprint 2)
+        if 'execution_history' in result:
+            history = result['execution_history']
+            print(f"\n{'='*60}")
+            print("Multi-Pass Execution Summary")
+            print(f"{'='*60}")
+            print(f"Execution ID: {history.get('execution_id', 'N/A')}")
+            stats = history.get('overall_statistics', {})
+            print(f"Total Passes: {stats.get('total_passes', 0)}")
+            print(f"Total Refinements: {stats.get('total_refinements', 0)}")
+            print(f"Convergence Achieved: {stats.get('convergence_achieved', False)}")
+            print(f"Total Time: {stats.get('total_time', 0):.2f}s")
+            
+            # Display pass-by-pass information
+            passes = history.get('passes', [])
+            if passes:
+                print(f"\nPass Details:")
+                for pass_data in passes:
+                    pass_num = pass_data.get('pass_number', 0)
+                    phase = pass_data.get('phase', 'N/A')
+                    duration = pass_data.get('timing_information', {}).get('duration', 0)
+                    ttl_rem = pass_data.get('ttl_remaining', 0)
+                    refinements = len(pass_data.get('refinement_changes', []))
+                    
+                    print(f"  Pass {pass_num} (Phase {phase}):")
+                    print(f"    Duration: {duration:.2f}s")
+                    print(f"    TTL Remaining: {ttl_rem}")
+                    if refinements > 0:
+                        print(f"    Refinements: {refinements}")
+                    
+                    # Show convergence assessment if available
+                    eval_results = pass_data.get('evaluation_results', {})
+                    if 'convergence' in eval_results:
+                        conv = eval_results['convergence']
+                        if isinstance(conv, dict):
+                            print(f"    Converged: {conv.get('converged', False)}")
+                            if 'completeness_score' in conv:
+                                print(f"    Completeness: {conv.get('completeness_score', 0):.2f}")
+                            if 'coherence_score' in conv:
+                                print(f"    Coherence: {conv.get('coherence_score', 0):.2f}")
+                    
+                    # Show validation issues if available
+                    if 'validation' in eval_results:
+                        val = eval_results['validation']
+                        if isinstance(val, dict):
+                            issues = val.get('issues', [])
+                            if issues:
+                                print(f"    Validation Issues: {len(issues)}")
+                                severity = val.get('overall_severity', 'N/A')
+                                print(f"    Overall Severity: {severity}")
+
         if args.json:
             # Include full state in JSON output
             full_result = {

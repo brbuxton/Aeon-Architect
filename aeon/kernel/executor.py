@@ -7,6 +7,7 @@ from aeon.exceptions import ToolError, ValidationError
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
 from aeon.plan.models import PlanStep, StepStatus
+from aeon.plan.prompts import build_reasoning_prompt
 from aeon.supervisor.repair import Supervisor
 from aeon.tools.registry import ToolRegistry
 from aeon.validation.schema import Validator
@@ -162,6 +163,8 @@ class StepExecutor:
         """
         Execute LLM reasoning step (explicit or fallback).
 
+        Handles clarity_state (CLEAR, PARTIALLY_CLEAR, BLOCKED) and context propagation.
+
         Args:
             step: PlanStep with agent="llm" or missing tool
             memory: Memory interface
@@ -171,13 +174,13 @@ class StepExecutor:
             StepExecutionResult
         """
         try:
-            # Build prompt with step description and memory context
-            prompt = self._build_reasoning_prompt(step, memory)
+            # Build prompt with step description, context propagation fields, and memory context
+            prompt = build_reasoning_prompt(step, memory)
 
             # Invoke LLM
             response = llm.generate(
                 prompt=prompt,
-                system_prompt="You are a reasoning assistant. Provide clear, structured responses.",
+                system_prompt="You are a reasoning assistant. Provide clear, structured responses. Include clarity_state and handoff_to_next in your response.",
                 max_tokens=2048,
                 temperature=0.7,
             )
@@ -209,12 +212,33 @@ class StepExecutor:
                 # If not JSON, wrap in result dict
                 result = {"result": result_text}
 
+            # Extract clarity_state and handoff_to_next from result
+            clarity_state = None
+            handoff_to_next = None
+            if isinstance(result, dict):
+                clarity_state = result.get("clarity_state")
+                handoff_to_next = result.get("handoff_to_next")
+                # Remove clarity_state and handoff_to_next from result dict (they're step fields, not result)
+                result = {k: v for k, v in result.items() if k not in ["clarity_state", "handoff_to_next"]}
+
+            # Populate step fields
+            if hasattr(step, 'clarity_state'):
+                step.clarity_state = clarity_state
+            if hasattr(step, 'handoff_to_next'):
+                step.handoff_to_next = handoff_to_next
+            if hasattr(step, 'step_output'):
+                # Store the result text as step_output
+                step.step_output = result_text if not isinstance(result, dict) else json.dumps(result)
+
+            # Handle clarity_state: BLOCKED → mark as invalid
+            if clarity_state == "BLOCKED":
+                step.status = StepStatus.INVALID
+            else:
+                step.status = StepStatus.COMPLETE
+
             # Store result in memory
             memory_key = f"step_{step.step_id}_result"
             memory.write(memory_key, result)
-
-            # Mark step as complete
-            step.status = StepStatus.COMPLETE
 
             return StepExecutionResult(
                 success=True,
@@ -232,33 +256,4 @@ class StepExecutor:
                 execution_mode="llm" if step.agent == "llm" else "fallback",
             )
 
-    def _build_reasoning_prompt(self, step: PlanStep, memory: Memory) -> str:
-        """
-        Build reasoning prompt with step description and memory context.
-
-        Args:
-            step: PlanStep to execute
-            memory: Memory interface
-
-        Returns:
-            Prompt string
-        """
-        # Start with step description
-        prompt = f"Task: {step.description}\n\n"
-
-        # Add memory context if available
-        try:
-            # Search for relevant memory entries (prefix with step_id or general context)
-            context_entries = memory.search("step_")
-            if context_entries:
-                prompt += "Context from previous steps:\n"
-                for key, value in context_entries[:5]:  # Limit to 5 most recent
-                    prompt += f"- {key}: {value}\n"
-                prompt += "\n"
-        except Exception:
-            # If memory search fails, continue without context
-            pass
-
-        prompt += "Please provide your reasoning and result."
-        return prompt
 

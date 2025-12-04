@@ -1,9 +1,9 @@
 """Plan data models."""
 
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StepStatus(str, Enum):
@@ -13,6 +13,7 @@ class StepStatus(str, Enum):
     RUNNING = "running"
     COMPLETE = "complete"
     FAILED = "failed"
+    INVALID = "invalid"
 
 
 class PlanStep(BaseModel):
@@ -31,6 +32,25 @@ class PlanStep(BaseModel):
     )
     errors: Optional[List[str]] = Field(
         default=None, description="List of error messages. Populated by validator when validation fails. Cleared by supervisor on successful repair."
+    )
+    # User Story 1: Context propagation fields
+    step_index: Optional[int] = Field(
+        default=None, ge=1, description="1-based step number"
+    )
+    total_steps: Optional[int] = Field(
+        default=None, ge=1, description="Total number of steps in plan"
+    )
+    incoming_context: Optional[str] = Field(
+        default=None, description="Context from previous steps (may be empty initially)"
+    )
+    handoff_to_next: Optional[str] = Field(
+        default=None, description="Context to pass to next step (may be empty initially)"
+    )
+    step_output: Optional[str] = Field(
+        default=None, description="Output from step execution"
+    )
+    clarity_state: Optional[Literal["CLEAR", "PARTIALLY_CLEAR", "BLOCKED"]] = Field(
+        default=None, description="Clarity state returned by step execution LLM"
     )
 
     @field_validator("step_id", "description")
@@ -102,6 +122,93 @@ class Plan(BaseModel):
 
     model_config = ConfigDict(
         frozen=False,  # Allow step updates
+    )
+
+
+class RefinementAction(BaseModel):
+    """A modification to plan or steps during refinement phase."""
+
+    action_type: Literal["ADD", "MODIFY", "REMOVE", "REPLACE"] = Field(
+        ..., description="Type of refinement action"
+    )
+    target_step_id: Optional[str] = Field(
+        default=None, description="Identifier of step being changed (None for plan-level changes)"
+    )
+    target_plan_section: Optional[str] = Field(
+        default=None, description="Plan section being changed (None for step-level changes)"
+    )
+    new_step: Optional[Dict[str, Any]] = Field(
+        default=None, description="New step content for ADD/MODIFY actions (JSON-serializable)"
+    )
+    changes: Dict[str, Any] = Field(
+        ..., description="Modified content description (JSON-serializable)"
+    )
+    reason: str = Field(..., description="Explanation of why refinement was needed")
+    semantic_validation_input: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Validation issues that triggered refinement (JSON-serializable)",
+    )
+    inconsistency_detected: bool = Field(
+        default=False,
+        description="True if refinement creates inconsistency with executed steps",
+    )
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, v: str) -> str:
+        """Validate that reason is non-empty."""
+        if not v or not v.strip():
+            raise ValueError("Reason cannot be empty")
+        return v.strip()
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "RefinementAction":
+        """Validate that either target_step_id or target_plan_section is provided, but not both."""
+        has_step_id = self.target_step_id is not None
+        has_section = self.target_plan_section is not None
+
+        if not has_step_id and not has_section:
+            raise ValueError(
+                "Either target_step_id or target_plan_section must be provided"
+            )
+        if has_step_id and has_section:
+            raise ValueError(
+                "Cannot specify both target_step_id and target_plan_section"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_new_step_for_action(self) -> "RefinementAction":
+        """Validate that new_step is provided for ADD/MODIFY actions."""
+        if self.action_type in ("ADD", "MODIFY"):
+            if self.new_step is None:
+                raise ValueError(
+                    f"new_step is required for {self.action_type} actions"
+                )
+        return self
+
+    model_config = ConfigDict(
+        frozen=False,
+    )
+
+
+class Subplan(BaseModel):
+    """A nested plan created for complex step decomposition."""
+
+    plan: Plan = Field(..., description="The nested plan structure")
+    parent_step_id: str = Field(..., description="ID of the parent step being decomposed")
+    nesting_depth: int = Field(..., ge=1, description="Current nesting depth (1-based)")
+
+    @field_validator("parent_step_id")
+    @classmethod
+    def validate_parent_step_id(cls, v: str) -> str:
+        """Validate that parent_step_id is non-empty."""
+        if not v or not v.strip():
+            raise ValueError("Parent step ID cannot be empty")
+        return v.strip()
+
+    model_config = ConfigDict(
+        frozen=False,
     )
 
 
