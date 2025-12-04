@@ -6,12 +6,17 @@ Aeon Architect — Backlog of Future Enhancements
 
 ---
 
-## [Category: core] [Impact: critical] Kernel LOC Violation (Constitutional Issue)
-- **Status**: Identified in Sprint 2, not resolved
-- **Issue**: Kernel currently 1300 LOC (orchestrator.py: 1041, executor.py: 259), exceeds 800 LOC constitutional limit
-- **Impact**: Violates Constitution Principle I (Kernel Minimalism)
-- **Action**: Additional kernel refactoring required to extract logic to external modules
-- **Priority**: Must be addressed before further kernel expansion
+## [Category: core] [Impact: critical] Kernel LOC Violation (Constitutional Issue) ✓ RESOLVED
+- **Status**: ✅ **RESOLVED** - Sprint 4 (004-kernel-refactor) completed successfully
+- **Issue**: Kernel was 1351 LOC (orchestrator.py: 1092, executor.py: 259), exceeded 800 LOC constitutional limit
+- **Resolution**: Kernel refactored to 635 LOC (orchestrator.py: 453, executor.py: 182) - 53% reduction
+- **Action Taken**: Extracted all orchestration strategy logic to `aeon/orchestration/` modules:
+  - `phases.py`: Phase A/B/C/D orchestration logic (537 LOC)
+  - `refinement.py`: Plan refinement action application (100 LOC)
+  - `step_prep.py`: Step preparation and dependency checking (137 LOC)
+  - `ttl.py`: TTL expiration response generation (106 LOC)
+- **Result**: Kernel now constitutional compliant (635 LOC < 800 LOC limit)
+- **Verification**: All 289 tests passing, 100% behavioral preservation, performance maintained
 
 ---
 

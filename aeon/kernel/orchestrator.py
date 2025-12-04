@@ -95,6 +95,15 @@ class Orchestrator:
             self._convergence_engine = ConvergenceEngine(llm_adapter=self.llm)
         else:
             self._convergence_engine = None
+        # Initialize orchestration modules (T025)
+        from aeon.orchestration.phases import PhaseOrchestrator
+        from aeon.orchestration.refinement import PlanRefinement
+        from aeon.orchestration.step_prep import StepPreparation
+        from aeon.orchestration.ttl import TTLStrategy
+        self._phase_orchestrator = PhaseOrchestrator()
+        self._plan_refinement = PlanRefinement()
+        self._step_preparation = StepPreparation()
+        self._ttl_strategy = TTLStrategy()
 
     def generate_plan(self, request: str) -> Plan:
         """
@@ -373,14 +382,21 @@ class Orchestrator:
         ttl_allocated = self.ttl  # Will be updated by Phase A
 
         try:
-            # Phase A: TaskProfile & TTL allocation
-            task_profile, ttl_allocated = self._phase_a_taskprofile_ttl(request)
+            # Phase A: TaskProfile & TTL allocation (T026)
+            success, (task_profile, ttl_allocated), error = self._phase_orchestrator.phase_a_taskprofile_ttl(
+                request, self._adaptive_depth, self.ttl
+            )
+            if not success:
+                # Fallback to default if phase orchestration fails
+                from aeon.adaptive.models import TaskProfile
+                task_profile = TaskProfile.default()
+                ttl_allocated = self.ttl
             self._check_ttl_at_phase_boundary(ttl_allocated, "A")
 
             # Initialize state for execution
             plan_to_execute = plan or self.generate_plan(request)
-            # Populate step indices before execution
-            self._populate_step_indices(plan_to_execute)
+            # Populate step indices before execution (T035)
+            self._step_preparation.populate_step_indices(plan_to_execute)
             self.state = OrchestrationState(
                 plan=plan_to_execute,
                 ttl_remaining=ttl_allocated,
@@ -388,10 +404,16 @@ class Orchestrator:
             )
             self._cycle_number = 0
 
-            # Phase B: Initial Plan & Pre-Execution Refinement
-            plan_to_execute = self._phase_b_initial_plan_refinement(request, plan_to_execute, task_profile)
-            # Re-populate step indices after refinement (in case steps were added/removed)
-            self._populate_step_indices(plan_to_execute)
+            # Phase B: Initial Plan & Pre-Execution Refinement (T027)
+            success, plan_to_execute, error = self._phase_orchestrator.phase_b_initial_plan_refinement(
+                request, plan_to_execute, task_profile,
+                self._recursive_planner, self._semantic_validator, self.tool_registry
+            )
+            if not success:
+                # Continue with original plan if refinement fails
+                pass
+            # Re-populate step indices after refinement (in case steps were added/removed) (T035)
+            self._step_preparation.populate_step_indices(plan_to_execute)
             self._check_ttl_at_phase_boundary(self.state.ttl_remaining, "B")
 
             # Phase C: Execution Passes
@@ -413,20 +435,34 @@ class Orchestrator:
                     timing_information={"start_time": pass_start.isoformat()}
                 )
 
-                # Execute batch of ready steps
-                execution_results = self._phase_c_execute_batch()
+                # Execute batch of ready steps (T028)
+                execution_results = self._phase_orchestrator.phase_c_execute_batch(
+                    self.state.plan, self.state, self.step_executor,
+                    self.tool_registry, self.memory, self.supervisor,
+                    self._execute_step
+                )
                 execution_pass.execution_results = execution_results
 
-                # Check TTL at safe boundary (after batch execution)
+                # Check TTL at safe boundary (after batch execution) (T036)
                 if self.state.ttl_remaining <= 0:
                     # TTL expired mid-phase
                     execution_pass.timing_information["end_time"] = datetime.now().isoformat()
                     execution_pass.timing_information["duration"] = (datetime.now() - pass_start).total_seconds()
                     self._execution_passes.append(execution_pass)
-                    return self._create_ttl_expiration_response("mid_phase", "C", execution_pass)
+                    success, response, error = self._ttl_strategy.create_expiration_response(
+                        "mid_phase", "C", execution_pass, self._execution_passes,
+                        self.state, execution_id, request
+                    )
+                    if success:
+                        return response
+                    # Fallback if TTL strategy fails
+                    raise TTLExpiredError(f"TTL expired mid-phase C")
 
-                # Evaluate: semantic validation + convergence
-                evaluation_results = self._phase_c_evaluate()
+                # Evaluate: semantic validation + convergence (T029)
+                evaluation_results = self._phase_orchestrator.phase_c_evaluate(
+                    self.state.plan, execution_results,
+                    self._semantic_validator, self._convergence_engine, self.tool_registry
+                )
                 execution_pass.evaluation_results = evaluation_results
 
                 # Check convergence
@@ -440,13 +476,38 @@ class Orchestrator:
                 # Decide: check if refinement needed
                 needs_refinement = evaluation_results.get("needs_refinement", False)
                 if needs_refinement:
-                    # Refine plan
-                    refinement_changes = self._phase_c_refine(evaluation_results)
-                    execution_pass.refinement_changes = refinement_changes
+                    # Refine plan (T030)
+                    # Note: phase_c_refine applies refinement actions internally and modifies plan in place
+                    # but doesn't return the updated plan. Since Pydantic models are immutable,
+                    # we need to reconstruct the plan from refinement_changes.
+                    # However, phase_c_refine already applied the actions, so we need to get the updated plan.
+                    # For now, we'll call apply_actions again to get the updated plan.
+                    success, refinement_changes, error = self._phase_orchestrator.phase_c_refine(
+                        self.state.plan, evaluation_results, self._recursive_planner,
+                        lambda p: self._step_preparation.populate_step_indices(p)
+                    )
+                    if success and refinement_changes:
+                        # phase_c_refine already applied actions internally, but we need to update state.plan
+                        # Reconstruct refinement_actions from refinement_changes and apply to get updated plan
+                        from aeon.plan.models import RefinementAction
+                        refinement_actions = [RefinementAction(**change) for change in refinement_changes]
+                        success_apply, updated_plan, error_apply = self._plan_refinement.apply_actions(
+                            self.state.plan, refinement_actions
+                        )
+                        if success_apply:
+                            self.state.plan = updated_plan
+                            # Re-populate step indices after refinement (T035)
+                            self._step_preparation.populate_step_indices(self.state.plan)
+                        execution_pass.refinement_changes = refinement_changes
 
-                # Phase D: Adaptive Depth (at pass boundary)
+                # Phase D: Adaptive Depth (at pass boundary) (T031)
                 if self._pass_number > 0:  # Only after first pass
-                    task_profile = self._phase_d_adaptive_depth(task_profile, evaluation_results)
+                    success, updated_task_profile, error = self._phase_orchestrator.phase_d_adaptive_depth(
+                        task_profile, evaluation_results, self.state.plan,
+                        self._adaptive_depth, self.state, self.ttl, self._execution_passes
+                    )
+                    if success and updated_task_profile:
+                        task_profile = updated_task_profile
                     self._check_ttl_at_phase_boundary(self.state.ttl_remaining, "D")
 
                 # Complete pass
@@ -454,9 +515,16 @@ class Orchestrator:
                 execution_pass.timing_information["duration"] = (datetime.now() - pass_start).total_seconds()
                 self._execution_passes.append(execution_pass)
 
-                # Check TTL at phase boundary before next pass
+                # Check TTL at phase boundary before next pass (T036)
                 if self.state.ttl_remaining <= 0:
-                    return self._create_ttl_expiration_response("phase_boundary", "C", execution_pass)
+                    success, response, error = self._ttl_strategy.create_expiration_response(
+                        "phase_boundary", "C", execution_pass, self._execution_passes,
+                        self.state, execution_id, request
+                    )
+                    if success:
+                        return response
+                    # Fallback if TTL strategy fails
+                    raise TTLExpiredError(f"TTL expired at phase C boundary")
 
             # Check if max passes limit was reached
             if self._pass_number >= max_passes and not converged:
@@ -517,509 +585,29 @@ class Orchestrator:
             }
 
         except TTLExpiredError as e:
-            # Handle TTL expiration
+            # Handle TTL expiration (T036)
             if self._execution_passes:
                 last_pass = self._execution_passes[-1]
-                return self._create_ttl_expiration_response("mid_phase", self._current_phase or "C", last_pass)
+                success, response, error = self._ttl_strategy.create_expiration_response(
+                    "mid_phase", self._current_phase or "C", last_pass, self._execution_passes,
+                    self.state, execution_id, request
+                )
+                if success:
+                    return response
             raise
 
-    def _phase_a_taskprofile_ttl(self, request: str) -> tuple[Any, int]:
-        """
-        Phase A: TaskProfile inference and TTL allocation.
-
-        Implements User Story 2 - TaskProfile inference and TTL allocation.
-
-        Args:
-            request: Natural language request
-
-        Returns:
-            Tuple of (TaskProfile, allocated_ttl)
-
-        Raises:
-            LLMError: If LLM operations fail
-        """
-        if not self._adaptive_depth:
-            # Fallback to default if AdaptiveDepth not available
-            from aeon.adaptive.models import TaskProfile
-            default_task_profile = TaskProfile.default()
-            allocated_ttl = self.ttl
-            return default_task_profile, allocated_ttl
-
-        # Infer TaskProfile using AdaptiveDepth
-        task_profile = self._adaptive_depth.infer_task_profile(
-            task_description=request,
-            context=None,  # Can be extended with previous attempts, user preferences, etc.
-        )
-
-        # Allocate TTL based on TaskProfile
-        allocated_ttl = self._adaptive_depth.allocate_ttl(
-            task_profile=task_profile,
-            global_ttl_limit=self.ttl,  # Use configured TTL as global limit
-        )
-
-        return task_profile, allocated_ttl
-
-    def _phase_b_initial_plan_refinement(self, request: str, plan: Plan, task_profile: Any) -> Plan:
-        """
-        Phase B: Initial Plan & Pre-Execution Refinement.
-
-        Args:
-            request: Natural language request
-            plan: Initial plan
-            task_profile: TaskProfile from Phase A
-
-        Returns:
-            Refined plan
-        """
-        # Use RecursivePlanner.generate_plan() if available to ensure proper structure
-        if self._recursive_planner:
-            try:
-                # Regenerate plan using RecursivePlanner to ensure step_index, total_steps, etc. are set
-                plan = self._recursive_planner.generate_plan(
-                    task_description=request,
-                    task_profile=task_profile,
-                    tool_registry=self.tool_registry,
-                )
-            except Exception as e:
-                # If RecursivePlanner fails, fall back to existing plan
-                # Log error but continue with existing plan
-                pass
-
-        # Phase B: Plan Validation - semantic validation
-        if self._semantic_validator:
-            try:
-                semantic_validation_report = self._semantic_validator.validate(
-                    artifact=plan.model_dump(),
-                    artifact_type="plan",
-                    tool_registry=self.tool_registry,
-                )
-                # If validation issues found, refine plan
-                if semantic_validation_report.issues and self._recursive_planner:
-                    refinement_actions = self._recursive_planner.refine_plan(
-                        current_plan=plan,
-                        validation_issues=semantic_validation_report.issues,
-                        convergence_reason_codes=[],
-                        blocked_steps=[],
-                        executed_step_ids=set(),
-                    )
-                    # Apply refinement actions to plan
-                    plan = self._apply_refinement_actions(plan, refinement_actions)
-            except Exception as e:
-                # If semantic validation fails, continue with existing plan (best-effort advisory)
-                # Log error but don't fail phase
-                pass
-
-        return plan
-
-    def _phase_c_execute_batch(self) -> List[Dict[str, Any]]:
-        """
-        Phase C: Execute batch of ready steps.
-
-        Executes all steps that are ready (dependencies satisfied) in parallel.
-
-        Returns:
-            List of execution results
-        """
-        execution_results = []
-        ready_steps = self._get_ready_steps()
-
-        for step in ready_steps:
-            try:
-                # Execute step
-                self._execute_step(step, self.state)
-                execution_results.append({
-                    "step_id": step.step_id,
-                    "status": step.status.value,
-                    "output": getattr(step, 'step_output', None),
-                    "clarity_state": getattr(step, 'clarity_state', None)
-                })
-                # Decrement TTL after step execution
-                self.state.ttl_remaining -= 1
-            except Exception as e:
-                execution_results.append({
-                    "step_id": step.step_id,
-                    "status": "failed",
-                    "error": str(e)
-                })
-
-        return execution_results
-
-    def _phase_c_evaluate(self) -> Dict[str, Any]:
-        """
-        Phase C: Evaluate execution results (semantic validation + convergence).
-
-        Returns:
-            Evaluation results with converged flag and needs_refinement flag
-        """
-        if not self.state:
-            return {
-                "converged": False,
-                "needs_refinement": False,
-                "semantic_validation": {},
-                "convergence_assessment": {},
-            }
-
-        # Build execution results for validation and convergence assessment
-        execution_results = [
-            {
-                "step_id": step.step_id,
-                "status": step.status.value,
-                "output": getattr(step, "step_output", None),
-                "clarity_state": getattr(step, "clarity_state", None),
-            }
-            for step in self.state.plan.steps
-            if step.status in (StepStatus.COMPLETE, StepStatus.FAILED, StepStatus.INVALID)
-        ]
-
-        # 1. Call SemanticValidator.validate() for execution artifacts
-        semantic_validation_report = None
-        if self._semantic_validator:
-            try:
-                # Validate current plan state and execution artifacts
-                execution_artifact = {
-                    "plan": self.state.plan.model_dump(),
-                    "execution_results": execution_results,
-                }
-                semantic_validation_report = self._semantic_validator.validate(
-                    artifact=execution_artifact,
-                    artifact_type="execution_artifact",
-                    tool_registry=self.tool_registry,
-                )
-            except Exception as e:
-                # If semantic validation fails, continue with empty report (best-effort advisory)
-                semantic_validation_report = None
-
-        # 2. Call ConvergenceEngine.assess() with validation report
-        convergence_assessment = None
-        if self._convergence_engine:
-            try:
-                # Create a default empty validation report if none exists
-                if semantic_validation_report is None:
-                    from aeon.validation.models import SemanticValidationReport
-                    semantic_validation_report = SemanticValidationReport(
-                        artifact_type="execution_artifact",
-                        issues=[],
-                    )
-                
-                convergence_assessment = self._convergence_engine.assess(
-                    plan_state=self.state.plan.model_dump(),
-                    execution_results=execution_results,
-                    semantic_validation_report=semantic_validation_report,
-                )
-            except Exception as e:
-                # If convergence assessment fails, create conservative assessment
-                from aeon.convergence.models import ConvergenceAssessment
-                convergence_assessment = ConvergenceAssessment(
-                    converged=False,
-                    reason_codes=["convergence_assessment_failed", str(e)],
-                    completeness_score=0.0,
-                    coherence_score=0.0,
-                    consistency_status={},
-                    detected_issues=[f"Convergence assessment failed: {str(e)}"],
-                    metadata={"error": str(e)},
-                )
-        else:
-            # Fallback if convergence engine not available
-            from aeon.convergence.models import ConvergenceAssessment
-            convergence_assessment = ConvergenceAssessment(
-                converged=False,
-                reason_codes=["convergence_engine_not_available"],
-                completeness_score=0.0,
-                coherence_score=0.0,
-                consistency_status={},
-                detected_issues=[],
-                metadata={},
-            )
-
-        # Check if all steps are complete (automatic convergence detection)
-        all_steps_complete = all(
-            step.status in (StepStatus.COMPLETE, StepStatus.FAILED, StepStatus.INVALID)
-            for step in self.state.plan.steps
-        )
-        
-        # Determine if refinement is needed
-        needs_refinement = False
-        if semantic_validation_report and semantic_validation_report.issues:
-            # Refinement needed if there are validation issues
-            needs_refinement = True
-        if convergence_assessment and not convergence_assessment.converged:
-            # Refinement needed if not converged
-            needs_refinement = True
-
-        # Automatic convergence: if all steps are complete and no validation issues, mark as converged
-        auto_converged = False
-        if all_steps_complete:
-            if not semantic_validation_report or not semantic_validation_report.issues:
-                # All steps complete and no validation issues - auto-converge
-                auto_converged = True
-            elif semantic_validation_report.overall_severity in ("LOW", "INFO"):
-                # All steps complete and only low-severity issues - auto-converge
-                auto_converged = True
-
-        # Use auto-convergence if LLM-based assessment didn't converge but conditions are met
-        final_converged = convergence_assessment.converged if convergence_assessment else False
-        if not final_converged and auto_converged:
-            final_converged = True
-
-        return {
-            "converged": final_converged,
-            "needs_refinement": needs_refinement and not auto_converged,  # Don't refine if auto-converged
-            "semantic_validation": semantic_validation_report.model_dump() if semantic_validation_report else {},
-            "convergence_assessment": convergence_assessment.model_dump() if convergence_assessment else {},
-            "validation_issues": semantic_validation_report.issues if semantic_validation_report else [],
-            "convergence_reason_codes": convergence_assessment.reason_codes if convergence_assessment else [],
-        }
-
-    def _phase_c_refine(self, evaluation_results: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Phase C: Refine plan based on evaluation results.
-
-        Args:
-            evaluation_results: Results from evaluation phase
-
-        Returns:
-            List of refinement changes
-        """
-        if not self._recursive_planner or not self.state:
-            return []
-
-        # Extract validation issues, convergence reason codes, and blocked steps
-        validation_issues = evaluation_results.get("validation_issues", [])
-        convergence_reason_codes = evaluation_results.get("convergence_reason_codes", [])
-        blocked_steps = evaluation_results.get("blocked_steps", [])
-
-        # Get executed step IDs (steps with status complete or failed)
-        executed_step_ids = {
-            step.step_id
-            for step in self.state.plan.steps
-            if step.status in (StepStatus.COMPLETE, StepStatus.FAILED)
-        }
-
-        try:
-            # Generate refinement actions
-            refinement_actions = self._recursive_planner.refine_plan(
-                current_plan=self.state.plan,
-                validation_issues=validation_issues,
-                convergence_reason_codes=convergence_reason_codes,
-                blocked_steps=blocked_steps,
-                executed_step_ids=executed_step_ids,
-            )
-
-            # Apply refinement actions to plan
-            if refinement_actions:
-                self.state.plan = self._apply_refinement_actions(self.state.plan, refinement_actions)
-                # Re-populate step indices after refinement
-                self._populate_step_indices(self.state.plan)
-
-            # Convert refinement actions to dict format for logging
-            refinement_changes = [action.model_dump() for action in refinement_actions]
-            return refinement_changes
-
-        except Exception as e:
-            # If refinement fails, log error and continue without refinement
-            # TODO: Add proper error logging
-            return []
-
-    def _apply_refinement_actions(self, plan: Plan, refinement_actions: List[Any]) -> Plan:
-        """
-        Apply refinement actions to plan.
-
-        Args:
-            plan: Current plan
-            refinement_actions: List of RefinementAction objects
-
-        Returns:
-            Updated plan
-        """
-        from aeon.plan.models import RefinementAction
-
-        for action in refinement_actions:
-            if not isinstance(action, RefinementAction):
-                continue
-
-            if action.action_type == "ADD":
-                if action.new_step:
-                    # Create new PlanStep from new_step dict
-                    new_step = PlanStep(**action.new_step)
-                    plan.steps.append(new_step)
-            elif action.action_type == "MODIFY":
-                if action.target_step_id:
-                    # Find step and update it
-                    step = next((s for s in plan.steps if s.step_id == action.target_step_id), None)
-                    if step and action.new_step:
-                        # Update step fields from new_step dict
-                        for key, value in action.new_step.items():
-                            if hasattr(step, key):
-                                setattr(step, key, value)
-            elif action.action_type == "REMOVE":
-                if action.target_step_id:
-                    # Remove step from plan
-                    plan.steps = [s for s in plan.steps if s.step_id != action.target_step_id]
-            elif action.action_type == "REPLACE":
-                if action.target_step_id and action.new_step:
-                    # Replace step with new step
-                    step_index = next(
-                        (i for i, s in enumerate(plan.steps) if s.step_id == action.target_step_id),
-                        None
-                    )
-                    if step_index is not None:
-                        new_step = PlanStep(**action.new_step)
-                        plan.steps[step_index] = new_step
-
-        return plan
-
-    def _phase_d_adaptive_depth(self, task_profile: Any, evaluation_results: Dict[str, Any]) -> Any:
-        """
-        Phase D: Adaptive Depth - update TaskProfile at pass boundaries.
-
-        Args:
-            task_profile: Current TaskProfile
-            evaluation_results: Results from evaluation phase (includes convergence_assessment, semantic_validation, clarity_states)
-
-        Returns:
-            Updated TaskProfile (or original if no update triggered)
-        """
-        if not self._adaptive_depth or not task_profile:
-            return task_profile
-
-        # Extract convergence assessment and semantic validation report
-        convergence_assessment_dict = evaluation_results.get("convergence_assessment", {})
-        semantic_validation_dict = evaluation_results.get("semantic_validation", {})
-
-        # Convert dicts to model instances if needed
-        from aeon.convergence.models import ConvergenceAssessment
-        from aeon.validation.models import SemanticValidationReport
-
-        convergence_assessment = None
-        if convergence_assessment_dict:
-            try:
-                convergence_assessment = ConvergenceAssessment(**convergence_assessment_dict)
-            except Exception:
-                pass
-
-        semantic_validation_report = None
-        if semantic_validation_dict:
-            try:
-                semantic_validation_report = SemanticValidationReport(**semantic_validation_dict)
-            except Exception:
-                pass
-
-        # Collect clarity states from execution results
-        clarity_states = []
-        if self.state and self.state.plan:
-            for step in self.state.plan.steps:
-                clarity_state = getattr(step, 'clarity_state', None)
-                if clarity_state:
-                    clarity_states.append(clarity_state)
-
-        # Call AdaptiveDepth.update_task_profile() (T101, T102, T105)
-        updated_profile = self._adaptive_depth.update_task_profile(
-            current_profile=task_profile,
-            convergence_assessment=convergence_assessment,
-            semantic_validation_report=semantic_validation_report,
-            clarity_states=clarity_states,
-        )
-
-        if updated_profile:
-            # Adjust TTL bidirectionally based on profile update (T103)
-            old_ttl = self.state.ttl_remaining if self.state else self.ttl
-            adjusted_ttl, adjustment_reason = self._adaptive_depth.adjust_ttl_for_updated_profile(
-                old_profile=task_profile,
-                new_profile=updated_profile,
-                current_ttl=old_ttl,
-                global_ttl_limit=self.ttl,
-            )
-
-            # Update state TTL (T103)
-            if self.state:
-                self.state.ttl_remaining = adjusted_ttl
-
-            # Record adjustment_reason in execution metadata (T105)
-            # Store in the current execution pass
-            if self._execution_passes:
-                current_pass = self._execution_passes[-1]
-                if "adaptive_depth_adjustment" not in current_pass.evaluation_results:
-                    current_pass.evaluation_results["adaptive_depth_adjustment"] = {}
-                current_pass.evaluation_results["adaptive_depth_adjustment"] = {
-                    "profile_version_old": task_profile.profile_version,
-                    "profile_version_new": updated_profile.profile_version,
-                    "adjustment_reason": adjustment_reason,
-                    "ttl_old": old_ttl,
-                    "ttl_new": adjusted_ttl,
-                }
-
-            return updated_profile
-
-        return task_profile
-
-    def _get_ready_steps(self) -> List[PlanStep]:
-        """Get steps that are ready to execute (dependencies satisfied)."""
-        ready_steps = []
-        for step in self.state.plan.steps:
-            if step.status == StepStatus.PENDING:
-                # Check if all dependencies are complete
-                dependencies_satisfied = True
-                # Check for dependencies field (may not exist in all plans)
-                dependencies = getattr(step, 'dependencies', None)
-                if dependencies:
-                    for dep_id in dependencies:
-                        dep_step = next((s for s in self.state.plan.steps if s.step_id == dep_id), None)
-                        if not dep_step or dep_step.status != StepStatus.COMPLETE:
-                            dependencies_satisfied = False
-                            break
-                if dependencies_satisfied:
-                    # Populate incoming_context from dependency outputs
-                    self._populate_incoming_context(step)
-                    ready_steps.append(step)
-        return ready_steps
-
-    def _populate_incoming_context(self, step: PlanStep) -> None:
-        """
-        Populate incoming_context from dependency step outputs.
-
-        Args:
-            step: PlanStep to populate context for
-        """
-        if not self.memory:
-            return
-
-        dependencies = getattr(step, 'dependencies', None)
-        if not dependencies:
-            return
-
-        context_parts = []
-        for dep_id in dependencies:
-            # Try to get output from memory
-            memory_key = f"step_{dep_id}_result"
-            try:
-                dep_output = self.memory.read(memory_key)
-                if dep_output:
-                    # Also check for handoff_to_next from the dependency step
-                    dep_step = next((s for s in self.state.plan.steps if s.step_id == dep_id), None)
-                    if dep_step and hasattr(dep_step, 'handoff_to_next') and dep_step.handoff_to_next:
-                        context_parts.append(f"From step {dep_id}: {dep_step.handoff_to_next}")
-                    else:
-                        context_parts.append(f"From step {dep_id}: {dep_output}")
-            except Exception:
-                # If memory read fails, continue without that context
-                pass
-
-        if context_parts and hasattr(step, 'incoming_context'):
-            step.incoming_context = "\n".join(context_parts)
-
-    def _populate_step_indices(self, plan: Plan) -> None:
-        """
-        Populate step_index and total_steps for all steps in plan.
-
-        Args:
-            plan: Plan to populate indices for
-        """
-        total_steps = len(plan.steps)
-        for idx, step in enumerate(plan.steps, start=1):
-            if hasattr(step, 'step_index'):
-                step.step_index = idx
-            if hasattr(step, 'total_steps'):
-                step.total_steps = total_steps
+    # Removed extracted methods (T037):
+    # - _phase_a_taskprofile_ttl -> PhaseOrchestrator.phase_a_taskprofile_ttl
+    # - _phase_b_initial_plan_refinement -> PhaseOrchestrator.phase_b_initial_plan_refinement
+    # - _phase_c_execute_batch -> PhaseOrchestrator.phase_c_execute_batch
+    # - _phase_c_evaluate -> PhaseOrchestrator.phase_c_evaluate
+    # - _phase_c_refine -> PhaseOrchestrator.phase_c_refine
+    # - _phase_d_adaptive_depth -> PhaseOrchestrator.phase_d_adaptive_depth
+    # - _apply_refinement_actions -> PlanRefinement.apply_actions
+    # - _get_ready_steps -> StepPreparation.get_ready_steps
+    # - _populate_incoming_context -> StepPreparation.populate_incoming_context
+    # - _populate_step_indices -> StepPreparation.populate_step_indices
+    # - _create_ttl_expiration_response -> TTLStrategy.create_expiration_response
 
     def _check_ttl_at_phase_boundary(self, ttl_remaining: int, phase: Literal["A", "B", "C", "D"]) -> None:
         """
@@ -1037,56 +625,4 @@ class Orchestrator:
         if ttl_remaining <= 0:
             self._current_phase = phase
             raise TTLExpiredError(f"TTL expired at phase {phase} boundary")
-
-    def _create_ttl_expiration_response(
-        self,
-        expiration_type: Literal["phase_boundary", "mid_phase"],
-        phase: Literal["A", "B", "C", "D"],
-        execution_pass: ExecutionPass
-    ) -> Dict[str, Any]:
-        """
-        Create TTL expiration response.
-
-        Args:
-            expiration_type: Where TTL expired (phase_boundary or mid_phase)
-            phase: Phase where expiration occurred
-            execution_pass: Last execution pass
-
-        Returns:
-            TTL expiration response dict
-        """
-        expiration_response = TTLExpirationResponse(
-            expiration_type=expiration_type,
-            phase=phase,
-            pass_number=execution_pass.pass_number,
-            ttl_remaining=self.state.ttl_remaining if self.state else 0,
-            plan_state=execution_pass.plan_state,
-            execution_results=execution_pass.execution_results,
-            message=f"TTL expired {expiration_type} during phase {phase} at pass {execution_pass.pass_number}"
-        )
-
-        # Build ExecutionHistory with partial results
-        execution_history = ExecutionHistory(
-            execution_id=str(uuid.uuid4()),
-            task_input="",  # Will be set by caller
-            configuration={},
-            passes=self._execution_passes,
-            final_result={
-                "status": "ttl_expired",
-                "expiration": expiration_response.model_dump()
-            },
-            overall_statistics={
-                "total_passes": len(self._execution_passes),
-                "total_refinements": sum(len(p.refinement_changes) for p in self._execution_passes),
-                "convergence_achieved": False,
-                "total_time": 0.0
-            }
-        )
-
-        return {
-            "execution_history": execution_history.model_dump(),
-            "status": "ttl_expired",
-            "ttl_expiration": expiration_response.model_dump(),
-            "ttl_remaining": self.state.ttl_remaining if self.state else 0,
-        }
 
