@@ -4,11 +4,17 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
+from typing import TYPE_CHECKING, Optional
+
 from aeon.convergence.models import ConvergenceAssessment
 from aeon.exceptions import LLMError, ValidationError
 from aeon.llm.interface import LLMAdapter
 from aeon.supervisor.repair import Supervisor
 from aeon.validation.models import SemanticValidationReport
+
+if TYPE_CHECKING:
+    from aeon.kernel.state import ExecutionContext
+    from aeon.observability.logger import JSONLLogger
 
 
 class ConvergenceEngine:
@@ -42,6 +48,8 @@ class ConvergenceEngine:
         execution_results: List[Dict[str, Any]],
         semantic_validation_report: SemanticValidationReport,
         custom_criteria: Optional[Dict[str, Any]] = None,
+        execution_context: Optional["ExecutionContext"] = None,
+        logger: Optional["JSONLLogger"] = None,
     ) -> ConvergenceAssessment:
         """
         Assess whether task execution has converged on a complete, coherent, consistent solution.
@@ -172,7 +180,7 @@ class ConvergenceEngine:
         }
         metadata.update(assessment_result.get("metadata", {}))
 
-        return ConvergenceAssessment(
+        assessment = ConvergenceAssessment(
             converged=converged,
             reason_codes=reason_codes,
             completeness_score=completeness_score,
@@ -181,6 +189,51 @@ class ConvergenceEngine:
             detected_issues=detected_issues,
             metadata=metadata,
         )
+        
+        # Log evaluation outcome (T025, T074, T075, T076)
+        if logger and execution_context:
+            from aeon.observability.models import ConvergenceAssessmentSummary, ValidationIssuesSummary
+            from datetime import datetime
+            
+            # Create convergence assessment summary with reason codes explaining convergence decision (T074, T076)
+            convergence_summary = ConvergenceAssessmentSummary(
+                converged=converged,
+                reason_codes=reason_codes,  # Reason codes explain why convergence was/wasn't achieved (T076)
+                scores={
+                    "completeness": completeness_score,
+                    "coherence": coherence_score,
+                },
+                pass_number=0,  # Pass number should come from caller if available
+            )
+            
+            # Create validation issues summary
+            validation_summary = ValidationIssuesSummary(
+                total_issues=len(semantic_validation_report.issues),
+                critical_count=sum(1 for i in semantic_validation_report.issues if i.severity == "CRITICAL"),
+                error_count=sum(1 for i in semantic_validation_report.issues if i.severity == "ERROR"),
+                warning_count=sum(1 for i in semantic_validation_report.issues if i.severity == "WARNING"),
+                info_count=sum(1 for i in semantic_validation_report.issues if i.severity == "INFO"),
+                issues_by_type={},
+            )
+            
+            # Build evaluation_signals
+            evaluation_signals = {
+                "convergence_assessment": convergence_summary.model_dump(),
+                "validation_issues": validation_summary.model_dump(),
+            }
+            
+            # Log with enhanced summary models (T074, T075)
+            logger.log_evaluation_outcome(
+                correlation_id=execution_context.correlation_id,
+                convergence_assessment=convergence_summary.model_dump(),
+                validation_report=validation_summary.model_dump(),
+                evaluation_signals=evaluation_signals,
+                convergence_assessment_summary=convergence_summary,  # T074: Pass summary model
+                validation_issues_summary=validation_summary,  # T074: Pass summary model
+                pass_number=None,  # Pass number should come from caller if available
+            )
+        
+        return assessment
 
     def _perform_convergence_assessment(
         self,

@@ -11,6 +11,22 @@ from aeon.memory.interface import Memory
 
 
 @dataclass
+class ExecutionContext:
+    """
+    Execution context containing only correlation ID and execution start timestamp.
+    
+    This class MUST contain no orchestration or control-flow logic.
+    The orchestrator MUST NOT populate fields other than correlation_id and execution_start_timestamp.
+    Modules MUST NOT store evaluation, validation, convergence, adaptive-depth, TTL, or execution metadata inside context.
+    Logging MUST use ExecutionContext only for correlation_id; all other fields come from domain objects.
+    ExecutionContext MUST NOT be serialized wholesale.
+    """
+    
+    correlation_id: str
+    execution_start_timestamp: str
+
+
+@dataclass
 class OrchestrationState:
     """Current execution context maintained by the kernel."""
 

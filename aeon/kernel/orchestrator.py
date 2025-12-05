@@ -7,10 +7,10 @@ import uuid
 from aeon.adaptive.heuristics import AdaptiveDepth
 from aeon.exceptions import LLMError, PlanError, SupervisorError, ToolError, TTLExpiredError, ValidationError
 from aeon.kernel.executor import StepExecutor
-from aeon.kernel.state import ExecutionHistory, ExecutionPass, OrchestrationState, TTLExpirationResponse
+from aeon.kernel.state import ExecutionContext, ExecutionHistory, ExecutionPass, OrchestrationState, TTLExpirationResponse
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
-from aeon.observability.helpers import collect_cycle_data
+from aeon.observability.helpers import collect_cycle_data, generate_correlation_id
 from aeon.observability.logger import JSONLLogger
 from aeon.plan.executor import PlanExecutor
 from aeon.plan.models import Plan, PlanStep, StepStatus
@@ -147,7 +147,30 @@ class Orchestrator:
                         # Try parsing again with repaired plan
                         plan = self.parser.parse(repaired_plan_dict)
                         self.validator.validate_plan(plan.model_dump())
+                        
+                        # Log successful recovery if logger and execution_context are available
+                        if self.logger and hasattr(self.state, 'execution_context') and self.state.execution_context:
+                            from aeon.exceptions import PlanError as PlanErrorClass
+                            original_error = PlanErrorClass("Failed to parse/validate plan")
+                            error_record = original_error.to_error_record()
+                            self.logger.log_error_recovery(
+                                correlation_id=self.state.execution_context.correlation_id,
+                                original_error=error_record,
+                                recovery_action="supervisor_repair_plan",
+                                recovery_outcome="success",
+                            )
                     except (SupervisorError, PlanError) as repair_error:
+                        # Log failed recovery if logger and execution_context are available
+                        if self.logger and hasattr(self.state, 'execution_context') and self.state.execution_context:
+                            from aeon.exceptions import PlanError as PlanErrorClass
+                            original_error = PlanErrorClass("Failed to parse/validate plan")
+                            error_record = original_error.to_error_record()
+                            self.logger.log_error_recovery(
+                                correlation_id=self.state.execution_context.correlation_id,
+                                original_error=error_record,
+                                recovery_action="supervisor_repair_plan",
+                                recovery_outcome="failure",
+                            )
                         raise PlanError(
                             f"Failed to parse/validate plan and supervisor repair failed: {str(repair_error)}"
                         ) from repair_error
@@ -271,17 +294,59 @@ class Orchestrator:
             validation_result = self.validator_schema.validate_step_tool(step, tool_registry)
             if not validation_result["valid"]:
                 # Tool is missing/invalid - attempt repair
-                attempt_tool_repair(step, tool_registry, supervisor, state.plan.goal)
+                # Get correlation_id for logging
+                correlation_id = None
+                if hasattr(self.state, 'execution_context') and self.state.execution_context:
+                    correlation_id = self.state.execution_context.correlation_id
+                
+                # Log original error before repair attempt
+                if self.logger and correlation_id:
+                    from aeon.exceptions import ToolError
+                    original_error = ToolError(f"Tool '{step.tool}' not found in registry")
+                    error_record = original_error.to_error_record(
+                        context={"step_id": step.step_id, "tool_name": step.tool}
+                    )
+                    self.logger.log_error(
+                        correlation_id=correlation_id,
+                        error=error_record,
+                        step_id=step.step_id,
+                        tool_name=step.tool,
+                    )
+                
+                # Attempt repair
+                repair_success = attempt_tool_repair(step, tool_registry, supervisor, state.plan.goal)
+                
+                # Log recovery outcome
+                if self.logger and correlation_id:
+                    from aeon.exceptions import ToolError
+                    original_error = ToolError(f"Tool '{step.tool}' not found in registry")
+                    error_record = original_error.to_error_record(
+                        context={"step_id": step.step_id, "tool_name": step.tool}
+                    )
+                    self.logger.log_error_recovery(
+                        correlation_id=correlation_id,
+                        original_error=error_record,
+                        recovery_action="supervisor_repair_missing_tool",
+                        recovery_outcome="success" if repair_success else "failure",
+                    )
+                
                 # If repair failed, will fallback to LLM reasoning in StepExecutor (T118)
         
         # Use StepExecutor for multi-mode execution (T116)
         try:
+            # Get correlation_id from execution context if available
+            correlation_id = None
+            if hasattr(self.state, 'execution_context') and self.state.execution_context:
+                correlation_id = self.state.execution_context.correlation_id
+            
             execution_result = self.step_executor.execute_step(
                 step=step,
                 registry=tool_registry or ToolRegistry(),  # Empty registry if None
                 memory=self.memory,
                 llm=self.llm,
                 supervisor=supervisor,
+                logger=self.logger,
+                correlation_id=correlation_id,
             )
             
             # Log execution mode and result
@@ -374,6 +439,16 @@ class Orchestrator:
         """
         execution_id = str(uuid.uuid4())
         execution_start = datetime.now()
+        execution_start_timestamp = execution_start.isoformat()
+
+        # Generate correlation ID at execution start (T026)
+        correlation_id = generate_correlation_id(execution_start_timestamp, request)
+        
+        # Create execution context (T026a-T026d)
+        execution_context = ExecutionContext(
+            correlation_id=correlation_id,
+            execution_start_timestamp=execution_start_timestamp,
+        )
 
         # Initialize multi-pass state
         self._pass_number = 0
@@ -383,9 +458,25 @@ class Orchestrator:
 
         try:
             # Phase A: TaskProfile & TTL allocation (T026)
+            phase_a_start = datetime.now()
+            if self.logger:
+                self.logger.log_phase_entry(
+                    phase="A",
+                    correlation_id=execution_context.correlation_id,
+                    pass_number=0,
+                )
             success, (task_profile, ttl_allocated), error = self._phase_orchestrator.phase_a_taskprofile_ttl(
                 request, self._adaptive_depth, self.ttl
             )
+            phase_a_duration = (datetime.now() - phase_a_start).total_seconds()
+            if self.logger:
+                self.logger.log_phase_exit(
+                    phase="A",
+                    correlation_id=execution_context.correlation_id,
+                    duration=phase_a_duration,
+                    outcome="success" if success else "failure",
+                    pass_number=0,
+                )
             if not success:
                 # Fallback to default if phase orchestration fails
                 from aeon.adaptive.models import TaskProfile
@@ -405,10 +496,28 @@ class Orchestrator:
             self._cycle_number = 0
 
             # Phase B: Initial Plan & Pre-Execution Refinement (T027)
+            phase_b_start = datetime.now()
+            if self.logger:
+                self.logger.log_phase_entry(
+                    phase="B",
+                    correlation_id=execution_context.correlation_id,
+                    pass_number=0,
+                )
             success, plan_to_execute, error = self._phase_orchestrator.phase_b_initial_plan_refinement(
                 request, plan_to_execute, task_profile,
-                self._recursive_planner, self._semantic_validator, self.tool_registry
+                self._recursive_planner, self._semantic_validator, self.tool_registry,
+                execution_context=execution_context,
+                logger=self.logger,
             )
+            phase_b_duration = (datetime.now() - phase_b_start).total_seconds()
+            if self.logger:
+                self.logger.log_phase_exit(
+                    phase="B",
+                    correlation_id=execution_context.correlation_id,
+                    duration=phase_b_duration,
+                    outcome="success" if success else "failure",
+                    pass_number=0,
+                )
             if not success:
                 # Continue with original plan if refinement fails
                 pass
@@ -461,7 +570,9 @@ class Orchestrator:
                 # Evaluate: semantic validation + convergence (T029)
                 evaluation_results = self._phase_orchestrator.phase_c_evaluate(
                     self.state.plan, execution_results,
-                    self._semantic_validator, self._convergence_engine, self.tool_registry
+                    self._semantic_validator, self._convergence_engine, self.tool_registry,
+                    execution_context=execution_context,
+                    logger=self.logger,
                 )
                 execution_pass.evaluation_results = evaluation_results
 
@@ -484,7 +595,9 @@ class Orchestrator:
                     # For now, we'll call apply_actions again to get the updated plan.
                     success, refinement_changes, error = self._phase_orchestrator.phase_c_refine(
                         self.state.plan, evaluation_results, self._recursive_planner,
-                        lambda p: self._step_preparation.populate_step_indices(p)
+                        lambda p: self._step_preparation.populate_step_indices(p),
+                        execution_context=execution_context,
+                        logger=self.logger,
                     )
                     if success and refinement_changes:
                         # phase_c_refine already applied actions internally, but we need to update state.plan

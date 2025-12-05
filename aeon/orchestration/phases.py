@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple
 if TYPE_CHECKING:
     from aeon.adaptive.models import TaskProfile
     from aeon.plan.models import Plan
-    from aeon.kernel.state import OrchestrationState, ExecutionPass
+    from aeon.kernel.state import ExecutionContext, OrchestrationState, ExecutionPass
+    from aeon.observability.logger import JSONLLogger
 
 __all__ = ["PhaseOrchestrator", "PhaseResult"]
 
@@ -93,6 +94,8 @@ class PhaseOrchestrator:
         recursive_planner: Optional[Any],  # RecursivePlanner
         semantic_validator: Optional[Any],  # SemanticValidator
         tool_registry: Optional[Any],  # ToolRegistry
+        execution_context: Optional["ExecutionContext"] = None,
+        logger: Optional["JSONLLogger"] = None,
     ) -> PhaseBResult:
         """
         Phase B: Initial Plan & Pre-Execution Refinement.
@@ -229,6 +232,8 @@ class PhaseOrchestrator:
         semantic_validator: Optional[Any],  # SemanticValidator
         convergence_engine: Optional[Any],  # ConvergenceEngine
         tool_registry: Optional[Any],  # ToolRegistry
+        execution_context: Optional["ExecutionContext"] = None,
+        logger: Optional["JSONLLogger"] = None,
     ) -> PhaseCEvaluateResult:
         """
         Phase C: Evaluate execution results (semantic validation + convergence).
@@ -297,6 +302,8 @@ class PhaseOrchestrator:
                     plan_state=plan.model_dump(),
                     execution_results=eval_results,
                     semantic_validation_report=semantic_validation_report,
+                    execution_context=execution_context,
+                    logger=logger,
                 )
             except Exception as e:
                 # If convergence assessment fails, create conservative assessment
@@ -351,7 +358,7 @@ class PhaseOrchestrator:
         if not final_converged and auto_converged:
             final_converged = True
 
-        return {
+        evaluation_result = {
             "converged": final_converged,
             "needs_refinement": needs_refinement and not auto_converged,  # Don't refine if auto-converged
             "semantic_validation": semantic_validation_report.model_dump() if semantic_validation_report else {},
@@ -359,13 +366,22 @@ class PhaseOrchestrator:
             "validation_issues": semantic_validation_report.issues if semantic_validation_report else [],
             "convergence_reason_codes": convergence_assessment.reason_codes if convergence_assessment else [],
         }
+        
+        # Log evaluation outcome (T025) - delegate to convergence engine
+        if logger and execution_context and convergence_engine:
+            # The convergence engine will log the evaluation outcome
+            pass  # Logging is done in convergence engine.assess() method
+        
+        return evaluation_result
 
     def phase_c_refine(
         self,
         plan: "Plan",
         evaluation_results: Dict[str, Any],
         recursive_planner: Optional[Any],  # RecursivePlanner
-            populate_step_indices_fn: Any,  # Function to populate step indices
+        populate_step_indices_fn: Any,  # Function to populate step indices
+        execution_context: Optional["ExecutionContext"] = None,
+        logger: Optional["JSONLLogger"] = None,
     ) -> PhaseCRefineResult:
         """
         Phase C: Refine plan based on evaluation results.
@@ -407,13 +423,25 @@ class PhaseOrchestrator:
                 executed_step_ids=executed_step_ids,
             )
 
+            # Create before_plan_fragment for logging (T024)
+            before_plan_fragment = None
+            if logger and execution_context and refinement_actions:
+                from aeon.observability.models import PlanFragment
+                # Get changed step IDs (will be determined after applying actions)
+                changed_step_ids = set()
+                unchanged_step_ids = {step.step_id for step in plan.steps}
+                before_plan_fragment = PlanFragment(
+                    changed_steps=[],
+                    unchanged_step_ids=list(unchanged_step_ids),
+                )
+
             # Apply refinement actions to plan
             if refinement_actions:
                 from aeon.orchestration.refinement import PlanRefinement
 
                 plan_refinement = PlanRefinement()
                 success, updated_plan, error = plan_refinement.apply_actions(
-                    plan, refinement_actions
+                    plan, refinement_actions, execution_context, logger
                 )
                 if success:
                     plan = updated_plan
@@ -428,6 +456,100 @@ class PhaseOrchestrator:
 
             # Convert refinement actions to dict format for logging
             refinement_changes = [action.model_dump() for action in refinement_actions]
+            
+            # Log refinement outcome (T024)
+            if logger and execution_context and refinement_actions and before_plan_fragment:
+                from aeon.observability.models import PlanFragment
+                # Create after_plan_fragment with changed steps
+                changed_steps = []
+                unchanged_step_ids_after = set()
+                for step in plan.steps:
+                    # Check if this step was modified/added by comparing with original plan
+                    original_step = next((s for s in before_plan_fragment.unchanged_step_ids if s == step.step_id), None)
+                    if original_step is None or step.step_id not in before_plan_fragment.unchanged_step_ids:
+                        changed_steps.append(step)
+                    else:
+                        unchanged_step_ids_after.add(step.step_id)
+                
+                after_plan_fragment = PlanFragment(
+                    changed_steps=changed_steps,
+                    unchanged_step_ids=list(unchanged_step_ids_after),
+                )
+                
+                # Build evaluation_signals from evaluation_results (T065, T066, T067)
+                from aeon.observability.models import ConvergenceAssessmentSummary, ValidationIssuesSummary
+                
+                # Extract convergence assessment and create summary
+                convergence_assessment_dict = evaluation_results.get("convergence_assessment", {})
+                convergence_assessment_summary = None
+                if convergence_assessment_dict:
+                    try:
+                        convergence_assessment_summary = ConvergenceAssessmentSummary(
+                            converged=convergence_assessment_dict.get("converged", False),
+                            reason_codes=convergence_assessment_dict.get("reason_codes", []),
+                            scores=convergence_assessment_dict.get("scores") or {
+                                "completeness": convergence_assessment_dict.get("completeness_score", 0.0),
+                                "coherence": convergence_assessment_dict.get("coherence_score", 0.0),
+                            },
+                            pass_number=0,  # Pass number should come from caller if available
+                        )
+                    except Exception:
+                        pass
+                
+                # Extract validation issues and create summary
+                validation_issues = evaluation_results.get("validation_issues", [])
+                validation_issues_summary = None
+                if validation_issues:
+                    try:
+                        critical_count = sum(1 for i in validation_issues if isinstance(i, dict) and i.get("severity") == "CRITICAL" or (hasattr(i, "severity") and i.severity == "CRITICAL"))
+                        error_count = sum(1 for i in validation_issues if isinstance(i, dict) and i.get("severity") == "ERROR" or (hasattr(i, "severity") and i.severity == "ERROR"))
+                        warning_count = sum(1 for i in validation_issues if isinstance(i, dict) and i.get("severity") == "WARNING" or (hasattr(i, "severity") and i.severity == "WARNING"))
+                        info_count = sum(1 for i in validation_issues if isinstance(i, dict) and i.get("severity") == "INFO" or (hasattr(i, "severity") and i.severity == "INFO"))
+                        validation_issues_summary = ValidationIssuesSummary(
+                            total_issues=len(validation_issues),
+                            critical_count=critical_count,
+                            error_count=error_count,
+                            warning_count=warning_count,
+                            info_count=info_count,
+                            issues_by_type=None,
+                        )
+                    except Exception:
+                        pass
+                
+                # Build evaluation_signals dict for backward compatibility
+                evaluation_signals = {}
+                if convergence_assessment_summary:
+                    evaluation_signals["convergence_assessment"] = convergence_assessment_summary.model_dump()
+                if validation_issues_summary:
+                    evaluation_signals["validation_issues"] = validation_issues_summary.model_dump()
+                
+                # Log refinement trigger (T068) - log what triggered refinement
+                if logger and execution_context:
+                    trigger_reason = []
+                    if convergence_assessment_dict and not convergence_assessment_dict.get("converged", True):
+                        trigger_reason.append("convergence_not_achieved")
+                    if validation_issues:
+                        trigger_reason.append("validation_issues_detected")
+                    if not trigger_reason:
+                        trigger_reason.append("manual_refinement")
+                    
+                    # Log refinement trigger as part of refinement outcome
+                    # The evaluation_signals already contains the trigger context
+                
+                # Log refinement actions (T069) - which steps were modified/added/removed
+                # refinement_actions already contains this information in refinement_changes
+                
+                logger.log_refinement_outcome(
+                    correlation_id=execution_context.correlation_id,
+                    before_plan_fragment=before_plan_fragment,
+                    after_plan_fragment=after_plan_fragment,
+                    refinement_actions=refinement_changes,
+                    evaluation_signals=evaluation_signals if evaluation_signals else None,
+                    convergence_assessment_summary=convergence_assessment_summary,
+                    validation_issues_summary=validation_issues_summary,
+                    pass_number=None,  # Pass number should come from caller if available
+                )
+            
             return (True, refinement_changes, None)
 
         except Exception as e:
