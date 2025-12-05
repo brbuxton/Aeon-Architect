@@ -1,7 +1,7 @@
 # Feature Specification: Aeon Core
 
 **Feature Branch**: `001-aeon-core`  
-**Created**: 2025-01-27  
+**Created**: 2025-11-18  
 **Status**: Draft  
 **Input**: User description: "Generate a formal requirements specification for a project named Aeon Core. Aeon Core is a minimal LLM orchestration kernel whose goal in Sprint 1 is to reliably run a structured thought → tool → thought loop using a declarative plan, supervised validation, state management, and deterministic execution."
 

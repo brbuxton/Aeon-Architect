@@ -189,3 +189,4 @@ class TestErrorLoggingIntegration:
             file_path.unlink(missing_ok=True)
 
 
+

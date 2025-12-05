@@ -1,6 +1,6 @@
 # Data Model: Sprint 2 - Adaptive Multi-Pass Reasoning Engine
 
-**Date**: 2025-01-27  
+**Date**: 2025-12-04  
 **Feature**: Sprint 2 - Adaptive Multi-Pass Reasoning Engine
 
 ## Overview

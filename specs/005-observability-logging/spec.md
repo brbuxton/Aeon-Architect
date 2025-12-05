@@ -1,7 +1,7 @@
 # Feature Specification: Observability, Logging, and Test Coverage
 
 **Feature Branch**: `005-observability-logging`  
-**Created**: 2025-01-27  
+**Created**: 2025-12-05  
 **Status**: Draft  
 **Input**: User description: "Sprint 5 establishes the diagnostic substrate for all subsequent work. Produce a specification defining: structured, consistent, phase-aware observability across the reasoning loop, actionable error logging and error models, improved debug visibility for plan/refinement failures, expanded test coverage to ≥80%, and clear boundaries preventing performance regressions and scope creep."
 

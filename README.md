@@ -1,24 +1,40 @@
-# Aeon Core
+# Aeon Architect
 
-**Minimal LLM orchestration kernel** that reliably executes a structured thought → tool → thought loop using declarative plans, supervised validation, state management, and deterministic execution.
+**Adaptive multi-pass reasoning engine** that executes iterative plan → execute → evaluate → refine loops until convergence, using declarative plans, semantic validation, convergence detection, and adaptive depth heuristics.
 
 ## Overview
 
-Aeon Core is a minimal LLM orchestration kernel designed for Sprint 1 to demonstrate reliable execution of a structured reasoning loop. The system uses:
+Aeon Architect is an adaptive multi-pass reasoning engine that reliably executes complex tasks through iterative refinement cycles. The system uses:
 
+- **Multi-pass execution**: Iterative plan → execute → evaluate → refine loops until convergence or TTL expiration
+- **Deterministic phase control**: Four-phase orchestration (A: TaskProfile & TTL → B: Planning & Refinement → C: Execution Passes → D: Adaptive Depth)
 - **Declarative plans**: JSON/YAML data structures describing multi-step execution
-- **Supervised validation**: Automatic repair of malformed LLM outputs
-- **State management**: Tracking orchestration context, tool calls, and TTL
-- **Deterministic execution**: Sequential step execution with status updates
+- **Semantic validation**: LLM-based validation of plans, steps, and execution artifacts
+- **Convergence detection**: Automatic assessment of solution completeness, coherence, and consistency
+- **Adaptive depth**: Dynamic adjustment of reasoning depth and TTL based on task complexity
+- **Comprehensive observability**: Phase-aware structured logging with correlation IDs and actionable error reporting
 
 ## Architecture
 
-The kernel follows strict architectural principles:
+Aeon follows strict architectural principles:
 
-- **Kernel minimalism**: Core orchestrator remains under 800 LOC
-- **Separation of concerns**: Tools, memory, supervisor, and validation are external modules
+- **Kernel minimalism**: Core orchestrator remains under 800 LOC (constitutional requirement)
+- **Separation of concerns**: Tools, memory, supervisor, validation, and orchestration strategy are external modules
 - **Declarative plans**: Pure data structures, no executable code
 - **Interface contracts**: All external modules communicate through well-defined interfaces
+- **Deterministic execution**: Same inputs produce same phase transitions (LLM outputs may vary)
+- **LLM-based reasoning**: Semantic judgments use LLM; control flow is host-based
+
+### Multi-Pass Reasoning Loop
+
+The system executes tasks through a deterministic four-phase cycle:
+
+1. **Phase A: TaskProfile & TTL Allocation** - Infer task complexity and allocate resources
+2. **Phase B: Initial Plan & Pre-Execution Refinement** - Generate and refine initial plan
+3. **Phase C: Execution Passes** - Execute → Evaluate → Refine → Repeat until convergence
+4. **Phase D: Adaptive Depth** - Adjust reasoning depth and TTL based on complexity mismatch
+
+Each pass evaluates convergence (completeness, coherence, consistency) and refines the plan when needed, continuing until convergence is achieved or TTL expires.
 
 ## Project Structure
 
@@ -33,13 +49,21 @@ aeon/
 │   ├── refinement.py    # Plan refinement action application
 │   ├── step_prep.py     # Step preparation and dependency checking
 │   └── ttl.py           # TTL expiration response generation
-├── plan/                # Plan engine (parser, validator, executor)
+├── plan/                # Plan engine (parser, validator, recursive planner)
+├── adaptive/            # Adaptive reasoning heuristics
+│   ├── heuristics.py    # TaskProfile inference and adaptive depth
+│   └── models.py        # TaskProfile and adaptive depth models
+├── convergence/         # Convergence detection engine
+│   ├── engine.py        # Convergence assessment logic
+│   └── models.py        # Convergence assessment models
+├── validation/          # Validation layer (schema + semantic)
+│   ├── schema.py        # Structural validation
+│   └── semantic.py      # Semantic validation (LLM-based)
 ├── memory/              # Memory subsystem (K/V store)
 ├── tools/               # Tool system (registry, interface, stubs)
 ├── supervisor/          # Error repair module
-├── validation/          # Validation layer
 ├── llm/                 # LLM adapter interface
-├── observability/       # Logging (JSONL)
+├── observability/       # Observability and logging (JSONL, phase-aware)
 └── cli/                 # CLI interface (optional)
 
 tests/
@@ -95,6 +119,45 @@ Determine whether task execution has converged on a complete, coherent, consiste
 
 ### ✅ User Story 6: Adaptive Depth Integration
 Update TaskProfile at pass boundaries when complexity mismatch is detected, adjusting TTL, reasoning depth, and processing strategies dynamically.
+
+### Sprint 4 Features ✅ (Kernel Refactoring)
+
+### ✅ Kernel LOC Reduction
+Refactored kernel from 1351 LOC to 635 LOC (53% reduction) by extracting orchestration strategy logic to `aeon/orchestration/` modules while preserving 100% behavioral compatibility.
+
+### Sprint 5 Features ✅ (Observability & Logging)
+
+### ✅ User Story 1: Phase-Aware Structured Logging
+Structured logging with correlation IDs, phase entry/exit events, and state transitions that enable tracing execution through all phases and passes.
+
+### ✅ User Story 2: Actionable Error Logging
+Structured error logging with error codes (AEON.<COMPONENT>.<CODE>), severity levels, and comprehensive context for rapid diagnosis.
+
+### ✅ User Story 3: Refinement and Execution Debug Visibility
+Detailed logs showing refinement outcomes, evaluation signals, plan state changes, and execution results.
+
+### ✅ User Story 4: Comprehensive Test Coverage
+Test coverage expanded from 55% to 80%+ with comprehensive integration and unit tests covering phase transitions, error paths, TTL boundaries, and context propagation.
+
+### Sprint 6 Features 🚧 (In Progress - Phase Transition Stabilization)
+
+### 🚧 User Story 1: Explicit Phase Transition Contracts
+Explicit, testable contracts for each phase transition (A→B, B→C, C→D, D→A/B) defining required inputs, guaranteed outputs, invariants, and enumerated failure conditions.
+
+### 🚧 User Story 2: Deterministic Context Propagation
+Complete and accurate context propagation to all LLM calls including task profile, plan metadata, previous outputs, evaluation results, and adaptive depth inputs.
+
+### 🚧 User Story 3: Prompt Context Alignment
+Verification that all prompt schema keys are populated or removed, with no null semantic inputs.
+
+### 🚧 User Story 4: TTL Boundary Behavior
+Correct TTL decrement behavior (once per cycle), proper handling at boundaries (TTL=1, TTL=0, expiration), and TTLExpirationResponse usage.
+
+### 🚧 User Story 5: ExecutionPass Consistency
+Consistent ExecutionPass objects with required fields populated before/after phases and invariants maintained.
+
+### 🚧 User Story 6: Phase Boundary Logging
+Complete phase boundary logging with entry/exit events, state snapshots, TTL snapshots, and structured error logs.
 
 ## Installation
 
@@ -325,12 +388,14 @@ Coverage requirement: 100% test coverage for kernel core logic.
 
 ## Constraints
 
-- **Kernel LOC**: Must remain under 800 lines of code (constitutional requirement)
+- **Kernel LOC**: Must remain under 800 lines of code (constitutional requirement) - Currently 635 LOC
 - **Domain-agnostic**: No cloud, IaC, diagram logic in kernel
-- **Sequential execution**: Single-threaded, no concurrency in Sprint 1
+- **Sequential execution**: Single-threaded, no concurrency
 - **Simple memory**: Basic K/V store with prefix search only
+- **Deterministic control flow**: Same inputs produce same phase transitions (LLM outputs may vary)
+- **LLM-based reasoning**: Semantic judgments use LLM; control flow is host-based
 
-## Out of Scope (Sprint 1)
+## Out of Scope
 
 - Diagram generation
 - Infrastructure as Code (IaC) generation
@@ -338,18 +403,23 @@ Coverage requirement: 100% test coverage for kernel core logic.
 - Cloud-specific logic
 - Embeddings and vector search
 - Multi-agent concurrency
-- Advanced memory features
+- Advanced memory features (deferred to Sprint 8)
+- Long-term memory persistence (deferred to future sprints)
 
 ## Documentation
 
-### Sprint 1
+### Architecture Epic
+- [Architecture Epic Documentation](ADAPTIVE_REASONING_FRAMEWORK.md) - North Star, Golden Path Demos, and Sprint Gates
+- [Backlog](BACKLOG.md) - Future enhancements and sprint breakdown
+
+### Sprint 1 (Aeon Core)
 - [Specification](specs/001-aeon-core/spec.md)
 - [Implementation Plan](specs/001-aeon-core/plan.md)
 - [Tasks](specs/001-aeon-core/tasks.md)
 - [Data Model](specs/001-aeon-core/data-model.md)
 - [Interface Contracts](specs/001-aeon-core/contracts/interfaces.md)
 
-### Sprint 2
+### Sprint 2 (Adaptive Multi-Pass Reasoning)
 - [Specification](specs/003-adaptive-reasoning/spec.md)
 - [Implementation Plan](specs/003-adaptive-reasoning/plan.md)
 - [Tasks](specs/003-adaptive-reasoning/tasks.md)
@@ -357,13 +427,34 @@ Coverage requirement: 100% test coverage for kernel core logic.
 - [Quickstart Guide](specs/003-adaptive-reasoning/quickstart.md)
 - [Interface Contracts](specs/003-adaptive-reasoning/contracts/interfaces.md)
 
+### Sprint 4 (Kernel Refactoring)
+- [Specification](specs/004-kernel-refactor/spec.md)
+- [Implementation Plan](specs/004-kernel-refactor/plan.md)
+- [Tasks](specs/004-kernel-refactor/tasks.md)
+- [Data Model](specs/004-kernel-refactor/data-model.md)
+- [Interface Contracts](specs/004-kernel-refactor/contracts/interfaces.md)
+
+### Sprint 5 (Observability & Logging)
+- [Specification](specs/005-observability-logging/spec.md)
+- [Implementation Plan](specs/005-observability-logging/plan.md)
+- [Tasks](specs/005-observability-logging/tasks.md)
+- [Data Model](specs/005-observability-logging/data-model.md)
+- [Interface Contracts](specs/005-observability-logging/contracts/interfaces.md)
+
+### Sprint 6 (Phase Transition Stabilization) 🚧
+- [Specification](specs/006-phase-transitions/spec.md)
+- [Tasks](specs/006-phase-transitions/tasks.md)
+- [Analysis Report](specs/006-phase-transitions/ANALYSIS_REPORT.md)
+
 ## License
 
 MIT
 
 ## Status
 
-✅ **Sprint 1 Complete** - All 8 user stories implemented and tested:
+### ✅ Completed Sprints
+
+**Sprint 1 (Aeon Core)** - All 8 user stories implemented and tested:
 - ✅ Plan Generation (US1)
 - ✅ Plan Execution (US2)
 - ✅ Supervisor Error Correction (US3)
@@ -373,7 +464,7 @@ MIT
 - ✅ Orchestration Cycle Logging (US7)
 - ✅ Multi-Mode Step Execution (US8)
 
-✅ **Sprint 2 Complete** - Adaptive Multi-Pass Reasoning Engine implemented:
+**Sprint 2 (Adaptive Multi-Pass Reasoning)** - All 6 user stories implemented:
 - ✅ Multi-Pass Execution with Deterministic Phase Control (US1)
 - ✅ TaskProfile Inference and TTL Allocation (US2)
 - ✅ Recursive Planning and Plan Refinement (US3)
@@ -381,9 +472,34 @@ MIT
 - ✅ Convergence Detection and Completion Assessment (US5)
 - ✅ Adaptive Depth Integration (US6)
 
-**Test Coverage:** 153 tests passing, 53% overall coverage (80-100% for core modules)
+**Sprint 4 (Kernel Refactoring)** - Constitutional compliance restored:
+- ✅ Kernel LOC reduced from 1351 to 635 LOC (53% reduction)
+- ✅ All orchestration strategy logic extracted to `aeon/orchestration/` modules
+- ✅ 100% behavioral compatibility preserved
+- ✅ All 289 tests passing
 
-**Kernel Refactoring Complete:** Kernel LOC reduced from 1351 to 635 LOC (53% reduction), restoring constitutional compliance. All orchestration strategy logic extracted to `aeon/orchestration/` modules while preserving 100% behavioral compatibility.
+**Sprint 5 (Observability & Logging)** - All 4 user stories implemented:
+- ✅ Phase-Aware Structured Logging (US1)
+- ✅ Actionable Error Logging (US2)
+- ✅ Refinement and Execution Debug Visibility (US3)
+- ✅ Comprehensive Test Coverage (US4) - Expanded from 55% to 80%+
+
+### 🚧 Current Sprint
+
+**Sprint 6 (Phase Transition Stabilization)** - In Progress:
+- 🚧 Explicit Phase Transition Contracts (US1)
+- 🚧 Deterministic Context Propagation (US2)
+- 🚧 Prompt Context Alignment (US3)
+- 🚧 TTL Boundary Behavior (US4)
+- 🚧 ExecutionPass Consistency (US5)
+- 🚧 Phase Boundary Logging (US6)
+
+### Metrics
+
+- **Test Coverage**: 80%+ overall coverage (80-100% for core modules)
+- **Kernel LOC**: 635 LOC (under 800 LOC constitutional limit)
+- **Tests Passing**: 289+ tests
+- **Architecture**: Multi-pass reasoning engine with deterministic phase control
 
 
 

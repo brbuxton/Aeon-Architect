@@ -1,7 +1,7 @@
 # Feature Specification: Sprint 2 - Adaptive Reasoning Engine
 
 **Feature Branch**: `002-adaptive-reasoning`  
-**Created**: 2025-01-27  
+**Created**: 2025-12-04  
 **Status**: Draft  
 **Input**: User description: "Sprint 2 Specification (Aeon Architect) - Evolve Aeon from a deterministic single-pass orchestrator into a recursive, adaptive, semantically-aware intelligent reasoning engine with five Tier-1 capabilities: Multi-Pass Execution Loop, Recursive Planning & Re-Planning, Convergence Engine, Adaptive Depth Heuristics, and Semantic Validation Layer."
 

@@ -1,7 +1,7 @@
 # Feature Specification: Sprint 2 - Adaptive Multi-Pass Reasoning Engine
 
 **Feature Branch**: `003-adaptive-reasoning`  
-**Created**: 2025-01-27  
+**Created**: 2025-12-04  
 **Status**: Draft  
 **Input**: User description: "Project: Aeon Architect — Sprint 2 Specification. Expand the Sprint 1 single-pass orchestration system into a deterministic, adaptive, multi-pass reasoning engine. The system must support recursive planning, refinement, semantic validation, convergence analysis, and adaptive depth while preserving Aeon's core architectural constraints: deterministic control flow, minimal kernel, strict LLM-only semantics, and JSON/YAML declarative plans."
 
