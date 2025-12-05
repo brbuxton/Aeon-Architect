@@ -1,8 +1,46 @@
 """Helper functions for observability data collection."""
 
+import hashlib
+import uuid
 from typing import Any, Dict, List, Optional
 
 from aeon.kernel.state import OrchestrationState
+
+# Fixed namespace UUID for correlation ID generation
+# This is a deterministic namespace UUID for Aeon correlation IDs
+CORRELATION_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+
+def generate_correlation_id(execution_start_timestamp: str, request: str) -> str:
+    """
+    Generate a deterministic correlation ID using UUIDv5.
+
+    Args:
+        execution_start_timestamp: ISO 8601 timestamp of execution start
+        request: Request string (e.g., user query, task description)
+
+    Returns:
+        Correlation ID as UUIDv5 string
+
+    Note:
+        Uses deterministic UUIDv5 generation to preserve kernel determinism.
+        Same inputs produce the same correlation ID.
+    """
+    try:
+        # Create request hash for uniqueness
+        request_hash = hashlib.sha256(request.encode("utf-8")).hexdigest()
+        
+        # Create name component: timestamp + request hash
+        name = f"{execution_start_timestamp}:{request_hash}"
+        
+        # Generate UUIDv5 with fixed namespace
+        correlation_uuid = uuid.uuid5(CORRELATION_NAMESPACE, name)
+        
+        return str(correlation_uuid)
+    except Exception:
+        # Fallback to deterministic timestamp-based ID if UUID generation fails
+        request_hash = hashlib.sha256(request.encode("utf-8")).hexdigest()
+        return f"aeon-{execution_start_timestamp}-{request_hash[:8]}"
 
 
 def collect_cycle_data(state: OrchestrationState) -> Dict[str, Any]:

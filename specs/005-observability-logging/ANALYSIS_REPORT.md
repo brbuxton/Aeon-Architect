@@ -24,7 +24,7 @@ This analysis examines cross-artifact consistency and quality across the three c
 | A1 | Ambiguity | HIGH | spec.md:SC-005 | "Logging latency remaining under 10ms per log entry as measured in profiling" - no baseline, no measurement methodology | Specify measurement methodology, baseline, and acceptable variance |
 | A2 | Ambiguity | MEDIUM | spec.md:FR-036 | "do not block execution or introduce significant latency" - "significant" is undefined | Define "significant" quantitatively (e.g., <10ms per entry) |
 | A3 | Ambiguity | MEDIUM | spec.md:SC-008 | "≥90% of failure cases diagnosable from logs" - no measurement methodology | Define how "diagnosable" is measured and validated |
-| U1 | Underspecification | MEDIUM | tasks.md:T026a-T026d | Tasks T026a-T026d introduce AeonExecutionContext but this entity is not defined in spec.md or data-model.md | Add AeonExecutionContext to data-model.md or remove from tasks |
+| U1 | Underspecification | MEDIUM | tasks.md:T026a-T026d | Tasks T026a-T026d introduce ExecutionContext but this entity is not defined in spec.md or data-model.md | Add ExecutionContext to data-model.md or remove from tasks |
 | U2 | Underspecification | MEDIUM | spec.md:FR-023 | FR-023 specifies refinement log structure but doesn't reference PlanFragment model explicitly | Clarify that before/after fragments use PlanFragment model |
 | I1 | Inconsistency | HIGH | spec.md vs tasks.md | Spec uses "evaluation_signals" (dict) but tasks reference ConvergenceAssessmentSummary and ValidationIssuesSummary models | Align terminology: clarify that evaluation_signals contains these summaries |
 | I2 | Inconsistency | MEDIUM | spec.md vs plan.md | Spec mentions "PhaseContext" entity but plan.md doesn't reference it in data model | Either add PhaseContext to data-model.md or remove from spec |
@@ -184,12 +184,12 @@ SC-008 states: "Developers can diagnose refinement and execution failures using 
 - Validation: "Measured by manual review of failure scenarios or automated log analysis"
 - Test approach: "T127 validates diagnostic capability through failure scenario testing"
 
-### U1: Underspecification - AeonExecutionContext Entity
+### U1: Underspecification - ExecutionContext Entity
 
 **Location**: tasks.md:T026a-T026d  
 **Severity**: MEDIUM
 
-Tasks T026a-T026d introduce `AeonExecutionContext` data class with specific constraints:
+Tasks T026a-T026d introduce `ExecutionContext` data class with specific constraints:
 - Stores correlation_id and execution_start_timestamp
 - MUST NOT contain orchestration or control-flow logic
 - MUST NOT be used for diagnostic or pass/step/module-scoped metadata
@@ -199,7 +199,7 @@ Tasks T026a-T026d introduce `AeonExecutionContext` data class with specific cons
 
 **Recommendation**: Add to data-model.md:
 ```markdown
-### AeonExecutionContext
+### ExecutionContext
 
 A minimal execution context containing only execution-scoped metadata, not orchestration state.
 
@@ -211,8 +211,8 @@ A minimal execution context containing only execution-scoped metadata, not orche
 - MUST NOT contain orchestration or control-flow logic
 - MUST NOT be used for diagnostic or pass/step/module-scoped metadata
 - Modules MUST NOT store evaluation, validation, convergence, adaptive-depth, TTL, or execution metadata inside context
-- Logging MUST use AeonExecutionContext only for correlation_id; all other fields come from domain objects
-- AeonExecutionContext MUST NOT be serialized wholesale
+- Logging MUST use ExecutionContext only for correlation_id; all other fields come from domain objects
+- ExecutionContext MUST NOT be serialized wholesale
 ```
 
 ### U2: Underspecification - PlanFragment Reference
@@ -291,7 +291,7 @@ Spec.md references "StateSlice" generically, but data-model.md defines component
    - **C1**: Add early performance validation task or move T113-T114 earlier
 
 2. **Resolve MEDIUM Severity Issues**:
-   - **U1**: Add AeonExecutionContext to data-model.md
+   - **U1**: Add ExecutionContext to data-model.md
    - **U2**: Update FR-023 to reference PlanFragment model
    - **I2**: Add PhaseContext to data-model.md or remove from spec.md
    - **A2**: Define "significant latency" quantitatively
@@ -305,7 +305,7 @@ Spec.md references "StateSlice" generically, but data-model.md defines component
 ### Recommended Command Sequence
 
 1. **For HIGH issues**: Run `/speckit.specify` with refinements to address A1, I1
-2. **For data model issues**: Manually edit `data-model.md` to add AeonExecutionContext and clarify PhaseContext
+2. **For data model issues**: Manually edit `data-model.md` to add ExecutionContext and clarify PhaseContext
 3. **For task timing**: Manually edit `tasks.md` to add early performance validation or move T113-T114 earlier
 4. **For MEDIUM issues**: Run `/speckit.specify` with refinements or manually edit spec.md
 
@@ -322,7 +322,7 @@ The specification is comprehensive and well-structured. All functional requireme
 Would you like me to suggest concrete remediation edits for the top 5 issues (A1, I1, C1, U1, U2)? I can provide specific file edits to:
 1. Add measurement methodology to SC-005
 2. Clarify evaluation_signals structure in spec.md
-3. Add AeonExecutionContext to data-model.md
+3. Add ExecutionContext to data-model.md
 4. Update FR-023 to reference PlanFragment
 5. Add early performance validation task to tasks.md
 

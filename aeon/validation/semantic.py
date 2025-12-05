@@ -2,9 +2,12 @@
 
 import json
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
 from aeon.exceptions import LLMError, ValidationError
+
+if TYPE_CHECKING:
+    from aeon.observability.logger import JSONLLogger
 from aeon.llm.interface import LLMAdapter
 from aeon.supervisor.repair import Supervisor
 from aeon.tools.registry import ToolRegistry
@@ -35,6 +38,8 @@ class SemanticValidator:
         artifact: Dict[str, Any],
         artifact_type: Literal["plan", "step", "execution_artifact", "cross_phase"],
         tool_registry: Optional[ToolRegistry] = None,
+        logger: Optional["JSONLLogger"] = None,
+        correlation_id: Optional[str] = None,
     ) -> SemanticValidationReport:
         """
         Validate semantic quality of plan, step, or execution artifact.
@@ -220,9 +225,32 @@ class SemanticValidator:
         except (LLMError, ValidationError) as e:
             # If LLM fails, return empty issues list (best-effort advisory)
             # Log error but don't fail validation
+            if logger and correlation_id:
+                if isinstance(e, ValidationError):
+                    error_record = e.to_error_record(
+                        context={"validation_type": "semantic", "artifact_type": artifact_type}
+                    )
+                    logger.log_error(
+                        correlation_id=correlation_id,
+                        error=error_record,
+                        validation_type="semantic",
+                        validation_details={"artifact_type": artifact_type},
+                    )
             pass
         except Exception as e:
             # Unexpected error - return empty issues (best-effort)
+            if logger and correlation_id:
+                from aeon.exceptions import ValidationError as ValidationErrorClass
+                validation_error = ValidationErrorClass(f"Unexpected validation error: {str(e)}")
+                error_record = validation_error.to_error_record(
+                    context={"validation_type": "semantic", "artifact_type": artifact_type, "error_type": type(e).__name__}
+                )
+                logger.log_error(
+                    correlation_id=correlation_id,
+                    error=error_record,
+                    validation_type="semantic",
+                    validation_details={"artifact_type": artifact_type, "error_type": type(e).__name__},
+                )
             pass
 
         return issues

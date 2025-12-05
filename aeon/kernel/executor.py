@@ -1,9 +1,12 @@
 """Step executor for multi-mode step execution."""
 
 import json
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from aeon.exceptions import ToolError, ValidationError
+from aeon.exceptions import ExecutionError, ToolError, ValidationError
+
+if TYPE_CHECKING:
+    from aeon.observability.logger import JSONLLogger
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
 from aeon.plan.models import PlanStep, StepStatus
@@ -44,6 +47,8 @@ class StepExecutor:
         memory: Memory,
         llm: LLMAdapter,
         supervisor: Supervisor,
+        logger: Optional["JSONLLogger"] = None,
+        correlation_id: Optional[str] = None,
     ) -> StepExecutionResult:
         """
         Execute a plan step.
@@ -66,8 +71,18 @@ class StepExecutor:
         Raises:
             ExecutionError: On unrecoverable execution failure
         """
-        # Update step status to running
+        # Update step status to running (T072)
+        old_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
         step.status = StepStatus.RUNNING
+        new_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
+        if logger and correlation_id:
+            logger.log_step_status_change(
+                correlation_id=correlation_id,
+                step_id=step.step_id,
+                old_status=old_status,
+                new_status=new_status,
+                reason="step_execution_started",
+            )
 
         # Tool field takes precedence over agent field
         if step.tool:
@@ -75,24 +90,26 @@ class StepExecutor:
             validation_result = self.validator.validate_step_tool(step, registry)
             if validation_result["valid"]:
                 # Tool is valid - execute tool-based step
-                return self.execute_tool_step(step, registry, memory)
+                return self.execute_tool_step(step, registry, memory, logger, correlation_id)
             else:
                 # Tool is missing/invalid - fallback to LLM reasoning
                 # Orchestrator will handle repair flow if supervisor is available
                 # For now, fallback to LLM reasoning (orchestrator can intercept and repair)
-                return self.execute_llm_reasoning_step(step, memory, llm)
+                return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id)
         elif step.agent == "llm":
             # Explicit LLM reasoning step
-            return self.execute_llm_reasoning_step(step, memory, llm)
+            return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id)
         else:
             # No tool, no agent - treat as missing-tool, use fallback
-            return self.execute_llm_reasoning_step(step, memory, llm)
+            return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id)
 
     def execute_tool_step(
         self,
         step: PlanStep,
         registry: ToolRegistry,
         memory: Memory,
+        logger: Optional["JSONLLogger"] = None,
+        correlation_id: Optional[str] = None,
     ) -> StepExecutionResult:
         """
         Execute tool-based step.
@@ -118,12 +135,51 @@ class StepExecutor:
                     execution_mode="tool",
                 )
 
-            # Invoke tool (no arguments for now - can be enhanced later)
+            # Invoke tool (no arguments for now - can be enhanced later) (T071)
             try:
                 result = tool.invoke()
+                
+                # Log tool invocation result (T071)
+                if logger and correlation_id:
+                    logger.log_tool_invocation_result(
+                        correlation_id=correlation_id,
+                        step_id=step.step_id,
+                        tool_name=step.tool,
+                        success=True,
+                        result=result if isinstance(result, dict) else {"result": result},
+                    )
             except Exception as e:
                 step.status = StepStatus.FAILED
                 error_msg = f"Tool '{step.tool}' execution failed: {str(e)}"
+                
+                # Log tool invocation failure (T071)
+                if logger and correlation_id:
+                    logger.log_tool_invocation_result(
+                        correlation_id=correlation_id,
+                        step_id=step.step_id,
+                        tool_name=step.tool,
+                        success=False,
+                        error=error_msg,
+                    )
+                
+                # Log error if logger and correlation_id are available
+                if logger and correlation_id:
+                    from aeon.exceptions import ExecutionError
+                    if not isinstance(e, ExecutionError):
+                        execution_error = ExecutionError(error_msg)
+                    else:
+                        execution_error = e
+                    error_record = execution_error.to_error_record(
+                        context={"step_id": step.step_id, "tool_name": step.tool, "attempted_action": "tool_invoke"}
+                    )
+                    logger.log_error(
+                        correlation_id=correlation_id,
+                        error=error_record,
+                        step_id=step.step_id,
+                        tool_name=step.tool,
+                        attempted_action="tool_invoke",
+                    )
+                
                 return StepExecutionResult(
                     success=False,
                     result={},
@@ -135,8 +191,28 @@ class StepExecutor:
             memory_key = f"step_{step.step_id}_result"
             memory.write(memory_key, result)
 
-            # Mark step as complete
+            # Mark step as complete (T072)
+            old_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
             step.status = StepStatus.COMPLETE
+            new_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
+            if logger and correlation_id:
+                logger.log_step_status_change(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="step_execution_completed",
+                )
+
+            # Log step execution outcome (T070)
+            if logger and correlation_id:
+                logger.log_step_execution_outcome(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    execution_mode="tool",
+                    success=True,
+                    result=result if isinstance(result, dict) else {"result": result},
+                )
 
             return StepExecutionResult(
                 success=True,
@@ -146,7 +222,47 @@ class StepExecutor:
             )
 
         except Exception as e:
+            old_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
             step.status = StepStatus.FAILED
+            new_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
+            
+            # Log step status change (T072)
+            if logger and correlation_id:
+                logger.log_step_status_change(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="step_execution_failed",
+                )
+            
+            # Log step execution outcome (T070)
+            if logger and correlation_id:
+                logger.log_step_execution_outcome(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    execution_mode="tool",
+                    success=False,
+                    error=str(e),
+                )
+            
+            # Log error if logger and correlation_id are available
+            if logger and correlation_id:
+                from aeon.exceptions import ExecutionError
+                if not isinstance(e, ExecutionError):
+                    execution_error = ExecutionError(str(e))
+                else:
+                    execution_error = e
+                error_record = execution_error.to_error_record(
+                    context={"step_id": step.step_id, "tool_name": step.tool if step.tool else None}
+                )
+                logger.log_error(
+                    correlation_id=correlation_id,
+                    error=error_record,
+                    step_id=step.step_id,
+                    tool_name=step.tool if step.tool else None,
+                )
+            
             return StepExecutionResult(
                 success=False,
                 result={},
@@ -159,6 +275,8 @@ class StepExecutor:
         step: PlanStep,
         memory: Memory,
         llm: LLMAdapter,
+        logger: Optional["JSONLLogger"] = None,
+        correlation_id: Optional[str] = None,
     ) -> StepExecutionResult:
         """
         Execute LLM reasoning step (explicit or fallback).
@@ -230,15 +348,35 @@ class StepExecutor:
                 # Store the result text as step_output
                 step.step_output = result_text if not isinstance(result, dict) else json.dumps(result)
 
-            # Handle clarity_state: BLOCKED → mark as invalid
+            # Handle clarity_state: BLOCKED → mark as invalid (T072)
+            old_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
             if clarity_state == "BLOCKED":
                 step.status = StepStatus.INVALID
             else:
                 step.status = StepStatus.COMPLETE
+            new_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
+            if logger and correlation_id:
+                logger.log_step_status_change(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="step_execution_completed" if clarity_state != "BLOCKED" else "step_blocked",
+                )
 
             # Store result in memory
             memory_key = f"step_{step.step_id}_result"
             memory.write(memory_key, result)
+
+            # Log step execution outcome (T070)
+            if logger and correlation_id:
+                logger.log_step_execution_outcome(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    execution_mode="llm" if step.agent == "llm" else "fallback",
+                    success=True,
+                    result=result if isinstance(result, dict) else {"result": result},
+                )
 
             return StepExecutionResult(
                 success=True,
@@ -248,7 +386,47 @@ class StepExecutor:
             )
 
         except Exception as e:
+            old_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
             step.status = StepStatus.FAILED
+            new_status = step.status.value if hasattr(step.status, 'value') else str(step.status)
+            
+            # Log step status change (T072)
+            if logger and correlation_id:
+                logger.log_step_status_change(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    old_status=old_status,
+                    new_status=new_status,
+                    reason="step_execution_failed",
+                )
+            
+            # Log step execution outcome (T070)
+            if logger and correlation_id:
+                logger.log_step_execution_outcome(
+                    correlation_id=correlation_id,
+                    step_id=step.step_id,
+                    execution_mode="llm" if step.agent == "llm" else "fallback",
+                    success=False,
+                    error=str(e),
+                )
+            
+            # Log error if logger and correlation_id are available
+            if logger and correlation_id:
+                from aeon.exceptions import ExecutionError
+                if not isinstance(e, ExecutionError):
+                    execution_error = ExecutionError(str(e))
+                else:
+                    execution_error = e
+                error_record = execution_error.to_error_record(
+                    context={"step_id": step.step_id, "execution_mode": "llm" if step.agent == "llm" else "fallback"}
+                )
+                logger.log_error(
+                    correlation_id=correlation_id,
+                    error=error_record,
+                    step_id=step.step_id,
+                    attempted_action="llm_reasoning",
+                )
+            
             return StepExecutionResult(
                 success=False,
                 result={},

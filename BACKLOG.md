@@ -487,4 +487,39 @@ Replace single-pass execution with:
 
 ---
 
+## [Category: infrastructure] [Impact: medium] Legacy Logging Migration
+
+**Issue**: Legacy logging methods need refactoring for consistency
+- `format_entry` is still used by `orchestrator.execute()` (single-pass mode)
+- `log_multipass_entry` is unused dead code
+
+**Current State**:
+- `format_entry`: Creates LogEntry with `event="cycle"` for legacy cycle-based logging (Sprint 1)
+- `log_multipass_entry`: Unused method from Sprint 2, creates raw dicts instead of LogEntry models
+
+**Action Needed**:
+1. **Remove `log_multipass_entry`** (dead code, never used)
+2. **Migrate `orchestrator.execute()` to phase-aware logging**:
+   - Replace `format_entry` calls with phase-aware logging methods
+   - Use `log_phase_entry` / `log_phase_exit` for phase transitions
+   - Use `log_state_transition` for state changes
+   - Ensure correlation_id is included in all entries
+3. **Deprecate `format_entry`** after migration:
+   - Mark as deprecated with warning
+   - Remove after migration complete
+   - Maintain backward compatibility during transition (FR-009)
+
+**Benefits**:
+- Consistent logging architecture across all execution modes
+- Better traceability with correlation IDs
+- Cleaner codebase without dead code
+- Full phase-aware logging coverage
+
+**Dependencies**: None (can be done independently)
+**Effort**: Low-Medium (mostly refactoring existing code)
+
+**Note**: This addresses the gap identified in TEST_US1_US3_ANALYSIS.md regarding legacy method coverage.
+
+---
+
 *(End of BACKLOG.md)*

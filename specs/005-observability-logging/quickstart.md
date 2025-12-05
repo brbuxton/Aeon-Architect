@@ -545,6 +545,140 @@ def test_logging_non_blocking():
     assert True  # No exception raised
 ```
 
+## Schema Validation
+
+All log entries conform to stable JSONL schemas with 100% valid JSON. Each event type has a well-defined schema:
+
+### Schema Requirements
+
+- **All entries must be valid JSON**: Every line in the JSONL file is parseable JSON
+- **Required fields**: All entries have `event`, `timestamp`, and optionally `correlation_id`
+- **Type safety**: Event types are validated against known literals
+- **Backward compatibility**: Old format entries (event="cycle") remain valid
+
+### Schema Validation Example
+
+```python
+import json
+
+def validate_log_schema(log_file: Path):
+    """Validate that all log entries conform to schema."""
+    with open(log_file, 'r') as f:
+        for line_num, line in enumerate(f, 1):
+            try:
+                entry = json.loads(line)
+                # Verify required fields
+                assert "event" in entry
+                assert "timestamp" in entry
+                # Verify event type is valid
+                assert entry["event"] in [
+                    "phase_entry", "phase_exit", "state_transition",
+                    "refinement_outcome", "evaluation_outcome",
+                    "error", "error_recovery", "cycle"
+                ]
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON at line {line_num}: {e}")
+```
+
+## Determinism Validation
+
+Logging operations preserve kernel determinism. Correlation IDs are deterministic and logging does not introduce non-deterministic behavior.
+
+### Correlation ID Determinism
+
+Correlation IDs are generated deterministically using UUIDv5:
+
+```python
+def test_correlation_id_deterministic():
+    """Test that correlation IDs are deterministic."""
+    timestamp = "2025-01-27T10:00:00.000000"
+    request = "Test request"
+    
+    id1 = generate_correlation_id(timestamp, request)
+    id2 = generate_correlation_id(timestamp, request)
+    
+    assert id1 == id2  # Same inputs produce same ID
+```
+
+### Kernel Determinism
+
+Logging operations do not affect kernel determinism:
+
+- **No side effects**: Logging failures are silent and do not affect execution
+- **Deterministic correlation IDs**: Same execution inputs produce same correlation ID
+- **No non-deterministic behavior**: Logging does not introduce randomness or timing dependencies
+
+## Diagnostic Capability
+
+≥90% of failures are diagnosable from logs (SC-008). Each error log entry contains:
+
+1. **Error code**: Structured error code (e.g., "AEON.REFINEMENT.001")
+2. **Severity level**: CRITICAL, ERROR, WARNING, or INFO
+3. **Error message**: Human-readable error message
+4. **Affected component**: Component where error occurred
+5. **Context**: Additional context for diagnosis (step_id, tool_name, etc.)
+6. **Correlation ID**: Links error to execution trace
+
+### Diagnostic Information Example
+
+```python
+# Error log entry contains all diagnostic information
+error_entry = {
+    "event": "error",
+    "correlation_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "original_error": {
+        "code": "AEON.EXECUTION.001",
+        "severity": "ERROR",
+        "message": "Step execution failed: tool not found",
+        "affected_component": "execution",
+        "context": {
+            "step_id": "step_1",
+            "tool_name": "missing_tool",
+            "attempted_action": "invoke_tool"
+        }
+    },
+    "timestamp": "2025-01-27T10:00:03.000000"
+}
+
+# Can diagnose failure from:
+# 1. Error code: AEON.EXECUTION.001
+# 2. Component: execution
+# 3. Context: step_id, tool_name, attempted_action
+# 4. Correlation ID: Links to full execution trace
+```
+
+## Error Code Conventions
+
+Error codes follow the format: `AEON.<COMPONENT>.<CODE>`
+
+### Component Names
+
+- `REFINEMENT`: Refinement operations
+- `EXECUTION`: Step execution
+- `VALIDATION`: Validation operations
+- `PHASE`: Phase transitions
+- `PLAN`: Plan operations
+- `TOOL`: Tool invocations
+- `MEMORY`: Memory operations
+- `LLM`: LLM adapter operations
+- `SUPERVISOR`: Supervisor operations
+
+### Error Code Examples
+
+```python
+# Refinement errors
+"AEON.REFINEMENT.001"  # Invalid step_id
+"AEON.REFINEMENT.002"  # Refinement action failed
+
+# Execution errors
+"AEON.EXECUTION.001"   # Tool not found
+"AEON.EXECUTION.002"   # Step execution timeout
+
+# Validation errors
+"AEON.VALIDATION.001"  # Semantic validation failed
+"AEON.VALIDATION.002"  # Schema validation failed
+```
+
 ## Best Practices
 
 1. **Generate correlation ID once** at execution start and pass to all logging calls
@@ -557,4 +691,7 @@ def test_logging_non_blocking():
 8. **Log error recovery attempts** to track recovery success rates
 9. **Maintain backward compatibility** with existing logging methods
 10. **Profile logging performance** to ensure <10ms latency
+11. **Validate log schemas** to ensure 100% valid JSON
+12. **Preserve determinism** by using deterministic correlation IDs
+13. **Include diagnostic context** in all error logs for ≥90% diagnosability
 
