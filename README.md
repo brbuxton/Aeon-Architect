@@ -87,8 +87,11 @@ Kernel LOC reduced from 1351 to 635 (53% reduction) by extracting orchestration 
 ### ✅ Sprint 5: Observability & Logging
 Phase-aware structured logging with correlation IDs, actionable error logging with error codes, and comprehensive test coverage (55% → 80%+). See [Sprint 5 specification](specs/005-observability-logging/spec.md) for details.
 
-### 🚧 Sprint 6: Phase Transition Stabilization (In Progress)
+### ✅ Sprint 6: Phase Transition Stabilization
 Explicit phase transition contracts, deterministic context propagation, prompt context alignment, TTL boundary behavior, ExecutionPass consistency, and phase boundary logging. See [Sprint 6 specification](specs/006-phase-transitions/spec.md) for details.
+
+### 🚧 Sprint 7: Prompt Infrastructure + Prompt Contracts (In Progress)
+Prompt consolidation and management, prompt contracts with validation, and Phase E (Final Answer Synthesis) implementation. See [Backlog](BACKLOG.md) for details.
 
 ## Installation
 
@@ -343,7 +346,8 @@ All sprint documentation is available in the [`specs/`](specs/) directory:
 - **Sprint 2**: [Adaptive Multi-Pass Reasoning](specs/003-adaptive-reasoning/) - Multi-pass execution and convergence
 - **Sprint 4**: [Kernel Refactoring](specs/004-kernel-refactor/) - LOC reduction and module extraction
 - **Sprint 5**: [Observability & Logging](specs/005-observability-logging/) - Structured logging and error reporting
-- **Sprint 6**: [Phase Transition Stabilization](specs/006-phase-transitions/) - Phase contracts and context propagation (in progress)
+- **Sprint 6**: [Phase Transition Stabilization](specs/006-phase-transitions/) - Phase contracts and context propagation
+- **Sprint 7**: Prompt Infrastructure + Prompt Contracts (see [Backlog](BACKLOG.md)) - Prompt consolidation and Phase E implementation
 
 Each sprint folder contains specifications, implementation plans, tasks, data models, and interface contracts.
 
@@ -355,17 +359,18 @@ MIT
 
 ### Current State
 
-- **Current Sprint**: Sprint 6 (Phase Transition Stabilization) - See [tasks](specs/006-phase-transitions/tasks.md) for progress
-- **Test Coverage**: 80%+ overall (80-100% for core modules)
+- **Current Sprint**: Sprint 7 (Prompt Infrastructure + Prompt Contracts) - See [Backlog](BACKLOG.md) for details
+- **Test Coverage**: 60% overall (80-100% for core modules)
 - **Kernel LOC**: 635 LOC (under 800 LOC constitutional limit)
-- **Tests Passing**: 289+ tests
+- **Tests Passing**: 404 passed, 31 failed (435 total tests)
 
 ### Completed Sprints
 
 ✅ **Sprint 1** (Aeon Core) - 8 user stories: Plan generation, execution, tools, memory, TTL, logging  
 ✅ **Sprint 2** (Adaptive Multi-Pass Reasoning) - 6 user stories: Multi-pass execution, TaskProfile, convergence  
 ✅ **Sprint 4** (Kernel Refactoring) - Kernel LOC reduced 53%, 100% behavioral compatibility  
-✅ **Sprint 5** (Observability & Logging) - 4 user stories: Structured logging, error codes, test coverage expansion
+✅ **Sprint 5** (Observability & Logging) - 4 user stories: Structured logging, error codes, test coverage expansion  
+✅ **Sprint 6** (Phase Transition Stabilization) - Phase transition contracts, context propagation, ExecutionPass consistency
 
 See individual sprint specifications in [`specs/`](specs/) for detailed status and user stories.
 
