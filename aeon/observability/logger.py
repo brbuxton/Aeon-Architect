@@ -64,6 +64,13 @@ class JSONLLogger:
     ) -> LogEntry:
         """
         Format a log entry from orchestration cycle data.
+        
+        **LEGACY METHOD**: This method is maintained for backward compatibility testing only.
+        It is no longer used in production code. The multipass execution path uses
+        phase-aware logging methods (log_phase_entry, log_phase_exit, etc.) instead.
+        
+        This method creates LogEntry objects with event="cycle" for legacy log format
+        compatibility. New code should use phase-aware logging methods.
 
         Args:
             step_number: Sequential cycle identifier
@@ -73,12 +80,17 @@ class JSONLLogger:
             tool_calls: Tool invocations in this cycle (optional)
             ttl_remaining: Cycles left before expiration
             errors: Errors in this cycle (optional)
-            pass_number: Pass number in multi-pass execution (optional, for Sprint 2)
-            phase: Current phase in multi-pass execution (optional, for Sprint 2)
+            pass_number: Pass number in multi-pass execution (optional)
+            phase: Current phase in multi-pass execution (optional)
 
         Returns:
-            Formatted LogEntry
+            Formatted LogEntry with event="cycle"
+            
+        Note:
+            This method is kept for backward compatibility tests. Production code
+            should use phase-aware logging methods that include correlation_id.
         """
+        # pass_number will be normalized automatically by LogEntry field_validator
         return LogEntry(
             step_number=step_number,
             plan_state=plan_state,
@@ -162,6 +174,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            # pass_number will be normalized automatically by LogEntry field_validator
             entry = LogEntry(
                 event="phase_entry",
                 correlation_id=correlation_id,
@@ -201,6 +214,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            
             entry = LogEntry(
                 event="phase_exit",
                 correlation_id=correlation_id,
@@ -244,6 +258,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            
             entry = LogEntry(
                 event="state_transition",
                 correlation_id=correlation_id,
@@ -309,6 +324,7 @@ class JSONLLogger:
                 if validation_issues_summary and "validation_issues" not in evaluation_signals:
                     evaluation_signals["validation_issues"] = validation_issues_summary.model_dump()
 
+            
             entry = LogEntry(
                 event="refinement_outcome",
                 correlation_id=correlation_id,
@@ -377,6 +393,7 @@ class JSONLLogger:
                 if validation_issues_summary and "validation_issues" not in evaluation_signals:
                     evaluation_signals["validation_issues"] = validation_issues_summary.model_dump()
 
+            
             entry = LogEntry(
                 event="evaluation_outcome",
                 correlation_id=correlation_id,
@@ -461,6 +478,7 @@ class JSONLLogger:
                 stack_trace=error.stack_trace,
             )
 
+            
             entry = LogEntry(
                 event="error",
                 correlation_id=correlation_id,
@@ -504,6 +522,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            
             entry = LogEntry(
                 event="error_recovery",
                 correlation_id=correlation_id,
@@ -549,6 +568,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            
             # Use state_transition event type for step execution outcomes
             entry = LogEntry(
                 event="state_transition",
@@ -602,6 +622,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            
             # Use state_transition event type for tool invocation results
             entry = LogEntry(
                 event="state_transition",
@@ -653,6 +674,7 @@ class JSONLLogger:
             return  # No-op if no file path provided
 
         try:
+            
             entry = LogEntry(
                 event="state_transition",
                 correlation_id=correlation_id,
@@ -661,6 +683,153 @@ class JSONLLogger:
                 after_state={"step_id": step_id, "status": new_status},
                 transition_reason=reason,
                 pass_number=pass_number,
+                timestamp=timestamp or datetime.now().isoformat(),
+            )
+            self.log_entry(entry)
+        except Exception:
+            # Non-blocking: silently fail on errors
+            pass
+
+    def log_state_snapshot(
+        self,
+        correlation_id: str,
+        phase: Literal["A", "B", "C", "D"],
+        pass_number: int,
+        plan_state: Dict[str, Any],
+        ttl_remaining: int,
+        phase_state: Dict[str, Any],
+        snapshot_type: Literal["before_transition", "after_transition"],
+        timestamp: Optional[str] = None,
+    ) -> None:
+        """
+        Log a deterministic state snapshot at phase boundary (T076).
+
+        Args:
+            correlation_id: Correlation ID linking events for a single execution
+            phase: Current phase (A, B, C, D)
+            pass_number: Pass number in multi-pass execution
+            plan_state: Snapshot of plan state (JSON-serializable)
+            ttl_remaining: TTL cycles remaining
+            phase_state: Snapshot of phase state (JSON-serializable)
+            snapshot_type: Snapshot type (before_transition or after_transition)
+            timestamp: ISO 8601 timestamp (optional, defaults to now)
+
+        Note:
+            This method is non-blocking and will silently fail if file write fails.
+        """
+        if not self.file_path:
+            return  # No-op if no file path provided
+
+        try:
+            
+            entry = LogEntry(
+                event="state_snapshot",
+                correlation_id=correlation_id,
+                phase=phase,
+                pass_number=pass_number,
+                plan_state=plan_state,
+                ttl_remaining=ttl_remaining,
+                before_state={"phase_state": phase_state, "snapshot_type": snapshot_type},
+                timestamp=timestamp or datetime.now().isoformat(),
+            )
+            self.log_entry(entry)
+        except Exception:
+            # Non-blocking: silently fail on errors
+            pass
+
+    def log_ttl_snapshot(
+        self,
+        correlation_id: str,
+        phase: Literal["A", "B", "C", "D"],
+        pass_number: int,
+        ttl_before: int,
+        ttl_after: int,
+        ttl_at_boundary: int,
+        timestamp: Optional[str] = None,
+    ) -> None:
+        """
+        Log a TTL snapshot at phase boundary (T077).
+
+        Args:
+            correlation_id: Correlation ID linking events for a single execution
+            phase: Current phase (A, B, C, D)
+            pass_number: Pass number in multi-pass execution
+            ttl_before: TTL before phase entry
+            ttl_after: TTL after phase exit
+            ttl_at_boundary: TTL at phase boundary
+            timestamp: ISO 8601 timestamp (optional, defaults to now)
+
+        Note:
+            This method is non-blocking and will silently fail if file write fails.
+        """
+        if not self.file_path:
+            return  # No-op if no file path provided
+
+        try:
+            
+            entry = LogEntry(
+                event="ttl_snapshot",
+                correlation_id=correlation_id,
+                phase=phase,
+                pass_number=pass_number,
+                ttl_remaining=ttl_at_boundary,
+                before_state={"ttl_before": ttl_before, "ttl_after": ttl_after},
+                timestamp=timestamp or datetime.now().isoformat(),
+            )
+            self.log_entry(entry)
+        except Exception:
+            # Non-blocking: silently fail on errors
+            pass
+
+    def log_phase_transition_error(
+        self,
+        correlation_id: str,
+        phase: Literal["A", "B", "C", "D"],
+        pass_number: int,
+        error_code: str,
+        severity: Literal["CRITICAL", "ERROR", "WARNING", "INFO"],
+        affected_component: str,
+        failure_condition: str,
+        retryable: bool,
+        timestamp: Optional[str] = None,
+    ) -> None:
+        """
+        Log a phase transition error (T078).
+
+        Args:
+            correlation_id: Correlation ID linking events for a single execution
+            phase: Current phase (A, B, C, D)
+            pass_number: Pass number in multi-pass execution
+            error_code: Error code in format "AEON.PHASE_TRANSITION.<TRANSITION>.<CODE>"
+            severity: Severity level
+            affected_component: Component where error occurred
+            failure_condition: Description of failure condition
+            retryable: Whether error is retryable
+            timestamp: ISO 8601 timestamp (optional, defaults to now)
+
+        Note:
+            This method is non-blocking and will silently fail if file write fails.
+        """
+        if not self.file_path:
+            return  # No-op if no file path provided
+
+        try:
+            from aeon.observability.models import ErrorRecord, ErrorSeverity
+
+            error_record = ErrorRecord(
+                code=error_code,
+                severity=ErrorSeverity(severity),
+                message=failure_condition,
+                affected_component=affected_component,
+                context={"retryable": retryable, "phase": phase},
+            )
+            
+            entry = LogEntry(
+                event="phase_transition_error",
+                correlation_id=correlation_id,
+                phase=phase,
+                pass_number=pass_number,
+                original_error=error_record.model_dump(),
                 timestamp=timestamp or datetime.now().isoformat(),
             )
             self.log_entry(entry)

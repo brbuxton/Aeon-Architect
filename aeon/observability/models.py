@@ -239,6 +239,9 @@ class LogEntry(BaseModel):
         "phase_entry",
         "phase_exit",
         "state_transition",
+        "state_snapshot",
+        "ttl_snapshot",
+        "phase_transition_error",
         "refinement_outcome",
         "evaluation_outcome",
         "error",
@@ -251,6 +254,19 @@ class LogEntry(BaseModel):
     phase: Optional[Literal["A", "B", "C", "D"]] = Field(None, description="Current phase (required for phase events)")
     pass_number: Optional[int] = Field(None, ge=0, description="Pass number in multi-pass execution")
     timestamp: str = Field(..., description="ISO 8601 timestamp of the event")
+    
+    @field_validator("pass_number", mode="before")
+    @classmethod
+    def normalize_pass_number(cls, v: Optional[int]) -> int:
+        """
+        Normalize pass_number to ensure it's always a valid integer >= 0.
+        
+        Defaults to 0 if None or missing. This ensures all log entries used
+        for TTL/phase reasoning have a valid pass_number.
+        """
+        if v is None:
+            return 0
+        return max(0, int(v))
     
     # Phase exit fields
     duration: Optional[float] = Field(None, ge=0.0, description="Duration in seconds (for phase_exit events)")

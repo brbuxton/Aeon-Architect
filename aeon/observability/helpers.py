@@ -2,9 +2,10 @@
 
 import hashlib
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from aeon.kernel.state import OrchestrationState
+from aeon.kernel.state import ExecutionHistory, OrchestrationState
 
 # Fixed namespace UUID for correlation ID generation
 # This is a deterministic namespace UUID for Aeon correlation IDs
@@ -75,5 +76,64 @@ def collect_cycle_data(state: OrchestrationState) -> Dict[str, Any]:
         "tool_calls": tool_calls,
         "supervisor_actions": supervisor_actions,
         "llm_output": llm_output,
+    }
+
+
+def build_execution_result(
+    execution_id: str,
+    request: str,
+    execution_start: datetime,
+    execution_end: datetime,
+    ttl_allocated: int,
+    task_profile: Any,
+    converged: bool,
+    status: str,
+    state: Optional[OrchestrationState],
+    execution_passes: List[Any],
+) -> Dict[str, Any]:
+    """
+    Build execution result with ExecutionHistory.
+    
+    This is observability logic, not kernel orchestration logic.
+    
+    Args:
+        execution_id: Execution ID
+        request: Original request
+        execution_start: Execution start timestamp
+        execution_end: Execution end timestamp
+        ttl_allocated: TTL allocated
+        task_profile: Task profile
+        converged: Whether execution converged
+        status: Final status string
+        state: Current orchestration state
+        execution_passes: List of execution passes
+        
+    Returns:
+        Execution result dict
+    """
+    execution_history = ExecutionHistory(
+        execution_id=execution_id,
+        task_input=request,
+        configuration={
+            "ttl": ttl_allocated,
+            "task_profile": task_profile.model_dump() if hasattr(task_profile, 'model_dump') else task_profile
+        },
+        passes=execution_passes,
+        final_result={
+            "converged": converged,
+            "plan": state.plan.model_dump() if state else {},
+            "status": status
+        },
+        overall_statistics={
+            "total_passes": len(execution_passes),
+            "total_refinements": sum(len(p.refinement_changes) for p in execution_passes),
+            "convergence_achieved": converged,
+            "total_time": (execution_end - execution_start).total_seconds()
+        }
+    )
+    return {
+        "execution_history": execution_history.model_dump(),
+        "status": status,
+        "ttl_remaining": state.ttl_remaining if state else 0,
     }
 

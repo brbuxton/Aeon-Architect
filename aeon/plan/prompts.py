@@ -1,6 +1,6 @@
 """Prompt construction utilities for plan generation and execution."""
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from aeon.plan.models import PlanStep
 from aeon.memory.interface import Memory
@@ -61,19 +61,87 @@ def construct_plan_generation_prompt(request: str, tool_registry: Optional[Any] 
     return prompt
 
 
-def build_reasoning_prompt(step: PlanStep, memory: Memory) -> str:
+def build_reasoning_prompt(
+    step: PlanStep,
+    memory: Memory,
+    phase_context: Optional[Dict[str, Any]] = None,
+) -> str:
     """
     Build reasoning prompt with step description, context propagation fields, and memory context.
 
     Args:
         step: PlanStep to execute
         memory: Memory interface
+        phase_context: Optional phase context dict with request, task_profile, plan metadata, etc.
+                      (Only present when called from multipass execution with context propagation)
+                      
+                      Required keys (if phase_context provided):
+                      - request: Natural language request (string, non-null)
+                      - pass_number: Pass number (int, non-null)
+                      - phase: Phase identifier (str, non-null)
+                      - ttl_remaining: TTL cycles remaining (int, non-null)
+                      - correlation_id: Correlation ID (str, non-null)
+                      
+                      Optional keys:
+                      - refined_plan_goal or initial_plan_goal: Plan goal (string)
+                      - previous_outputs: Previous execution results (list)
+                      - refinement_changes: Refinement changes (list)
+                      
+                      Unused keys (present in context but not used in prompt):
+                      - initial_plan_steps: Step metadata (for future use)
+                      - refined_plan_steps: Step metadata (for future use)
+                      - current_plan_state: Full plan state (for future use)
+                      - execution_results: Execution results (for future use)
+                      - evaluation_results: Evaluation results (for future use)
+                      - adaptive_depth_inputs: Adaptive depth inputs (for future use)
+                      - execution_start_timestamp: Timestamp (for logging, not prompt)
+                      - task_profile: Task profile (for future use)
 
     Returns:
         Prompt string
+        
+    Raises:
+        ValueError: If phase_context is provided but required keys are missing or null
     """
+    # T047: Validate phase_context to prevent null semantic inputs
+    if phase_context is not None:
+        required_keys = ["request", "pass_number", "phase", "ttl_remaining", "correlation_id"]
+        missing_keys = []
+        null_keys = []
+        
+        for key in required_keys:
+            if key not in phase_context:
+                missing_keys.append(key)
+            elif phase_context[key] is None:
+                null_keys.append(key)
+        
+        if missing_keys:
+            raise ValueError(f"Missing required phase_context keys: {', '.join(missing_keys)}")
+        if null_keys:
+            raise ValueError(f"Null semantic inputs in phase_context: {', '.join(null_keys)}")
+    
     # Start with step description
     prompt = f"Task: {step.description}\n\n"
+
+    # Add phase context if available (T035: propagate context to step execution)
+    # This is only present when called from multipass execution (e.g., Phase C)
+    if phase_context:
+        prompt += "=== Execution Context ===\n"
+        # T047: All required keys validated above, safe to use without .get() checks
+        prompt += f"Request: {phase_context['request']}\n"
+        # Handle plan goal - can be from different phases (initial_plan_goal or refined_plan_goal)
+        plan_goal = phase_context.get("refined_plan_goal") or phase_context.get("initial_plan_goal")
+        if plan_goal:
+            prompt += f"Plan Goal: {plan_goal}\n"
+        prompt += f"Pass Number: {phase_context['pass_number']}\n"
+        prompt += f"Phase: {phase_context['phase']}\n"
+        prompt += f"TTL Remaining: {phase_context['ttl_remaining']}\n"
+        prompt += f"Correlation ID: {phase_context['correlation_id']}\n"
+        if phase_context.get("previous_outputs"):
+            prompt += f"Previous Outputs: {len(phase_context['previous_outputs'])} result(s)\n"
+        if phase_context.get("refinement_changes"):
+            prompt += f"Refinement Changes: {len(phase_context['refinement_changes'])} change(s)\n"
+        prompt += "\n"
 
     # Add step context (step_index, total_steps) if available
     if hasattr(step, 'step_index') and step.step_index is not None:

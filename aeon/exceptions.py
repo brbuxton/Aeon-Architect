@@ -213,6 +213,143 @@ class TTLExpiredError(AeonError):
         )
 
 
+class PhaseTransitionError(AeonError):
+    """Raised when phase transition fails."""
+
+    ERROR_CODE: str = "AEON.PHASE_TRANSITION.000"
+    SEVERITY: ErrorSeverity = ErrorSeverity.ERROR
+
+    def __init__(
+        self,
+        transition_name: str,
+        failure_condition: str,
+        retryable: bool,
+        message: Optional[str] = None,
+    ):
+        """
+        Initialize phase transition error.
+
+        Args:
+            transition_name: Transition identifier (A→B, B→C, C→D, D→A/B)
+            failure_condition: Description of failure condition
+            retryable: Whether error is retryable
+            message: Optional error message
+        """
+        self.transition_name = transition_name
+        self.failure_condition = failure_condition
+        self.retryable = retryable
+        error_message = message or f"Phase transition {transition_name} failed: {failure_condition}"
+        super().__init__(error_message)
+
+    def to_error_record(self, context: Optional[Dict[str, Any]] = None) -> ErrorRecord:
+        """Convert PhaseTransitionError to ErrorRecord."""
+        error_context = context or {}
+        error_context.setdefault("affected_component", "phase_transition")
+        error_context.setdefault("transition_name", self.transition_name)
+        error_context.setdefault("failure_condition", self.failure_condition)
+        error_context.setdefault("retryable", self.retryable)
+        return ErrorRecord(
+            code=self.ERROR_CODE,
+            severity=self.SEVERITY,
+            message=str(self),
+            affected_component="phase_transition",
+            context=error_context,
+            stack_trace="".join(traceback.format_exception(type(self), self, self.__traceback__)),
+        )
+
+
+class ContextPropagationError(AeonError):
+    """Raised when context propagation fails."""
+
+    ERROR_CODE: str = "AEON.CONTEXT_PROPAGATION.000"
+    SEVERITY: ErrorSeverity = ErrorSeverity.ERROR
+
+    def __init__(
+        self,
+        phase: str,
+        missing_fields: list[str],
+        message: Optional[str] = None,
+    ):
+        """
+        Initialize context propagation error.
+
+        Args:
+            phase: Phase identifier (A, B, C, D)
+            missing_fields: List of missing required fields
+            message: Optional error message
+        """
+        self.phase = phase
+        self.missing_fields = missing_fields
+        error_message = (
+            message
+            or f"Context propagation failed for phase {phase}: missing fields {', '.join(missing_fields)}"
+        )
+        super().__init__(error_message)
+
+    def to_error_record(self, context: Optional[Dict[str, Any]] = None) -> ErrorRecord:
+        """Convert ContextPropagationError to ErrorRecord."""
+        error_context = context or {}
+        error_context.setdefault("affected_component", "context_propagation")
+        error_context.setdefault("phase", self.phase)
+        error_context.setdefault("missing_fields", self.missing_fields)
+        return ErrorRecord(
+            code=self.ERROR_CODE,
+            severity=self.SEVERITY,
+            message=str(self),
+            affected_component="context_propagation",
+            context=error_context,
+            stack_trace="".join(traceback.format_exception(type(self), self, self.__traceback__)),
+        )
+
+
+class ExecutionPassValidationError(AeonError):
+    """Raised when ExecutionPass validation fails."""
+
+    ERROR_CODE: str = "AEON.EXECUTION_PASS.001"
+    SEVERITY: ErrorSeverity = ErrorSeverity.ERROR
+
+    def __init__(
+        self,
+        phase: str,
+        validation_type: str,
+        error_message: str,
+        message: Optional[str] = None,
+    ):
+        """
+        Initialize ExecutionPass validation error.
+
+        Args:
+            phase: Phase identifier (A, B, C, D)
+            validation_type: Type of validation (before_phase, after_phase, invariants)
+            error_message: Validation error message
+            message: Optional error message
+        """
+        self.phase = phase
+        self.validation_type = validation_type
+        self.error_message = error_message
+        error_msg = (
+            message
+            or f"ExecutionPass validation failed for phase {phase} ({validation_type}): {error_message}"
+        )
+        super().__init__(error_msg)
+
+    def to_error_record(self, context: Optional[Dict[str, Any]] = None) -> ErrorRecord:
+        """Convert ExecutionPassValidationError to ErrorRecord."""
+        error_context = context or {}
+        error_context.setdefault("affected_component", "execution_pass_validation")
+        error_context.setdefault("phase", self.phase)
+        error_context.setdefault("validation_type", self.validation_type)
+        error_context.setdefault("error_message", self.error_message)
+        return ErrorRecord(
+            code=self.ERROR_CODE,
+            severity=self.SEVERITY,
+            message=str(self),
+            affected_component="execution_pass_validation",
+            context=error_context,
+            stack_trace="".join(traceback.format_exception(type(self), self, self.__traceback__)),
+        )
+
+
 
 
 

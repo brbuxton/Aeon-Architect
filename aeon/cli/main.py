@@ -13,6 +13,69 @@ from aeon.llm.adapters.remote_api import RemoteAPIAdapter
 from aeon.llm.interface import LLMAdapter
 from aeon.memory.kv_store import InMemoryKVStore
 from aeon.observability.logger import JSONLLogger
+from aeon.plan.models import Plan
+from aeon.kernel.state import OrchestrationState
+
+
+# Display constants
+_SEPARATOR = "=" * 60
+
+
+def _extract_plan_from_result(result: Dict[str, Any], state: Optional[OrchestrationState]) -> Optional[Plan]:
+    """
+    Extract Plan object from execution result or state.
+    
+    Tries multiple sources in order:
+    1. state.plan (preferred)
+    2. result["plan"] (direct key)
+    3. result["execution_history"]["final_result"]["plan"] (multipass nested)
+    
+    Args:
+        result: Execution result dictionary
+        state: Orchestration state (optional)
+        
+    Returns:
+        Plan object if found, None otherwise
+    """
+    # Prefer state.plan if available
+    if state and state.plan:
+        return state.plan
+    
+    # Try direct plan key
+    plan_dict = result.get("plan", {})
+    
+    # Try nested multipass structure if direct key not found
+    if not plan_dict and "execution_history" in result:
+        exec_history = result.get("execution_history", {})
+        final_result = exec_history.get("final_result", {})
+        plan_dict = final_result.get("plan", {})
+    
+    # Convert dict to Plan object
+    if plan_dict:
+        try:
+            return Plan(**plan_dict)
+        except Exception:
+            return None
+    
+    return None
+
+
+def _get_plan_dict_from_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Get plan dictionary from result (for fallback display).
+    
+    Args:
+        result: Execution result dictionary
+        
+    Returns:
+        Plan dictionary, empty dict if not found
+    """
+    plan_dict = result.get("plan", {})
+    if not plan_dict and "execution_history" in result:
+        exec_history = result.get("execution_history", {})
+        final_result = exec_history.get("final_result", {})
+        plan_dict = final_result.get("plan", {})
+    return plan_dict or {}
 
 
 class MockLLMAdapter(LLMAdapter):
@@ -149,9 +212,9 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
         print("\nGenerating plan...")
         plan = orchestrator.generate_plan(args.request)
         
-        # Now execute the plan
+        # Now execute the plan using multipass execution
         print("Executing plan...")
-        result = orchestrator.execute(args.request, plan=plan)
+        result = orchestrator.execute_multipass(args.request, plan=plan)
 
         # Get the full state to access LLM outputs and tool history
         state = orchestrator.get_state()
@@ -162,9 +225,9 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
         # Display multi-pass execution information if available (Sprint 2)
         if 'execution_history' in result:
             history = result['execution_history']
-            print(f"\n{'='*60}")
+            print(f"\n{_SEPARATOR}")
             print("Multi-Pass Execution Summary")
-            print(f"{'='*60}")
+            print(_SEPARATOR)
             print(f"Execution ID: {history.get('execution_id', 'N/A')}")
             stats = history.get('overall_statistics', {})
             print(f"Total Passes: {stats.get('total_passes', 0)}")
@@ -224,17 +287,8 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
             print(json.dumps(full_result, indent=2, default=str))
         else:
             print(f"\nPlan:")
-            # Preserve Plan object identity (T124) - use state.plan if available
-            if state and state.plan:
-                plan_obj = state.plan
-            else:
-                # Fallback to result plan dict
-                plan_dict = result.get("plan", {})
-                from aeon.plan.models import Plan
-                try:
-                    plan_obj = Plan(**plan_dict)
-                except Exception:
-                    plan_obj = None
+            # Extract plan using helper function
+            plan_obj = _extract_plan_from_result(result, state)
             
             if plan_obj:
                 print(f"  Goal: {plan_obj.goal}")
@@ -288,7 +342,7 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
                             print(f"      Result: {step_result}")
             else:
                 # Fallback to dict display if Plan object not available
-                plan_dict = result.get("plan", {})
+                plan_dict = _get_plan_dict_from_result(result)
                 print(f"  Goal: {plan_dict.get('goal', 'N/A')}")
                 print(f"  Steps: {len(plan_dict.get('steps', []))}")
                 for i, step in enumerate(plan_dict.get("steps", []), 1):
@@ -320,23 +374,20 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
             
             # Show the generated plan (this is what the LLM produced)
             # Preserve Plan object identity (T124)
+            print(f"\n{_SEPARATOR}")
+            print("Generated Plan (from LLM):")
+            print(_SEPARATOR)
             if plan_obj:
-                print(f"\n{'='*60}")
-                print("Generated Plan (from LLM):")
-                print(f"{'='*60}")
                 print(json.dumps(plan_obj.model_dump(), indent=2))
             else:
-                print(f"\n{'='*60}")
-                print("Generated Plan (from LLM):")
-                print(f"{'='*60}")
-                plan_dict = result.get("plan", {})
+                plan_dict = _get_plan_dict_from_result(result)
                 print(json.dumps(plan_dict, indent=2))
             
             # Note about step execution
             if state and not state.llm_outputs:
-                print(f"\n{'='*60}")
+                print(f"\n{_SEPARATOR}")
                 print("Note:")
-                print(f"{'='*60}")
+                print(_SEPARATOR)
                 print("Step execution completed, but no LLM reasoning was performed during steps.")
                 print("In the current implementation, steps are marked complete without LLM calls.")
                 print("The plan structure above shows what the LLM generated during plan creation.")

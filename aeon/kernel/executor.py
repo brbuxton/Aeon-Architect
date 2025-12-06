@@ -1,4 +1,7 @@
-"""Step executor for multi-mode step execution."""
+"""Step executor for multi-mode step execution.
+
+Part of the kernel per Constitution. See orchestrator.py for constitutional LOC notes.
+"""
 
 import json
 from typing import TYPE_CHECKING, Any, Dict, Optional
@@ -49,6 +52,7 @@ class StepExecutor:
         supervisor: Supervisor,
         logger: Optional["JSONLLogger"] = None,
         correlation_id: Optional[str] = None,
+        state: Optional[Any] = None,  # OrchestrationState (to access phase_c_context)
     ) -> StepExecutionResult:
         """
         Execute a plan step.
@@ -95,13 +99,13 @@ class StepExecutor:
                 # Tool is missing/invalid - fallback to LLM reasoning
                 # Orchestrator will handle repair flow if supervisor is available
                 # For now, fallback to LLM reasoning (orchestrator can intercept and repair)
-                return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id)
+                return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id, state)
         elif step.agent == "llm":
             # Explicit LLM reasoning step
-            return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id)
+            return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id, state)
         else:
             # No tool, no agent - treat as missing-tool, use fallback
-            return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id)
+            return self.execute_llm_reasoning_step(step, memory, llm, logger, correlation_id, state)
 
     def execute_tool_step(
         self,
@@ -277,6 +281,7 @@ class StepExecutor:
         llm: LLMAdapter,
         logger: Optional["JSONLLogger"] = None,
         correlation_id: Optional[str] = None,
+        state: Optional[Any] = None,  # OrchestrationState (to access phase_c_context)
     ) -> StepExecutionResult:
         """
         Execute LLM reasoning step (explicit or fallback).
@@ -287,15 +292,56 @@ class StepExecutor:
             step: PlanStep with agent="llm" or missing tool
             memory: Memory interface
             llm: LLM adapter
+            logger: Optional logger
+            correlation_id: Optional correlation ID
+            state: Optional OrchestrationState to access phase_c_context
 
         Returns:
             StepExecutionResult
         """
-        try:
-            # Build prompt with step description, context propagation fields, and memory context
-            prompt = build_reasoning_prompt(step, memory)
+        from aeon.orchestration.phases import (
+            get_context_propagation_specification,
+            validate_context_propagation,
+        )
+        from aeon.exceptions import ContextPropagationError
 
-            # Invoke LLM
+        try:
+            # Validate context before LLM call if available in state
+            # Only validate if we have phase context (i.e., called from multipass with context propagation)
+            phase_context_dict = None
+            if state and hasattr(state, 'phase_context') and state.phase_context:
+                phase = state.phase_context.get("phase")
+                phase_context_dict = state.phase_context.get("context")
+                if phase and phase_context_dict:
+                    # Context was already validated in phase method, but verify it's still valid
+                    spec = get_context_propagation_specification(phase)
+                    is_valid, error_message, missing_fields = validate_context_propagation(phase, phase_context_dict, spec)
+                    if not is_valid:
+                        error = ContextPropagationError(
+                            phase=phase,
+                            missing_fields=missing_fields,
+                            message=f"Context validation failed during step execution: {error_message}",
+                        )
+                        # Log error and return failure
+                        if logger and correlation_id:
+                            error_record = error.to_error_record()
+                            logger.log_error(
+                                correlation_id=correlation_id,
+                                error=error_record,
+                                step_id=step.step_id,
+                            )
+                        return StepExecutionResult(
+                            success=False,
+                            result={},
+                            error=str(error),
+                            execution_mode="llm" if step.agent == "llm" else "fallback",
+                        )
+
+            # Build prompt with step description, context propagation fields, and memory context
+            # Pass phase context if available (from multipass execution)
+            prompt = build_reasoning_prompt(step, memory, phase_context=phase_context_dict)
+
+            # Invoke LLM (context already validated above)
             response = llm.generate(
                 prompt=prompt,
                 system_prompt="You are a reasoning assistant. Provide clear, structured responses. Include clarity_state and handoff_to_next in your response.",

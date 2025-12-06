@@ -8,7 +8,32 @@ This document captures the **North Star**, **Golden Path Demos**, and **Sprint G
 
 > **Aeon must be able to execute a multi-pass reasoning cycle where each step may modify the plan, memory, or depth, and converge deterministically on stable outputs for tasks of bounded complexity.**
 
-This defines the real goal of the architectural epic: not features, but a *capability*. The epic is complete only when the system reliably exhibits this behavior.
+---
+
+# 🔄 Reasoning Loop (A → B → C → D → E)
+
+Aeon's reasoning cycle follows a five-phase pipeline:
+
+- **Phase A**: TaskProfile & TTL allocation
+- **Phase B**: Initial Plan & Pre-Execution Refinement
+- **Phase C**: Execution Passes (Execute Batch → Evaluate → Decide → Refine)
+- **Phase D**: Adaptive Depth (TaskProfile updates at pass boundaries)
+- **Phase E**: Final Answer Synthesis (Minimal Layer)
+
+## Phase E – Final Answer Synthesis (Minimal Layer)
+
+**Purpose:** Convert internal reasoning artifacts into a coherent final answer.
+
+**Implementation:** Single LLM synthesis prompt that aggregates step outputs after Phase D completion.
+
+**Output:** `final_answer` — a structured answer with minimal metadata.
+
+**Scope:** Internal reasoning only. Phase E synthesizes the final answer from execution results but does not include presentation-layer abstractions.
+
+**Non-goals:**
+- No UI or user-facing presentation layer
+- No presentation abstraction (Layer 2)
+- No kernel-level output governance (Layer 3)
 
 ---
 
@@ -121,6 +146,8 @@ Each gate is a single question. If the answer is "no", do not continue.
 **Question:**
 > *Do all system prompts follow stable schemas and invariants, so the memory and reasoning modules can rely on their structure?*
 
+**Note:** Sprint 7 includes Phase E (Final Answer Synthesis), which completes the A→B→C→D→E reasoning loop. This enables Golden Paths to synthesize final answers, but does not include presentation-layer work (Layer 2) or kernel output governance (Layer 3).
+
 ---
 
 ## **Gate after Sprint 8 — Memory Stability**
@@ -156,6 +183,47 @@ If no: revise specs, revisit modules, or redesign where needed.
 - **Sprint Gates** prevent building unstable layers atop incomplete foundations.
 
 Together, they turn a multi-sprint roadmap into a coherent, testable architecture transformation.
+
+---
+
+# 🔮 Future Layers Beyond Phase E (Post-Epic Work)
+
+The following layers are **explicitly deferred** to post-epic work and are **NOT** part of the current architecture epic (Sprints 5–11). They are documented here for clarity but will be implemented in future architecture work.
+
+## Layer 2 — Presentation Layer Abstraction (Deferred, Post-Epic)
+
+**Purpose:** Provide structured result objects and user-facing presentation abstractions.
+
+**Components:**
+- Structured Result object
+- Verbosity modes
+- Stable API for CLI/Web/MCP
+- Output formatting policies
+- User-facing presentation abstraction
+
+**Status:** NOT included in Sprints 5–11. This layer will be implemented as post-epic work.
+
+## Layer 3 — Kernel Output Governance & Deep Integration (Deferred, Post-Epic)
+
+**Purpose:** Establish kernel-level output schema invariants and deep integration with memory, convergence, and validation systems.
+
+**Components:**
+- Kernel-level output schema invariants
+- Integrating final answers with memory, convergence, and validation
+- Deterministic output contracts
+- Output versioning and governance
+
+**Status:** NOT part of current epic. This layer belongs to future architecture work.
+
+---
+
+# 📝 Golden Paths and Phase E
+
+Golden Paths require Aeon to synthesize final answers, which is enabled by **Phase E**. However, Golden Paths do **NOT** require:
+- Layer 2 (Presentation Layer Abstraction)
+- Layer 3 (Kernel Output Governance & Deep Integration)
+
+Phase E provides the minimal synthesis capability needed to complete the reasoning loop (A→B→C→D→E) and satisfy Golden Path requirements.
 
 ---
 

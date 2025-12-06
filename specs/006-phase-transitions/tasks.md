@@ -23,9 +23,9 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Verify project structure exists per implementation plan in aeon/
-- [ ] T002 [P] Verify Python 3.11+ project configuration in pyproject.toml
-- [ ] T003 [P] Verify pydantic>=2.0.0 dependency in requirements.txt
+- [X] T001 Verify project structure exists per implementation plan in aeon/
+- [X] T002 [P] Verify Python 3.11+ project configuration in pyproject.toml
+- [X] T003 [P] Verify pydantic>=2.0.0 dependency in requirements.txt
 
 ---
 
@@ -35,12 +35,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create PhaseTransitionContract Pydantic model in aeon/orchestration/phases.py
-- [ ] T005 [P] Create ContextPropagationSpecification Pydantic model in aeon/orchestration/phases.py
-- [ ] T006 [P] Add PhaseTransitionError exception class in aeon/exceptions.py
-- [ ] T007 [P] Add ContextPropagationError exception class in aeon/exceptions.py
-- [ ] T008 [P] Add TTLExpiredError exception class in aeon/exceptions.py (if not exists)
-- [ ] T008a [P] Verify ExecutionPass validation logic separation: Ensure ExecutionPass validation functions are implemented in aeon/validation/execution_pass.py (new module), NOT in aeon/kernel/state.py, per Constitution Principle I (Kernel Minimalism)
+- [X] T004 Create PhaseTransitionContract Pydantic model in aeon/orchestration/phases.py
+- [X] T005 [P] Create ContextPropagationSpecification Pydantic model in aeon/orchestration/phases.py
+- [X] T006 [P] Add PhaseTransitionError exception class in aeon/exceptions.py
+- [X] T007 [P] Add ContextPropagationError exception class in aeon/exceptions.py
+- [X] T008 [P] Add TTLExpiredError exception class in aeon/exceptions.py (if not exists)
+- [X] T008a [P] Verify ExecutionPass validation logic separation: Ensure ExecutionPass validation functions are implemented in aeon/validation/execution_pass.py (new module), NOT in aeon/kernel/state.py, per Constitution Principle I (Kernel Minimalism)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -54,19 +54,19 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Define A→B phase transition contract constant in aeon/orchestration/phases.py
-- [ ] T010 [US1] Define B→C phase transition contract constant in aeon/orchestration/phases.py
-- [ ] T011 [US1] Define C→D phase transition contract constant in aeon/orchestration/phases.py
-- [ ] T012 [US1] Define D→A/B phase transition contract constant in aeon/orchestration/phases.py
-- [ ] T013 [US1] Implement get_phase_transition_contract function in aeon/orchestration/phases.py
-- [ ] T014 [US1] Implement validate_phase_transition_contract function in aeon/orchestration/phases.py
-- [ ] T015 [US1] Implement enforce_phase_transition_contract function in aeon/orchestration/phases.py
-- [ ] T016 [US1] Integrate contract validation into A→B transition in aeon/orchestration/phases.py
-- [ ] T017 [US1] Integrate contract validation into B→C transition in aeon/orchestration/phases.py
-- [ ] T018 [US1] Integrate contract validation into C→D transition in aeon/orchestration/phases.py
-- [ ] T019 [US1] Integrate contract validation into D→A/B transition in aeon/orchestration/phases.py
-- [ ] T020 [US1] Add retry logic for retryable phase transition errors in aeon/orchestration/phases.py
-- [ ] T020a [US1] Implement LLM provider failure handling per FR-011 by detecting provider errors at every LLM call site, retrying once for retryable errors, and aborting with structured error for non-retryable errors in aeon/orchestration/phases.py.
+- [X] T009 [US1] Define A→B phase transition contract constant in aeon/orchestration/phases.py
+- [X] T010 [US1] Define B→C phase transition contract constant in aeon/orchestration/phases.py
+- [X] T011 [US1] Define C→D phase transition contract constant in aeon/orchestration/phases.py
+- [X] T012 [US1] Define D→A/B phase transition contract constant in aeon/orchestration/phases.py
+- [X] T013 [US1] Implement get_phase_transition_contract function in aeon/orchestration/phases.py
+- [X] T014 [US1] Implement validate_phase_transition_contract function in aeon/orchestration/phases.py
+- [X] T015 [US1] Implement enforce_phase_transition_contract function in aeon/orchestration/phases.py
+- [X] T016 [US1] Integrate contract validation into A→B transition in aeon/orchestration/phases.py
+- [X] T017 [US1] Integrate contract validation into B→C transition in aeon/orchestration/phases.py
+- [X] T018 [US1] Integrate contract validation into C→D transition in aeon/orchestration/phases.py
+- [X] T019 [US1] Integrate contract validation into D→A/B transition in aeon/orchestration/phases.py
+- [X] T020 [US1] Add retry logic for retryable phase transition errors in aeon/orchestration/phases.py
+- [X] T020a [US1] Implement LLM provider failure handling per FR-011 by detecting provider errors at every LLM call site, retrying once for retryable errors, and aborting with structured error for non-retryable errors in aeon/orchestration/phases.py.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -80,24 +80,24 @@
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Define Phase A context propagation specification constant in aeon/orchestration/phases.py
-- [ ] T022 [US2] Define Phase B context propagation specification constant in aeon/orchestration/phases.py
-- [ ] T023 [US2] Define Phase C context propagation specification constant in aeon/orchestration/phases.py
-- [ ] T024 [US2] Define Phase D context propagation specification constant in aeon/orchestration/phases.py
-- [ ] T025 [US2] Implement get_context_propagation_specification function in aeon/orchestration/phases.py
-- [ ] T026 [US2] Implement validate_context_propagation function in aeon/orchestration/phases.py
-- [ ] T027 [US2] Implement build_llm_context function in aeon/orchestration/phases.py
-- [ ] T028 [US2] Integrate context validation before Phase A LLM calls in aeon/orchestration/phases.py
-- [ ] T029 [US2] Integrate context validation before Phase B LLM calls in aeon/orchestration/phases.py
-- [ ] T030 [US2] Integrate context validation before Phase C LLM calls in aeon/orchestration/phases.py
-- [ ] T031 [US2] Integrate context validation before Phase D LLM calls in aeon/orchestration/phases.py
-- [ ] T032 [US2] Ensure correlation_id and execution_start_timestamp are passed unchanged in aeon/orchestration/phases.py
-- [ ] T033 [US2] Update Phase A to propagate minimal context (request, pass_number=0, phase="A", TTL remaining, correlation_id, execution_start_timestamp) in aeon/orchestration/phases.py
-- [ ] T034 [US2] Update Phase B to propagate context (request, task_profile, initial_plan goal and step metadata, pass_number=0, phase="B", TTL remaining, correlation_id, execution_start_timestamp) in aeon/orchestration/phases.py
-- [ ] T035 [US2] Update Phase C execution to propagate context (request, task_profile, refined_plan goal and step metadata, pass_number, phase="C", TTL remaining, correlation_id, execution_start_timestamp, previous outputs, refinement changes) in aeon/orchestration/phases.py
-- [ ] T036 [US2] Update Phase C evaluation to propagate context (request, task_profile, current plan state, execution_results, pass_number, phase="C", TTL remaining, correlation_id, execution_start_timestamp) in aeon/orchestration/phases.py
-- [ ] T037 [US2] Update Phase C refinement to propagate context (request, task_profile, current plan state, execution_results, evaluation_results, pass_number, phase="C", TTL remaining, correlation_id, execution_start_timestamp, previous outputs) in aeon/orchestration/phases.py
-- [ ] T038 [US2] Update Phase D to propagate context (request, task_profile, evaluation_results, plan state, pass_number, phase="D", TTL remaining, correlation_id, execution_start_timestamp, adaptive depth decision inputs) in aeon/orchestration/phases.py
+- [X] T021 [US2] Define Phase A context propagation specification constant in aeon/orchestration/phases.py
+- [X] T022 [US2] Define Phase B context propagation specification constant in aeon/orchestration/phases.py
+- [X] T023 [US2] Define Phase C context propagation specification constant in aeon/orchestration/phases.py
+- [X] T024 [US2] Define Phase D context propagation specification constant in aeon/orchestration/phases.py
+- [X] T025 [US2] Implement get_context_propagation_specification function in aeon/orchestration/phases.py
+- [X] T026 [US2] Implement validate_context_propagation function in aeon/orchestration/phases.py
+- [X] T027 [US2] Implement build_llm_context function in aeon/orchestration/phases.py
+- [X] T028 [US2] Integrate context validation before Phase A LLM calls in aeon/orchestration/phases.py
+- [X] T029 [US2] Integrate context validation before Phase B LLM calls in aeon/orchestration/phases.py
+- [X] T030 [US2] Integrate context validation before Phase C LLM calls in aeon/orchestration/phases.py
+- [X] T031 [US2] Integrate context validation before Phase D LLM calls in aeon/orchestration/phases.py
+- [X] T032 [US2] Ensure correlation_id and execution_start_timestamp are passed unchanged in aeon/orchestration/phases.py
+- [X] T033 [US2] Update Phase A to propagate minimal context (request, pass_number=0, phase="A", TTL remaining, correlation_id, execution_start_timestamp) in aeon/orchestration/phases.py
+- [X] T034 [US2] Update Phase B to propagate context (request, task_profile, initial_plan goal and step metadata, pass_number=0, phase="B", TTL remaining, correlation_id, execution_start_timestamp) in aeon/orchestration/phases.py
+- [X] T035 [US2] Update Phase C execution to propagate context (request, task_profile, refined_plan goal and step metadata, pass_number, phase="C", TTL remaining, correlation_id, execution_start_timestamp, previous outputs, refinement changes) in aeon/orchestration/phases.py
+- [X] T036 [US2] Update Phase C evaluation to propagate context (request, task_profile, current plan state, execution_results, pass_number, phase="C", TTL remaining, correlation_id, execution_start_timestamp) in aeon/orchestration/phases.py
+- [X] T037 [US2] Update Phase C refinement to propagate context (request, task_profile, current plan state, execution_results, evaluation_results, pass_number, phase="C", TTL remaining, correlation_id, execution_start_timestamp, previous outputs) in aeon/orchestration/phases.py
+- [X] T038 [US2] Update Phase D to propagate context (request, task_profile, evaluation_results, plan state, pass_number, phase="D", TTL remaining, correlation_id, execution_start_timestamp, adaptive depth decision inputs) in aeon/orchestration/phases.py
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -111,15 +111,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T039 [US3] Review all prompt schemas in aeon/plan/prompts.py
-- [ ] T040 [US3] Review all prompt schemas in aeon/orchestration/phases.py
-- [ ] T041 [US3] Review all prompt schemas in aeon/orchestration/refinement.py
-- [ ] T042 [US3] Identify unused keys in prompt schemas across all modules
-- [ ] T043 [US3] Remove unused keys or document as optional/future use in aeon/plan/prompts.py
-- [ ] T044 [US3] Remove unused keys or document as optional/future use in aeon/orchestration/phases.py
-- [ ] T045 [US3] Remove unused keys or document as optional/future use in aeon/orchestration/refinement.py
-- [ ] T046 [US3] Ensure orchestrator/phases populate all required keys in prompt schemas
-- [ ] T047 [US3] Add validation to prevent null semantic inputs in prompt construction
+- [X] T039 [US3] Review all prompt schemas in aeon/plan/prompts.py
+- [X] T040 [US3] Review all prompt schemas in aeon/orchestration/phases.py
+- [X] T041 [US3] Review all prompt schemas in aeon/orchestration/refinement.py
+- [X] T042 [US3] Identify unused keys in prompt schemas across all modules
+- [X] T043 [US3] Remove unused keys or document as optional/future use in aeon/plan/prompts.py
+- [X] T044 [US3] Remove unused keys or document as optional/future use in aeon/orchestration/phases.py
+- [X] T045 [US3] Remove unused keys or document as optional/future use in aeon/orchestration/refinement.py
+- [X] T046 [US3] Ensure orchestrator/phases populate all required keys in prompt schemas
+- [X] T047 [US3] Add validation to prevent null semantic inputs in prompt construction
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently
 
@@ -133,17 +133,17 @@
 
 ### Implementation for User Story 4
 
-- [ ] T048 [US4] Implement TTL decrement behavior so TTL_remaining decrements exactly once at the end of each complete A→B→C→D cycle per FR-025.
-- [ ] T049 [US4] Implement check_ttl_before_phase_entry function in aeon/orchestration/ttl.py
-- [ ] T050 [US4] Implement check_ttl_after_llm_call function in aeon/orchestration/ttl.py
-- [ ] T051 [US4] Implement decrement_ttl_per_cycle function in aeon/orchestration/ttl.py
-- [ ] T052 [US4] Integrate TTL check before phase entry in aeon/orchestration/phases.py
-- [ ] T053 [US4] Integrate TTL check after each LLM call within phase in aeon/orchestration/phases.py
-- [ ] T054 [US4] Ensure TTLExpirationResponse is generated with expiration_type="phase_boundary" when TTL=0 at phase boundary in aeon/orchestration/ttl.py
-- [ ] T055 [US4] Ensure TTLExpirationResponse is generated with expiration_type="mid_phase" when TTL=0 mid-phase in aeon/orchestration/ttl.py
-- [ ] T056 [US4] Fix TTL behavior at TTL=1 boundary (allow cycle to complete) in aeon/orchestration/ttl.py
-- [ ] T057 [US4] Remove any heuristic TTL adjustments in aeon/orchestration/ttl.py
-- [ ] T058 [US4] Ensure TTL decrement occurs in Phase D completion in aeon/orchestration/phases.py
+- [X] T048 [US4] Implement TTL decrement behavior so TTL_remaining decrements exactly once at the end of each complete A→B→C→D cycle per FR-025.
+- [X] T049 [US4] Implement check_ttl_before_phase_entry function in aeon/orchestration/ttl.py
+- [X] T050 [US4] Implement check_ttl_after_llm_call function in aeon/orchestration/ttl.py
+- [X] T051 [US4] Implement decrement_ttl_per_cycle function in aeon/orchestration/ttl.py
+- [X] T052 [US4] Integrate TTL check before phase entry in aeon/orchestration/phases.py
+- [X] T053 [US4] Integrate TTL check after each LLM call within phase in aeon/orchestration/phases.py
+- [X] T054 [US4] Ensure TTLExpirationResponse is generated with expiration_type="phase_boundary" when TTL=0 at phase boundary in aeon/orchestration/ttl.py
+- [X] T055 [US4] Ensure TTLExpirationResponse is generated with expiration_type="mid_phase" when TTL=0 mid-phase in aeon/orchestration/ttl.py
+- [X] T056 [US4] Fix TTL behavior at TTL=1 boundary (allow cycle to complete) in aeon/orchestration/ttl.py
+- [X] T057 [US4] Remove any heuristic TTL adjustments in aeon/orchestration/ttl.py
+- [X] T058 [US4] Ensure TTL decrement occurs in Phase D completion in aeon/orchestration/phases.py
 
 **Checkpoint**: At this point, User Stories 1, 2, 3, AND 4 should all work independently
 
@@ -157,21 +157,21 @@
 
 ### Implementation for User Story 5
 
-- [ ] T059 [US5] Ensure ExecutionPass and ExecutionHistory remain data-only models in aeon/kernel/state.py with no validation or orchestration logic.
-- [ ] T060 [US5] Add ExecutionPass validation functions (before-phase and after-phase) in aeon/validation/execution_pass.py.
-- [ ] T061 [US5] Add ExecutionPass invariant validation functions in aeon/validation/execution_pass.py.
-- [ ] T062 [US5] Wire ExecutionPass validation calls into phase transitions from aeon/orchestration/phases.py using aeon/validation/execution_pass.py.
-- [ ] T063 [US5] Ensure all ExecutionPass validation errors surface as structured errors without adding logic to aeon/kernel/state.py.
-- [ ] T064 [US5] Integrate ExecutionPass validation before Phase A entry in aeon/orchestration/phases.py
-- [ ] T065 [US5] Integrate ExecutionPass validation before Phase B entry in aeon/orchestration/phases.py
-- [ ] T066 [US5] Integrate ExecutionPass validation before Phase C entry in aeon/orchestration/phases.py
-- [ ] T067 [US5] Integrate ExecutionPass validation before Phase D entry in aeon/orchestration/phases.py
-- [ ] T068 [US5] Integrate ExecutionPass validation after Phase A exit in aeon/orchestration/phases.py
-- [ ] T069 [US5] Integrate ExecutionPass validation after Phase B exit in aeon/orchestration/phases.py
-- [ ] T070 [US5] Integrate ExecutionPass validation after Phase C exit in aeon/orchestration/phases.py
-- [ ] T071 [US5] Integrate ExecutionPass validation after Phase D exit in aeon/orchestration/phases.py
-- [ ] T072 [US5] Ensure execution_results and evaluation_results are correctly merged in aeon/orchestration/phases.py
-- [ ] T073 [US5] Ensure refinement_changes are correctly applied to plan_state in aeon/orchestration/phases.py
+- [X] T059 [US5] Ensure ExecutionPass and ExecutionHistory remain data-only models in aeon/kernel/state.py with no validation or orchestration logic.
+- [X] T060 [US5] Add ExecutionPass validation functions (before-phase and after-phase) in aeon/validation/execution_pass.py.
+- [X] T061 [US5] Add ExecutionPass invariant validation functions in aeon/validation/execution_pass.py.
+- [X] T062 [US5] Wire ExecutionPass validation calls into phase transitions from aeon/orchestration/phases.py using aeon/validation/execution_pass.py.
+- [X] T063 [US5] Ensure all ExecutionPass validation errors surface as structured errors without adding logic to aeon/kernel/state.py.
+- [X] T064 [US5] Integrate ExecutionPass validation before Phase A entry in aeon/orchestration/phases.py
+- [X] T065 [US5] Integrate ExecutionPass validation before Phase B entry in aeon/orchestration/phases.py
+- [X] T066 [US5] Integrate ExecutionPass validation before Phase C entry in aeon/orchestration/phases.py
+- [X] T067 [US5] Integrate ExecutionPass validation before Phase D entry in aeon/orchestration/phases.py
+- [X] T068 [US5] Integrate ExecutionPass validation after Phase A exit in aeon/orchestration/phases.py
+- [X] T069 [US5] Integrate ExecutionPass validation after Phase B exit in aeon/orchestration/phases.py
+- [X] T070 [US5] Integrate ExecutionPass validation after Phase C exit in aeon/orchestration/phases.py
+- [X] T071 [US5] Integrate ExecutionPass validation after Phase D exit in aeon/orchestration/phases.py
+- [X] T072 [US5] Ensure execution_results and evaluation_results are correctly merged in aeon/orchestration/phases.py
+- [X] T073 [US5] Ensure refinement_changes are correctly applied to plan_state in aeon/orchestration/phases.py
 
 **Checkpoint**: At this point, User Stories 1, 2, 3, 4, AND 5 should all work independently
 
@@ -185,36 +185,36 @@
 
 ### Implementation for User Story 6
 
-- [ ] T074 [US6] Implement log_phase_entry function in aeon/observability/logger.py
-- [ ] T075 [US6] Implement log_phase_exit function in aeon/observability/logger.py
-- [ ] T076 [US6] Implement log_state_snapshot function in aeon/observability/logger.py
-- [ ] T077 [US6] Implement log_ttl_snapshot function in aeon/observability/logger.py
-- [ ] T078 [US6] Implement log_phase_transition_error function in aeon/observability/logger.py
-- [ ] T079 [US6] Add PhaseEntryLog model to aeon/observability/models.py (if needed)
-- [ ] T080 [US6] Add PhaseExitLog model to aeon/observability/models.py (if needed)
-- [ ] T081 [US6] Add StateSnapshotLog model to aeon/observability/models.py (if needed)
-- [ ] T082 [US6] Add TTLSnapshotLog model to aeon/observability/models.py (if needed)
-- [ ] T083 [US6] Add PhaseTransitionErrorLog model to aeon/observability/models.py (if needed)
-- [ ] T084 [US6] Integrate phase entry logging in Phase A in aeon/orchestration/phases.py
-- [ ] T085 [US6] Integrate phase entry logging in Phase B in aeon/orchestration/phases.py
-- [ ] T086 [US6] Integrate phase entry logging in Phase C in aeon/orchestration/phases.py
-- [ ] T087 [US6] Integrate phase entry logging in Phase D in aeon/orchestration/phases.py
-- [ ] T088 [US6] Integrate phase exit logging in Phase A in aeon/orchestration/phases.py
-- [ ] T089 [US6] Integrate phase exit logging in Phase B in aeon/orchestration/phases.py
-- [ ] T090 [US6] Integrate phase exit logging in Phase C in aeon/orchestration/phases.py
-- [ ] T091 [US6] Integrate phase exit logging in Phase D in aeon/orchestration/phases.py
-- [ ] T092 [US6] Integrate state snapshot logging before and after Phase A transition in aeon/orchestration/phases.py
-- [ ] T093 [US6] Integrate state snapshot logging before and after Phase B transition in aeon/orchestration/phases.py
-- [ ] T094 [US6] Integrate state snapshot logging before and after Phase C transition in aeon/orchestration/phases.py
-- [ ] T095 [US6] Integrate state snapshot logging before and after Phase D transition in aeon/orchestration/phases.py
-- [ ] T096 [US6] Integrate TTL snapshot logging at Phase A boundary in aeon/orchestration/phases.py
-- [ ] T097 [US6] Integrate TTL snapshot logging at Phase B boundary in aeon/orchestration/phases.py
-- [ ] T098 [US6] Integrate TTL snapshot logging at Phase C boundary in aeon/orchestration/phases.py
-- [ ] T099 [US6] Integrate TTL snapshot logging at Phase D boundary in aeon/orchestration/phases.py
-- [ ] T100 [US6] Integrate structured error logging for Phase A failures in aeon/orchestration/phases.py
-- [ ] T101 [US6] Integrate structured error logging for Phase B failures in aeon/orchestration/phases.py
-- [ ] T102 [US6] Integrate structured error logging for Phase C failures in aeon/orchestration/phases.py
-- [ ] T103 [US6] Integrate structured error logging for Phase D failures in aeon/orchestration/phases.py
+- [X] T074 [US6] Implement log_phase_entry function in aeon/observability/logger.py
+- [X] T075 [US6] Implement log_phase_exit function in aeon/observability/logger.py
+- [X] T076 [US6] Implement log_state_snapshot function in aeon/observability/logger.py
+- [X] T077 [US6] Implement log_ttl_snapshot function in aeon/observability/logger.py
+- [X] T078 [US6] Implement log_phase_transition_error function in aeon/observability/logger.py
+- [X] T079 [US6] Add PhaseEntryLog model to aeon/observability/models.py (if needed)
+- [X] T080 [US6] Add PhaseExitLog model to aeon/observability/models.py (if needed)
+- [X] T081 [US6] Add StateSnapshotLog model to aeon/observability/models.py (if needed)
+- [X] T082 [US6] Add TTLSnapshotLog model to aeon/observability/models.py (if needed)
+- [X] T083 [US6] Add PhaseTransitionErrorLog model to aeon/observability/models.py (if needed)
+- [X] T084 [US6] Integrate phase entry logging in Phase A in aeon/orchestration/phases.py
+- [X] T085 [US6] Integrate phase entry logging in Phase B in aeon/orchestration/phases.py
+- [X] T086 [US6] Integrate phase entry logging in Phase C in aeon/orchestration/phases.py
+- [X] T087 [US6] Integrate phase entry logging in Phase D in aeon/orchestration/phases.py
+- [X] T088 [US6] Integrate phase exit logging in Phase A in aeon/orchestration/phases.py
+- [X] T089 [US6] Integrate phase exit logging in Phase B in aeon/orchestration/phases.py
+- [X] T090 [US6] Integrate phase exit logging in Phase C in aeon/orchestration/phases.py
+- [X] T091 [US6] Integrate phase exit logging in Phase D in aeon/orchestration/phases.py
+- [X] T092 [US6] Integrate state snapshot logging before and after Phase A transition in aeon/orchestration/phases.py
+- [X] T093 [US6] Integrate state snapshot logging before and after Phase B transition in aeon/orchestration/phases.py
+- [X] T094 [US6] Integrate state snapshot logging before and after Phase C transition in aeon/orchestration/phases.py
+- [X] T095 [US6] Integrate state snapshot logging before and after Phase D transition in aeon/orchestration/phases.py
+- [X] T096 [US6] Integrate TTL snapshot logging at Phase A boundary in aeon/orchestration/phases.py
+- [X] T097 [US6] Integrate TTL snapshot logging at Phase B boundary in aeon/orchestration/phases.py
+- [X] T098 [US6] Integrate TTL snapshot logging at Phase C boundary in aeon/orchestration/phases.py
+- [X] T099 [US6] Integrate TTL snapshot logging at Phase D boundary in aeon/orchestration/phases.py
+- [X] T100 [US6] Integrate structured error logging for Phase A failures in aeon/orchestration/phases.py
+- [X] T101 [US6] Integrate structured error logging for Phase B failures in aeon/orchestration/phases.py
+- [X] T102 [US6] Integrate structured error logging for Phase C failures in aeon/orchestration/phases.py
+- [X] T103 [US6] Integrate structured error logging for Phase D failures in aeon/orchestration/phases.py
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -224,22 +224,22 @@
 
 **Purpose**: Validate that all success criteria (SC-001 through SC-006) are met through comprehensive testing
 
-- [ ] T116 Add test ensuring identical inputs produce identical A→B→C→D phase sequences across two executions.
-- [ ] T117 Add test ensuring identical inputs produce identical phase outputs (excluding timestamps and UUIDv4) across two executions.
-- [ ] T118 Add test ensuring identical invalid inputs produce identical failure phase and identical structured error outputs.
-- [ ] T119 Add test asserting all MUST-HAVE context fields are present and non-null in every LLM call.
-- [ ] T120 Add test asserting all MUST-PASS-UNCHANGED fields remain unchanged through A→B→C→D transitions.
-- [ ] T121 Add test asserting no PROHIBITED fields are present in any phase context.
-- [ ] T122 Add test asserting TTL decrements exactly once after a complete A→B→C→D cycle.
-- [ ] T123 Add test asserting TTL=1 halts execution at the next cycle boundary with TTLExpirationResponse.
-- [ ] T124 Add test asserting TTL expiration mid-phase immediately halts execution and emits TTLExpirationResponse.
-- [ ] T125 Add test asserting ExecutionPass contains all required before-phase fields for each phase.
-- [ ] T126 Add test asserting ExecutionPass contains all required after-phase fields following each phase.
-- [ ] T127 Add test asserting all ExecutionPass invariant fields remain unchanged throughout the pass.
-- [ ] T128 Add test asserting each enumerated failure condition triggers the correct structured error defined in the phase contract.
-- [ ] T129 Add test asserting unenumerated or malformed failures still produce the standard structured error format.
-- [ ] T130 Add golden-path integration test asserting a simple task completes the full A→B→C→D loop without errors.
-- [ ] T131 Add golden-path failure test asserting a controlled failure triggers the correct phase's structured error and valid logs.
+- [X] T116 Add test ensuring identical inputs produce identical A→B→C→D phase sequences across two executions.
+- [X] T117 Add test ensuring identical inputs produce identical phase outputs (excluding timestamps and UUIDv4) across two executions.
+- [X] T118 Add test ensuring identical invalid inputs produce identical failure phase and identical structured error outputs.
+- [X] T119 Add test asserting all MUST-HAVE context fields are present and non-null in every LLM call.
+- [X] T120 Add test asserting all MUST-PASS-UNCHANGED fields remain unchanged through A→B→C→D transitions.
+- [X] T121 Add test asserting no PROHIBITED fields are present in any phase context.
+- [X] T122 Add test asserting TTL decrements exactly once after a complete A→B→C→D cycle.
+- [X] T123 Add test asserting TTL=1 halts execution at the next cycle boundary with TTLExpirationResponse.
+- [X] T124 Add test asserting TTL expiration mid-phase immediately halts execution and emits TTLExpirationResponse.
+- [X] T125 Add test asserting ExecutionPass contains all required before-phase fields for each phase.
+- [X] T126 Add test asserting ExecutionPass contains all required after-phase fields following each phase.
+- [X] T127 Add test asserting all ExecutionPass invariant fields remain unchanged throughout the pass.
+- [X] T128 Add test asserting each enumerated failure condition triggers the correct structured error defined in the phase contract.
+- [X] T129 Add test asserting unenumerated or malformed failures still produce the standard structured error format.
+- [X] T130 Add golden-path integration test asserting a simple task completes the full A→B→C→D loop without errors.
+- [X] T131 Add golden-path failure test asserting a controlled failure triggers the correct phase's structured error and valid logs.
 
 **Checkpoint**: All success criteria validated - feature ready for Sprint 7 gate
 
@@ -249,18 +249,18 @@
 
 **Purpose**: Code cleanup, refactoring, and improvements that affect multiple user stories
 
-- [ ] T104 [P] Verify all phase transitions use explicit contracts
-- [ ] T105 [P] Verify all LLM calls receive complete context
-- [ ] T106 [P] Verify TTL behavior is correct at all boundaries
-- [ ] T107 [P] Verify ExecutionPass consistency across all phases
-- [ ] T108 [P] Verify phase boundary logging is complete
-- [ ] T109 [P] Code cleanup and refactoring in aeon/orchestration/phases.py
-- [ ] T110 [P] Code cleanup and refactoring in aeon/orchestration/ttl.py
-- [ ] T111 [P] Code cleanup and refactoring in aeon/orchestration/refinement.py
-- [ ] T112 [P] Code cleanup and refactoring in aeon/observability/logger.py
-- [ ] T113 [P] Code cleanup and refactoring in aeon/exceptions.py
-- [ ] T114 [P] Code cleanup and refactoring in aeon/kernel/state.py
-- [ ] T115 Run quickstart.md validation examples
+- [X] T104 [P] Verify all phase transitions use explicit contracts
+- [X] T105 [P] Verify all LLM calls receive complete context
+- [X] T106 [P] Verify TTL behavior is correct at all boundaries
+- [X] T107 [P] Verify ExecutionPass consistency across all phases
+- [X] T108 [P] Verify phase boundary logging is complete
+- [X] T109 [P] Code cleanup and refactoring in aeon/orchestration/phases.py
+- [X] T110 [P] Code cleanup and refactoring in aeon/orchestration/ttl.py
+- [X] T111 [P] Code cleanup and refactoring in aeon/orchestration/refinement.py
+- [X] T112 [P] Code cleanup and refactoring in aeon/observability/logger.py
+- [X] T113 [P] Code cleanup and refactoring in aeon/exceptions.py
+- [X] T114 [P] Code cleanup and refactoring in aeon/kernel/state.py
+- [X] T115 Run quickstart.md validation examples
 
 
 ---

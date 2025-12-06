@@ -12,6 +12,7 @@ from typing import Tuple
 import pytest
 
 from aeon.kernel.orchestrator import Orchestrator
+from aeon.orchestration.phases import validate_and_enforce_phase_transition
 from aeon.memory.kv_store import InMemoryKVStore
 from aeon.observability.logger import JSONLLogger
 from tests.fixtures.mock_llm import MockLLMAdapter

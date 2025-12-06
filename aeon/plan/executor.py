@@ -33,10 +33,11 @@ class PlanExecutor:
             
             self._run_step(step)
             
-            # Decrement TTL after step execution
-            self.state.ttl_remaining -= 1
+            # TTL decrement now handled by kernel._execute_step (constitutional requirement)
+            # TTL governance must remain in the kernel, so we delegate to kernel's step_runner
+            # which handles TTL decrement after step execution
             
-            # Check TTL after decrement
+            # Check TTL after execution (decremented by kernel)
             if self.state.ttl_remaining < 0:
                 raise TTLExpiredError("TTL expired during step execution")
 

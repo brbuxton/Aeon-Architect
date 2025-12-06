@@ -79,8 +79,17 @@ Aeon Architect — Backlog of Future Enhancements
   - Define interface contracts for prompt inputs/outputs
   - Establish prompt validation and schema enforcement
   - Create prompt testing framework
+- **Phase E – Minimal Answer Synthesis**
+  - Aggregate step outputs after Phase D
+  - Perform a single LLM synthesis call
+  - Produce `final_answer` in Aeon's execution result
+  - Define a minimal output schema (answer + metadata)
+  - Strictly internal reasoning; NOT a presentation layer
+  - Required for correctness in downstream Golden Paths
 
-**Rationale**: Must be done before optimizing prompts in ConvergenceEngine, SemanticValidator, etc. Enables A/B testing and systematic improvement.
+**Rationale**: Must be done before optimizing prompts in ConvergenceEngine, SemanticValidator, etc. Enables A/B testing and systematic improvement. Phase E provides the final step of the reasoning pipeline. It ensures Aeon can produce coherent answers. This is NOT presentation-layer work; that will occur post-epic.
+
+> **Note:** Full presentation abstraction (Layer 2) and kernel output governance (Layer 3) will be implemented as post-epic work, not within Sprints 5–11.
 
 ---
 
@@ -300,6 +309,31 @@ This backlog now addresses the following architectural gaps identified in the sy
 - Ability to refine poorly formed steps ✓ (Sprint 2 - Supervisor integrated into refinement loop, FR-004)
 - Fallback mechanism for incomplete reasoning
 - Enhanced error recovery strategies
+
+---
+
+## Post-Epic Work (New), Not Included in Current Architecture Epic
+
+The following epics are explicitly deferred to post-epic work and are NOT part of Sprints 5–11.
+
+---
+
+**Epic: Aeon Output Interfaces & Presentation Layer (Layer 2)**  
+- Structured Result object
+- Verbosity modes
+- Stable public API for UI/CLI/Web/MCP
+- Output formatting policies
+- User-facing presentation abstraction
+- NOT part of Sprints 5–11
+
+---
+
+**Epic: Aeon Kernel Output Governance & Deep Integration (Layer 3)**  
+- Kernel-level answer contracts
+- Integration with memory, convergence, semantic validator
+- Deterministic output schema invariants
+- Output versioning and governance
+- NOT part of Sprints 5–11; post-epic architecture work
 
 ---
 

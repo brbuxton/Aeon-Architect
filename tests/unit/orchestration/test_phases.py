@@ -1,12 +1,13 @@
 """Unit tests for PhaseOrchestrator."""
 
 import pytest
+from datetime import datetime
 from unittest.mock import Mock, MagicMock
 
 from aeon.orchestration.phases import PhaseOrchestrator
 from aeon.plan.models import Plan, PlanStep, StepStatus
 from aeon.adaptive.models import TaskProfile
-from aeon.kernel.state import OrchestrationState, ExecutionPass
+from aeon.kernel.state import ExecutionContext, OrchestrationState, ExecutionPass
 
 
 class TestPhaseOrchestratorPhaseA:
@@ -15,6 +16,11 @@ class TestPhaseOrchestratorPhaseA:
     def test_phase_a_with_adaptive_depth_success(self):
         """Test phase_a_taskprofile_ttl with successful AdaptiveDepth."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-a-adaptive-depth",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         # Mock AdaptiveDepth
         mock_adaptive_depth = Mock()
@@ -33,7 +39,10 @@ class TestPhaseOrchestratorPhaseA:
         success, (result_profile, allocated_ttl), error = orchestrator.phase_a_taskprofile_ttl(
             request="Test request",
             adaptive_depth=mock_adaptive_depth,
-            global_ttl=20
+            global_ttl=20,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is True
@@ -47,10 +56,18 @@ class TestPhaseOrchestratorPhaseA:
         """Test phase_a_taskprofile_ttl without AdaptiveDepth (fallback)."""
         orchestrator = PhaseOrchestrator()
         
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-a-no-adaptive-depth",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        
         success, (result_profile, allocated_ttl), error = orchestrator.phase_a_taskprofile_ttl(
             request="Test request",
             adaptive_depth=None,
-            global_ttl=20
+            global_ttl=20,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is True
@@ -63,6 +80,11 @@ class TestPhaseOrchestratorPhaseA:
         """Test phase_a_taskprofile_ttl when inference fails."""
         orchestrator = PhaseOrchestrator()
         
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-a-inference-failure",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        
         # Mock AdaptiveDepth that raises exception
         mock_adaptive_depth = Mock()
         mock_adaptive_depth.infer_task_profile.side_effect = Exception("Inference failed")
@@ -70,7 +92,10 @@ class TestPhaseOrchestratorPhaseA:
         success, (result_profile, allocated_ttl), error = orchestrator.phase_a_taskprofile_ttl(
             request="Test request",
             adaptive_depth=mock_adaptive_depth,
-            global_ttl=20
+            global_ttl=20,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is False
@@ -81,6 +106,11 @@ class TestPhaseOrchestratorPhaseA:
     def test_phase_a_ttl_allocation_failure(self):
         """Test phase_a_taskprofile_ttl when TTL allocation fails."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-a-ttl-allocation-failure",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         # Mock AdaptiveDepth
         mock_adaptive_depth = Mock()
@@ -99,7 +129,10 @@ class TestPhaseOrchestratorPhaseA:
         success, (result_profile, allocated_ttl), error = orchestrator.phase_a_taskprofile_ttl(
             request="Test request",
             adaptive_depth=mock_adaptive_depth,
-            global_ttl=20
+            global_ttl=20,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is False
@@ -115,6 +148,11 @@ class TestPhaseOrchestratorPhaseB:
         """Test phase_b_initial_plan_refinement without refinement needed."""
         orchestrator = PhaseOrchestrator()
         
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-b-no-refinement",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        
         plan = Plan(
             goal="Test goal",
             steps=[PlanStep(step_id="step1", description="Step 1")]
@@ -127,7 +165,10 @@ class TestPhaseOrchestratorPhaseB:
             task_profile=task_profile,
             recursive_planner=None,
             semantic_validator=None,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is True
@@ -137,6 +178,11 @@ class TestPhaseOrchestratorPhaseB:
     def test_phase_b_with_recursive_planner(self):
         """Test phase_b_initial_plan_refinement with RecursivePlanner."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-b-recursive-planner",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         plan = Plan(
             goal="Test goal",
@@ -161,7 +207,10 @@ class TestPhaseOrchestratorPhaseB:
             task_profile=task_profile,
             recursive_planner=mock_planner,
             semantic_validator=None,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is True
@@ -171,6 +220,11 @@ class TestPhaseOrchestratorPhaseB:
     def test_phase_b_with_semantic_validation_no_issues(self):
         """Test phase_b_initial_plan_refinement with semantic validation (no issues)."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-b-semantic-no-issues",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         plan = Plan(
             goal="Test goal",
@@ -192,7 +246,10 @@ class TestPhaseOrchestratorPhaseB:
             task_profile=task_profile,
             recursive_planner=None,
             semantic_validator=mock_validator,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is True
@@ -201,6 +258,11 @@ class TestPhaseOrchestratorPhaseB:
     def test_phase_b_with_semantic_validation_issues(self):
         """Test phase_b_initial_plan_refinement with semantic validation issues."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-b-semantic-issues",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         plan = Plan(
             goal="Test goal",
@@ -235,7 +297,10 @@ class TestPhaseOrchestratorPhaseB:
             task_profile=task_profile,
             recursive_planner=mock_planner,
             semantic_validator=mock_validator,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         assert success is True
@@ -244,6 +309,11 @@ class TestPhaseOrchestratorPhaseB:
     def test_phase_b_failure(self):
         """Test phase_b_initial_plan_refinement with failure."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-b-failure",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         plan = Plan(
             goal="Test goal",
@@ -261,7 +331,10 @@ class TestPhaseOrchestratorPhaseB:
             task_profile=task_profile,
             recursive_planner=mock_planner,
             semantic_validator=None,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            pass_number=0,
+            ttl_remaining=20
         )
         
         # The method catches exceptions in try/except and continues with original plan
@@ -277,6 +350,12 @@ class TestPhaseOrchestratorPhaseCExecute:
     def test_phase_c_execute_batch_success(self):
         """Test phase_c_execute_batch with successful execution."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-execute-success",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -303,7 +382,12 @@ class TestPhaseOrchestratorPhaseCExecute:
             tool_registry=None,
             memory=mock_memory,
             supervisor=None,
-            execute_step_fn=execute_step_fn
+            execute_step_fn=execute_step_fn,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         # Both steps are ready because step2's dependency check happens in get_ready_steps
@@ -313,12 +397,17 @@ class TestPhaseOrchestratorPhaseCExecute:
         # The actual behavior depends on get_ready_steps implementation
         assert len(results) >= 1
         assert any(r["step_id"] == "step1" for r in results)
-        # TTL is decremented for each executed step
-        assert state.ttl_remaining <= 9  # Decremented (could be 8 if both steps executed)
+        # Note: TTL decrement is now handled in kernel's _execute_step, not in phase_c_execute_batch
 
     def test_phase_c_execute_batch_with_step_failure(self):
         """Test phase_c_execute_batch with step execution failure."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-execute-failure",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -341,7 +430,12 @@ class TestPhaseOrchestratorPhaseCExecute:
             tool_registry=None,
             memory=mock_memory,
             supervisor=None,
-            execute_step_fn=execute_step_fn
+            execute_step_fn=execute_step_fn,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert len(results) == 1
@@ -356,6 +450,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
     def test_phase_c_evaluate_success(self):
         """Test phase_c_evaluate with successful evaluation."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-evaluate-success",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -373,7 +473,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
             execution_results=execution_results,
             semantic_validator=None,
             convergence_engine=None,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert "converged" in results
@@ -384,6 +489,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
     def test_phase_c_evaluate_with_semantic_validator(self):
         """Test phase_c_evaluate with SemanticValidator."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-evaluate-semantic",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -405,7 +516,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
             execution_results=execution_results,
             semantic_validator=mock_validator,
             convergence_engine=None,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert "semantic_validation" in results
@@ -414,6 +530,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
     def test_phase_c_evaluate_with_convergence_engine(self):
         """Test phase_c_evaluate with ConvergenceEngine."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-evaluate-convergence",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -440,7 +562,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
             execution_results=execution_results,
             semantic_validator=None,
             convergence_engine=mock_engine,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert "convergence_assessment" in results
@@ -449,6 +576,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
     def test_phase_c_evaluate_auto_convergence(self):
         """Test phase_c_evaluate with auto-convergence (all steps complete)."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-evaluate-auto-convergence",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -468,7 +601,12 @@ class TestPhaseOrchestratorPhaseCEvaluate:
             execution_results=execution_results,
             semantic_validator=None,
             convergence_engine=None,
-            tool_registry=None
+            tool_registry=None,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert results["converged"] is True
@@ -480,6 +618,12 @@ class TestPhaseOrchestratorPhaseCRefine:
     def test_phase_c_refine_without_planner(self):
         """Test phase_c_refine without RecursivePlanner."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-refine-no-planner",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -494,20 +638,33 @@ class TestPhaseOrchestratorPhaseCRefine:
         def populate_step_indices_fn(plan):
             pass
         
-        success, refinement_changes, error = orchestrator.phase_c_refine(
+        success, refinement_changes, error, updated_plan = orchestrator.phase_c_refine(
             plan=plan,
             evaluation_results=evaluation_results,
             recursive_planner=None,
-            populate_step_indices_fn=populate_step_indices_fn
+            populate_step_indices_fn=populate_step_indices_fn,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request",
+            execution_results_list=[]
         )
         
         assert success is True
         assert refinement_changes == []
         assert error is None
+        assert updated_plan is not None
 
     def test_phase_c_refine_with_planner(self):
         """Test phase_c_refine with RecursivePlanner."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-refine-with-planner",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -535,20 +692,33 @@ class TestPhaseOrchestratorPhaseCRefine:
         def populate_step_indices_fn(plan):
             pass
         
-        success, refinement_changes, error = orchestrator.phase_c_refine(
+        success, refinement_changes, error, updated_plan = orchestrator.phase_c_refine(
             plan=plan,
             evaluation_results=evaluation_results,
             recursive_planner=mock_planner,
-            populate_step_indices_fn=populate_step_indices_fn
+            populate_step_indices_fn=populate_step_indices_fn,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request",
+            execution_results_list=[]
         )
         
         assert success is True
         assert len(refinement_changes) == 1
         assert error is None
+        assert updated_plan is not None
 
     def test_phase_c_refine_failure(self):
         """Test phase_c_refine with failure."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-c-refine-failure",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
+        task_profile = TaskProfile.default()
         
         plan = Plan(
             goal="Test goal",
@@ -567,16 +737,24 @@ class TestPhaseOrchestratorPhaseCRefine:
         def populate_step_indices_fn(plan):
             pass
         
-        success, refinement_changes, error = orchestrator.phase_c_refine(
+        success, refinement_changes, error, updated_plan = orchestrator.phase_c_refine(
             plan=plan,
             evaluation_results=evaluation_results,
             recursive_planner=mock_planner,
-            populate_step_indices_fn=populate_step_indices_fn
+            populate_step_indices_fn=populate_step_indices_fn,
+            execution_context=execution_context,
+            task_profile=task_profile,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request",
+            execution_results_list=[]
         )
         
         assert success is False
         assert refinement_changes == []
         assert error == "Refinement failed"
+        # On failure, the method returns the original plan (not None)
+        assert updated_plan == plan
 
 
 class TestPhaseOrchestratorPhaseD:
@@ -585,6 +763,11 @@ class TestPhaseOrchestratorPhaseD:
     def test_phase_d_without_adaptive_depth(self):
         """Test phase_d_adaptive_depth without AdaptiveDepth."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-d-no-adaptive-depth",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         task_profile = TaskProfile.default()
         plan = Plan(goal="Test goal", steps=[PlanStep(step_id="step1", description="Step 1")])
@@ -598,7 +781,11 @@ class TestPhaseOrchestratorPhaseD:
             adaptive_depth=None,
             state=state,
             global_ttl=20,
-            execution_passes=execution_passes
+            execution_passes=execution_passes,
+            execution_context=execution_context,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert success is True
@@ -608,6 +795,11 @@ class TestPhaseOrchestratorPhaseD:
     def test_phase_d_with_adaptive_depth_success(self):
         """Test phase_d_adaptive_depth with successful update."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-d-adaptive-depth-success",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         task_profile = TaskProfile.default()
         updated_profile = TaskProfile(
@@ -641,7 +833,11 @@ class TestPhaseOrchestratorPhaseD:
             adaptive_depth=mock_adaptive_depth,
             state=state,
             global_ttl=20,
-            execution_passes=execution_passes
+            execution_passes=execution_passes,
+            execution_context=execution_context,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert success is True
@@ -652,6 +848,11 @@ class TestPhaseOrchestratorPhaseD:
     def test_phase_d_with_adaptive_depth_no_update(self):
         """Test phase_d_adaptive_depth when no update is needed."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-d-adaptive-depth-no-update",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         task_profile = TaskProfile.default()
         plan = Plan(goal="Test goal", steps=[PlanStep(step_id="step1", description="Step 1")])
@@ -669,7 +870,11 @@ class TestPhaseOrchestratorPhaseD:
             adaptive_depth=mock_adaptive_depth,
             state=state,
             global_ttl=20,
-            execution_passes=execution_passes
+            execution_passes=execution_passes,
+            execution_context=execution_context,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert success is True
@@ -679,6 +884,11 @@ class TestPhaseOrchestratorPhaseD:
     def test_phase_d_failure(self):
         """Test phase_d_adaptive_depth with failure."""
         orchestrator = PhaseOrchestrator()
+        
+        execution_context = ExecutionContext(
+            correlation_id="test-phase-d-failure",
+            execution_start_timestamp=datetime.now().isoformat()
+        )
         
         task_profile = TaskProfile.default()
         plan = Plan(goal="Test goal", steps=[PlanStep(step_id="step1", description="Step 1")])
@@ -696,7 +906,11 @@ class TestPhaseOrchestratorPhaseD:
             adaptive_depth=mock_adaptive_depth,
             state=state,
             global_ttl=20,
-            execution_passes=execution_passes
+            execution_passes=execution_passes,
+            execution_context=execution_context,
+            pass_number=1,
+            ttl_remaining=10,
+            request="Test request"
         )
         
         assert success is False

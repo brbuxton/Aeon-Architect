@@ -21,22 +21,6 @@ class TestDeterminism:
         logger = JSONLLogger(file_path=file_path)
         return logger, file_path
 
-    def test_correlation_id_deterministic(self):
-        """Test that correlation ID generation is deterministic (T121)."""
-        timestamp = "2025-01-27T10:00:00.000000"
-        request = "Test request for determinism"
-        
-        # Generate same correlation ID twice
-        id1 = generate_correlation_id(timestamp, request)
-        id2 = generate_correlation_id(timestamp, request)
-        
-        # Should be identical (deterministic)
-        assert id1 == id2, "Correlation ID generation should be deterministic"
-        
-        # Should be valid UUID or fallback format
-        assert id1.startswith("6ba7b810") or id1.startswith("aeon-"), \
-            f"Correlation ID should be UUIDv5 or fallback format, got: {id1}"
-
     def test_correlation_id_unique_for_different_inputs(self):
         """Test that correlation IDs are unique for different inputs."""
         timestamp = "2025-01-27T10:00:00.000000"

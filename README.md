@@ -7,7 +7,7 @@
 Aeon Architect is an adaptive multi-pass reasoning engine that reliably executes complex tasks through iterative refinement cycles. The system uses:
 
 - **Multi-pass execution**: Iterative plan → execute → evaluate → refine loops until convergence or TTL expiration
-- **Deterministic phase control**: Four-phase orchestration (A: TaskProfile & TTL → B: Planning & Refinement → C: Execution Passes → D: Adaptive Depth)
+- **Deterministic phase control**: Five-phase orchestration (A: TaskProfile & TTL → B: Planning & Refinement → C: Execution Passes → D: Adaptive Depth → E: Final Answer Synthesis)
 - **Declarative plans**: JSON/YAML data structures describing multi-step execution
 - **Semantic validation**: LLM-based validation of plans, steps, and execution artifacts
 - **Convergence detection**: Automatic assessment of solution completeness, coherence, and consistency
@@ -27,14 +27,15 @@ Aeon follows strict architectural principles:
 
 ### Multi-Pass Reasoning Loop
 
-The system executes tasks through a deterministic four-phase cycle:
+The system executes tasks through a deterministic five-phase cycle:
 
 1. **Phase A: TaskProfile & TTL Allocation** - Infer task complexity and allocate resources
 2. **Phase B: Initial Plan & Pre-Execution Refinement** - Generate and refine initial plan
 3. **Phase C: Execution Passes** - Execute → Evaluate → Refine → Repeat until convergence
 4. **Phase D: Adaptive Depth** - Adjust reasoning depth and TTL based on complexity mismatch
+5. **Phase E: Final Answer Synthesis** - Synthesize coherent final answer from execution results
 
-Each pass evaluates convergence (completeness, coherence, consistency) and refines the plan when needed, continuing until convergence is achieved or TTL expires.
+Each pass evaluates convergence (completeness, coherence, consistency) and refines the plan when needed, continuing until convergence is achieved or TTL expires. Phase E completes the reasoning loop by producing the final answer.
 
 ## Project Structure
 
@@ -74,90 +75,20 @@ tests/
 
 ## Features
 
-### Sprint 1 Features ✅
+### ✅ Sprint 1: Aeon Core
+Core orchestration engine with plan generation, step execution, tool integration, memory operations, TTL handling, and structured logging. See [Sprint 1 specification](specs/001-aeon-core/spec.md) for details.
 
-### ✅ User Story 1: Plan Generation
-Generate declarative multi-step plans from natural language requests.
+### ✅ Sprint 2: Adaptive Multi-Pass Reasoning
+Multi-pass execution with deterministic phase control, TaskProfile inference, recursive planning, semantic validation, convergence detection, and adaptive depth adjustment. See [Sprint 2 specification](specs/003-adaptive-reasoning/spec.md) for details.
 
-### ✅ User Story 2: Plan Execution
-Execute plans step-by-step with deterministic status updates (pending → running → complete/failed).
+### ✅ Sprint 4: Kernel Refactoring
+Kernel LOC reduced from 1351 to 635 (53% reduction) by extracting orchestration strategy to separate modules while preserving 100% behavioral compatibility. See [Sprint 4 specification](specs/004-kernel-refactor/spec.md) for details.
 
-### ✅ User Story 3: Supervisor Error Correction
-Automatically repair malformed JSON, tool calls, and plan fragments.
+### ✅ Sprint 5: Observability & Logging
+Phase-aware structured logging with correlation IDs, actionable error logging with error codes, and comprehensive test coverage (55% → 80%+). See [Sprint 5 specification](specs/005-observability-logging/spec.md) for details.
 
-### ✅ User Story 4: Tool Registration and Invocation
-Register tools and invoke them with validated arguments integrated into LLM reasoning cycles.
-
-### ✅ User Story 5: Key/Value Memory Operations
-Store and retrieve values from memory during multi-step reasoning.
-
-### ✅ User Story 6: TTL Expiration Handling
-Gracefully stop reasoning when TTL expires with structured response.
-
-### ✅ User Story 7: Orchestration Cycle Logging
-Generate JSONL logs for each orchestration cycle with all required fields.
-
-### ✅ User Story 8: Multi-Mode Step Execution
-Execute steps via tools, explicit LLM reasoning, or fallback when tools are missing. Includes missing-tool detection, supervisor repair, and graceful fallback to LLM reasoning.
-
-### Sprint 2 Features ✅ (Adaptive Multi-Pass Reasoning Engine)
-
-### ✅ User Story 1: Multi-Pass Execution with Deterministic Phase Control
-Iteratively execute, evaluate, and refine plans until convergence or TTL expiration. Supports deterministic phase sequencing (Phase A: TaskProfile & TTL → Phase B: Initial Plan & Pre-Execution Refinement → Phase C: Execution Passes → Phase D: Adaptive Depth).
-
-### ✅ User Story 2: TaskProfile Inference and TTL Allocation
-Automatically infer task complexity characteristics (reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement) and allocate TTL accordingly before planning.
-
-### ✅ User Story 3: Recursive Planning and Plan Refinement
-Generate initial plans, create subplans for complex steps, and refine plan fragments using LLM-based reasoning with delta-style operations (ADD/MODIFY/REMOVE).
-
-### ✅ User Story 4: Semantic Validation of Plans and Execution Artifacts
-Validate plans, steps, and execution artifacts for semantic quality issues (specificity, relevance, consistency, hallucination, do/say mismatch) using LLM-based reasoning.
-
-### ✅ User Story 5: Convergence Detection and Completion Assessment
-Determine whether task execution has converged on a complete, coherent, consistent solution using LLM-based reasoning with configurable thresholds.
-
-### ✅ User Story 6: Adaptive Depth Integration
-Update TaskProfile at pass boundaries when complexity mismatch is detected, adjusting TTL, reasoning depth, and processing strategies dynamically.
-
-### Sprint 4 Features ✅ (Kernel Refactoring)
-
-### ✅ Kernel LOC Reduction
-Refactored kernel from 1351 LOC to 635 LOC (53% reduction) by extracting orchestration strategy logic to `aeon/orchestration/` modules while preserving 100% behavioral compatibility.
-
-### Sprint 5 Features ✅ (Observability & Logging)
-
-### ✅ User Story 1: Phase-Aware Structured Logging
-Structured logging with correlation IDs, phase entry/exit events, and state transitions that enable tracing execution through all phases and passes.
-
-### ✅ User Story 2: Actionable Error Logging
-Structured error logging with error codes (AEON.<COMPONENT>.<CODE>), severity levels, and comprehensive context for rapid diagnosis.
-
-### ✅ User Story 3: Refinement and Execution Debug Visibility
-Detailed logs showing refinement outcomes, evaluation signals, plan state changes, and execution results.
-
-### ✅ User Story 4: Comprehensive Test Coverage
-Test coverage expanded from 55% to 80%+ with comprehensive integration and unit tests covering phase transitions, error paths, TTL boundaries, and context propagation.
-
-### Sprint 6 Features 🚧 (In Progress - Phase Transition Stabilization)
-
-### 🚧 User Story 1: Explicit Phase Transition Contracts
-Explicit, testable contracts for each phase transition (A→B, B→C, C→D, D→A/B) defining required inputs, guaranteed outputs, invariants, and enumerated failure conditions.
-
-### 🚧 User Story 2: Deterministic Context Propagation
-Complete and accurate context propagation to all LLM calls including task profile, plan metadata, previous outputs, evaluation results, and adaptive depth inputs.
-
-### 🚧 User Story 3: Prompt Context Alignment
-Verification that all prompt schema keys are populated or removed, with no null semantic inputs.
-
-### 🚧 User Story 4: TTL Boundary Behavior
-Correct TTL decrement behavior (once per cycle), proper handling at boundaries (TTL=1, TTL=0, expiration), and TTLExpirationResponse usage.
-
-### 🚧 User Story 5: ExecutionPass Consistency
-Consistent ExecutionPass objects with required fields populated before/after phases and invariants maintained.
-
-### 🚧 User Story 6: Phase Boundary Logging
-Complete phase boundary logging with entry/exit events, state snapshots, TTL snapshots, and structured error logs.
+### 🚧 Sprint 6: Phase Transition Stabilization (In Progress)
+Explicit phase transition contracts, deterministic context propagation, prompt context alignment, TTL boundary behavior, ExecutionPass consistency, and phase boundary logging. See [Sprint 6 specification](specs/006-phase-transitions/spec.md) for details.
 
 ## Installation
 
@@ -371,20 +302,12 @@ pytest
 # Run tests with coverage
 pytest --cov=aeon --cov-report=html
 
-# Format code
+# Format and lint
 black aeon/ tests/
-
-# Lint code
 ruff check aeon/ tests/
 ```
 
-## Testing
-
-- **Unit tests**: Tests for individual components
-- **Integration tests**: End-to-end orchestration scenarios
-- **Contract tests**: Interface compliance verification
-
-Coverage requirement: 100% test coverage for kernel core logic.
+See [Testing Documentation](docs/TESTING.md) for details on unit, integration, and contract tests. Coverage requirement: 100% for kernel core logic.
 
 ## Constraints
 
@@ -408,43 +331,21 @@ Coverage requirement: 100% test coverage for kernel core logic.
 
 ## Documentation
 
-### Architecture Epic
-- [Architecture Epic Documentation](ADAPTIVE_REASONING_FRAMEWORK.md) - North Star, Golden Path Demos, and Sprint Gates
-- [Backlog](BACKLOG.md) - Future enhancements and sprint breakdown
+- **[Architecture Epic](ADAPTIVE_REASONING_FRAMEWORK.md)** - North Star, Golden Path Demos, and Sprint Gates
+- **[Backlog](BACKLOG.md)** - Future enhancements and sprint breakdown
+- **[Testing Guide](docs/TESTING.md)** - Testing documentation and guidelines
 
-### Sprint 1 (Aeon Core)
-- [Specification](specs/001-aeon-core/spec.md)
-- [Implementation Plan](specs/001-aeon-core/plan.md)
-- [Tasks](specs/001-aeon-core/tasks.md)
-- [Data Model](specs/001-aeon-core/data-model.md)
-- [Interface Contracts](specs/001-aeon-core/contracts/interfaces.md)
+### Sprint Specifications
 
-### Sprint 2 (Adaptive Multi-Pass Reasoning)
-- [Specification](specs/003-adaptive-reasoning/spec.md)
-- [Implementation Plan](specs/003-adaptive-reasoning/plan.md)
-- [Tasks](specs/003-adaptive-reasoning/tasks.md)
-- [Data Model](specs/003-adaptive-reasoning/data-model.md)
-- [Quickstart Guide](specs/003-adaptive-reasoning/quickstart.md)
-- [Interface Contracts](specs/003-adaptive-reasoning/contracts/interfaces.md)
+All sprint documentation is available in the [`specs/`](specs/) directory:
 
-### Sprint 4 (Kernel Refactoring)
-- [Specification](specs/004-kernel-refactor/spec.md)
-- [Implementation Plan](specs/004-kernel-refactor/plan.md)
-- [Tasks](specs/004-kernel-refactor/tasks.md)
-- [Data Model](specs/004-kernel-refactor/data-model.md)
-- [Interface Contracts](specs/004-kernel-refactor/contracts/interfaces.md)
+- **Sprint 1**: [Aeon Core](specs/001-aeon-core/) - Core orchestration engine
+- **Sprint 2**: [Adaptive Multi-Pass Reasoning](specs/003-adaptive-reasoning/) - Multi-pass execution and convergence
+- **Sprint 4**: [Kernel Refactoring](specs/004-kernel-refactor/) - LOC reduction and module extraction
+- **Sprint 5**: [Observability & Logging](specs/005-observability-logging/) - Structured logging and error reporting
+- **Sprint 6**: [Phase Transition Stabilization](specs/006-phase-transitions/) - Phase contracts and context propagation (in progress)
 
-### Sprint 5 (Observability & Logging)
-- [Specification](specs/005-observability-logging/spec.md)
-- [Implementation Plan](specs/005-observability-logging/plan.md)
-- [Tasks](specs/005-observability-logging/tasks.md)
-- [Data Model](specs/005-observability-logging/data-model.md)
-- [Interface Contracts](specs/005-observability-logging/contracts/interfaces.md)
-
-### Sprint 6 (Phase Transition Stabilization) 🚧
-- [Specification](specs/006-phase-transitions/spec.md)
-- [Tasks](specs/006-phase-transitions/tasks.md)
-- [Analysis Report](specs/006-phase-transitions/ANALYSIS_REPORT.md)
+Each sprint folder contains specifications, implementation plans, tasks, data models, and interface contracts.
 
 ## License
 
@@ -452,54 +353,21 @@ MIT
 
 ## Status
 
-### ✅ Completed Sprints
+### Current State
 
-**Sprint 1 (Aeon Core)** - All 8 user stories implemented and tested:
-- ✅ Plan Generation (US1)
-- ✅ Plan Execution (US2)
-- ✅ Supervisor Error Correction (US3)
-- ✅ Tool Registration and Invocation (US4)
-- ✅ Key/Value Memory Operations (US5)
-- ✅ TTL Expiration Handling (US6)
-- ✅ Orchestration Cycle Logging (US7)
-- ✅ Multi-Mode Step Execution (US8)
-
-**Sprint 2 (Adaptive Multi-Pass Reasoning)** - All 6 user stories implemented:
-- ✅ Multi-Pass Execution with Deterministic Phase Control (US1)
-- ✅ TaskProfile Inference and TTL Allocation (US2)
-- ✅ Recursive Planning and Plan Refinement (US3)
-- ✅ Semantic Validation of Plans and Execution Artifacts (US4)
-- ✅ Convergence Detection and Completion Assessment (US5)
-- ✅ Adaptive Depth Integration (US6)
-
-**Sprint 4 (Kernel Refactoring)** - Constitutional compliance restored:
-- ✅ Kernel LOC reduced from 1351 to 635 LOC (53% reduction)
-- ✅ All orchestration strategy logic extracted to `aeon/orchestration/` modules
-- ✅ 100% behavioral compatibility preserved
-- ✅ All 289 tests passing
-
-**Sprint 5 (Observability & Logging)** - All 4 user stories implemented:
-- ✅ Phase-Aware Structured Logging (US1)
-- ✅ Actionable Error Logging (US2)
-- ✅ Refinement and Execution Debug Visibility (US3)
-- ✅ Comprehensive Test Coverage (US4) - Expanded from 55% to 80%+
-
-### 🚧 Current Sprint
-
-**Sprint 6 (Phase Transition Stabilization)** - In Progress:
-- 🚧 Explicit Phase Transition Contracts (US1)
-- 🚧 Deterministic Context Propagation (US2)
-- 🚧 Prompt Context Alignment (US3)
-- 🚧 TTL Boundary Behavior (US4)
-- 🚧 ExecutionPass Consistency (US5)
-- 🚧 Phase Boundary Logging (US6)
-
-### Metrics
-
-- **Test Coverage**: 80%+ overall coverage (80-100% for core modules)
+- **Current Sprint**: Sprint 6 (Phase Transition Stabilization) - See [tasks](specs/006-phase-transitions/tasks.md) for progress
+- **Test Coverage**: 80%+ overall (80-100% for core modules)
 - **Kernel LOC**: 635 LOC (under 800 LOC constitutional limit)
 - **Tests Passing**: 289+ tests
-- **Architecture**: Multi-pass reasoning engine with deterministic phase control
+
+### Completed Sprints
+
+✅ **Sprint 1** (Aeon Core) - 8 user stories: Plan generation, execution, tools, memory, TTL, logging  
+✅ **Sprint 2** (Adaptive Multi-Pass Reasoning) - 6 user stories: Multi-pass execution, TaskProfile, convergence  
+✅ **Sprint 4** (Kernel Refactoring) - Kernel LOC reduced 53%, 100% behavioral compatibility  
+✅ **Sprint 5** (Observability & Logging) - 4 user stories: Structured logging, error codes, test coverage expansion
+
+See individual sprint specifications in [`specs/`](specs/) for detailed status and user stories.
 
 
 
