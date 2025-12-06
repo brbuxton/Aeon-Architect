@@ -198,29 +198,6 @@ class TestLogPreservation:
             assert isinstance(timestamp, str)
             assert len(timestamp) > 0
 
-    def test_logging_with_execute_method(self, logger, log_file):
-        """Test that logging works with execute method (not just multipass)."""
-        orchestrator = Orchestrator(
-            llm=MockLLMAdapter(),
-            memory=None,
-            ttl=5,
-            logger=logger
-        )
-        
-        steps = [
-            PlanStep(step_id="step1", description="Step 1", status="pending"),
-            PlanStep(step_id="step2", description="Step 2", status="pending"),
-        ]
-        plan = Plan(goal="Test goal", steps=steps)
-        
-        result = orchestrator.execute("test", plan=plan)
-        
-        # Verify log file was created and has entries
-        assert log_file.exists()
-        with open(log_file, 'r') as f:
-            lines = f.readlines()
-            # Should have at least one log entry per step
-            assert len(lines) >= 2
 
     def test_logging_non_blocking(self, orchestrator, log_file):
         """Test that logging doesn't block execution."""

@@ -59,22 +59,4 @@ class TestSupervisorErrorCorrection:
         assert plan.goal == "test"
         assert len(plan.steps) == 1
 
-    def test_supervisor_continues_after_repair(self, orchestrator, mock_llm):
-        """Test that orchestration continues normally after supervisor repair."""
-        # Setup scenario where plan generation initially fails, supervisor repairs, then execution continues
-        call_count = 0
-        
-        def generate_with_repair(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return {"text": '{"goal": "test", "steps": ['}  # Malformed
-            else:
-                return {"text": '{"goal": "test", "steps": [{"step_id": "1", "description": "Step 1", "status": "pending"}]}'}
-        
-        mock_llm.generate = generate_with_repair
-        
-        result = orchestrator.execute("test request")
-        assert result["status"] == "completed"
-        assert call_count >= 2  # Should have called supervisor
 

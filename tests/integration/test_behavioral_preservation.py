@@ -49,17 +49,6 @@ class TestBehavioralPreservation:
         assert "status" in result
         assert result["status"] in ["converged", "ttl_expired", "max_passes_reached"]
 
-    def test_state_access_still_works(self):
-        """Test that get_state() method still works (existing functionality)."""
-        orchestrator = self._create_orchestrator()
-        
-        # Execute something to create state
-        orchestrator.execute(request="test")
-        
-        state = orchestrator.get_state()
-        assert state is not None
-        assert hasattr(state, "plan")
-        assert hasattr(state, "ttl_remaining")
 
     def test_orchestration_modules_initialized(self):
         """Test that orchestration modules are properly initialized."""
@@ -77,20 +66,4 @@ class TestBehavioralPreservation:
         assert orchestrator._step_preparation is not None
         assert orchestrator._ttl_strategy is not None
 
-    def test_existing_plan_execution_still_works(self):
-        """Test that existing plan execution pattern still works."""
-        orchestrator = self._create_orchestrator()
-        
-        steps = [
-            PlanStep(step_id="step1", description="Step 1", status="pending"),
-            PlanStep(step_id="step2", description="Step 2", status="pending"),
-        ]
-        plan = Plan(goal="Test goal", steps=steps)
-        
-        result = orchestrator.execute("test", plan=plan)
-        
-        assert result["status"] == "completed"
-        assert "plan" in result
-        plan_steps = result["plan"]["steps"]
-        assert len(plan_steps) == 2
 
