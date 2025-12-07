@@ -12,57 +12,6 @@ Aeon Architect — Backlog of Future Enhancements
 
 ### Sprint Breakdown (Recommended Phasing)
 
-#### Sprint 5 — Foundation & Observability ✓ COMPLETED
-**Status**: ✅ **COMPLETED** - Merged to master on 2025-01-27  
-**Dependencies**: None (foundational)  
-**Impact**: Enables all other improvements  
-**Effort**: Medium
-
-**Components**:
-- **Error Logging Infrastructure** (blocks debugging of other improvements)
-  - Structured error logging for refinement failures ✓
-  - Error context capture and reporting ✓
-  - Error recovery tracking and metrics ✓
-  - Integration with observability layer ✓
-- **Test Coverage Gaps** (enables safe refactoring)
-  - Edge cases in convergence assessment ✓
-  - Error paths in refinement logic ✓
-  - TTL expiration edge cases ✓
-  - Phase transition error scenarios ✓
-  - Memory context propagation edge cases ✓
-  - Target: 55% → 80%+ coverage ✓
-
-**Rationale**: Without error logging, you can't effectively debug issues in other components. Without test coverage, refactoring is risky. These are prerequisites for safe optimization.
-
-**Implementation Summary**:
-- Implemented comprehensive observability and logging system (US1-US4)
-- Phase-aware structured logging with correlation IDs
-- Actionable error logging with error codes and severity levels
-- Refinement and execution debug visibility
-- Comprehensive test coverage with 20+ new integration tests
-- Performance validation, backward compatibility, and determinism preservation
-- See `specs/005-observability-logging/` for full documentation
-
----
-
-#### Sprint 6 — Integration & Phase Transition Stabilization
-**Dependencies**: Sprint 5 ✓ (completed - error logging available)  
-**Impact**: Direct user experience improvement  
-**Effort**: Medium-High
-
-**Components**:
-- **Integration & Phase Transition Improvements**
-  - Phase A→B→C→D transitions need smoother handoffs
-  - Error handling and recovery paths need enhancement
-  - Memory context propagation between phases needs improvement
-  - TTL boundary checks need refinement
-  - Execution pass metadata collection needs enhancement
-  - Error recovery and graceful degradation need improvement
-
-**Rationale**: These improvements directly affect system reliability and user experience. They're cross-cutting concerns that benefit from Sprint 5's observability.
-
----
-
 #### Sprint 7 — Prompt Infrastructure + Prompt Contracts
 **Dependencies**: None (but blocks Sprint 9-11 prompt optimization work)  
 **Impact**: Enables systematic prompt improvements  
@@ -482,6 +431,24 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 - **Files Changed**: 35 files modified, 18 new test files created, 6,961 insertions
 - **Documentation**: Complete specification in `specs/005-observability-logging/` including quickstart, tasks, and coverage summary
 - **Impact**: Enables all future improvements with comprehensive observability and debugging capabilities
+
+---
+
+### [Category: core] [Impact: high] Sprint 6 — Phase Transition Stabilization ✓ COMPLETED
+- **Status**: ✅ **COMPLETED** - Merged to master
+- **Branch**: `006-phase-transitions`
+- **Commit**: `a9bcce2` - "docs: Add Phase E (Final Answer Synthesis) and update architecture documentation"
+- **Components Delivered**:
+  - **US1 - Explicit Phase Transition Contracts**: Defined contracts for A→B, B→C, C→D, D→A/B transitions with required inputs, guaranteed outputs, invariants, and failure conditions
+  - **US2 - Deterministic Context Propagation**: Context propagation specifications per phase (must-have, must-pass-unchanged, may-modify fields)
+  - **US3 - TTL Boundary Behavior**: Corrected TTL checking at phase boundaries and after LLM calls
+  - **US4 - ExecutionPass Consistency**: Enhanced ExecutionPass metadata collection and consistency
+  - **US5 - Phase Boundary Logging**: Phase entry/exit logging with state snapshots and TTL tracking
+  - **New Orchestration Modules**: Created `context_ops.py`, `contracts.py`, `engine.py`, `errors.py`, `execution_pass_ops.py`, `strategy.py`, `tool_ops.py`, `validation.py`
+- **Test Coverage**: Added comprehensive phase transition contract tests and context propagation tests
+- **Files Changed**: Multiple orchestration modules created, kernel refactored to use new orchestration engine
+- **Documentation**: Complete specification in `specs/006-phase-transitions/` including contracts, data models, and interface definitions
+- **Impact**: Stabilized phase transitions, enabled deterministic context propagation, prepared foundation for Sprint 7 (Prompt Contracts)
 
 ---
 
