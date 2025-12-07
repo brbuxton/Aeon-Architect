@@ -411,6 +411,17 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 - Progress indicators and status updates
 - User-friendly error messages
 
+## [Category: feature] [Impact: high] Meta-Conditions for Stable AI Reasoning
+- Description: Define and implement a minimal set of system-level “meta conditions” that guarantee stable, consistent, non-drifting reasoning during human–AI co-development. These conditions do not attempt to simulate human metacognition, but instead engineer the cognitive environment in which meta-like coherence emerges reliably.
+- Core Conditions to Capture:
+   - Anchoring Protocols: explicit canonical sources of truth
+   - Inference Boundaries: rules for when the AI must not infer
+   - Mode Switching: generation / analysis / verification / meta modes
+   - Drift Detection: detection of contradictions or schema violations
+   - Intent Clarification: mechanisms to restate, confirm, or refine goals
+- Value: Prevents reasoning drift, prompt divergence, architectural incoherence, and misalignment between conceptual and concrete artifacts. Enables predictable, high-fidelity AI collaboration across complex multi-phase systems.
+- Notes: This is not “implement AI meta-awareness.” This is “engineer the conditions under which coherent reasoning emerges.”
+
 ---
 
 # Archive

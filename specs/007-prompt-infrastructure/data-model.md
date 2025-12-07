@@ -76,7 +76,7 @@ class PromptId(Enum):
     # Convergence Assessment
     # -----------------------------
     CONVERGENCE_ASSESSMENT_SYSTEM = "convergence_assessment_system"
-    CONVERGENCE_ASSSESSMENT_USER = "convergence_assessment_user"
+    CONVERGENCE_ASSESSMENT_USER = "convergence_assessment_user"
 
     # -----------------------------
     # Task Profile Inference / Update

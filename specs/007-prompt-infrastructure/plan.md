@@ -1,25 +1,27 @@
 # Implementation Plan: Prompt Infrastructure, Prompt Contracts & Phase E Synthesis
 
-**Branch**: `007-prompt-infrastructure` | **Date**: 2025-01-27 | **Spec**: `/specs/007-prompt-infrastructure/spec.md`
+**Branch**: `007-prompt-infrastructure` | **Date**: 2025-12-07 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/007-prompt-infrastructure/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-Establish a unified, contract-driven prompt subsystem by consolidating all inline prompts into a centralized registry (`aeon/prompts/registry.py`) with schema-backed Pydantic contracts for input/output validation. Implement Phase E (Answer Synthesis) to complete the A→B→C→D→E reasoning loop, integrating synthesis at the C-loop exit point in `OrchestrationEngine.run_multipass()`. This sprint eliminates all inline prompts, enforces schema-backed prompt contracts, and introduces minimal answer synthesis that integrates correctly with Aeon's actual execution flow.
+This plan implements a unified, contract-driven prompt subsystem and Phase E (Answer Synthesis) to complete the conceptual A→B→C→D→E reasoning loop. The implementation consolidates all inline prompts into a centralized registry with schema-backed contracts (Pydantic input/output models), removes all inline prompt strings from kernel, supervisor, phases, and tools modules, and introduces minimal answer synthesis that integrates correctly with Aeon's actual execution flow.
+
+**Technical Approach**: Create a centralized prompt registry (`aeon/prompts/registry.py`) with Pydantic contracts for all prompts, extract all inline prompts from identified modules and register them, implement Phase E as a first-class orchestration phase in `aeon/orchestration/phases.py` that synthesizes final answers from execution state, and integrate Phase E at the C-loop exit point in OrchestrationEngine.
 
 ## Technical Context
 
-**Language/Version**: Python 3.x (existing codebase)  
-**Primary Dependencies**: Pydantic >= 2.0.0 (existing), existing ModelClient/LLMAdapter abstraction (no modifications needed)  
+**Language/Version**: Python 3.11+  
+**Primary Dependencies**: pydantic>=2.0.0 (existing), existing ModelClient/LLMAdapter abstraction (no modifications needed)  
 **Storage**: N/A (in-memory prompt registry, no persistence required)  
-**Testing**: pytest (existing test infrastructure)  
-**Target Platform**: Linux (existing platform)
-**Project Type**: Single Python project (existing structure)  
-**Performance Goals**: Minimal overhead - prompt registry lookups should be O(1), prompt rendering should not add significant latency to LLM calls  
-**Constraints**: Kernel LOC must remain under 800 (Constitution Principle I), no domain logic in kernel, prompt registry must be outside kernel (Constitution Principle II), <100 prompts expected in registry (single-file registry acceptable)  
-**Scale/Scope**: ~20-30 prompts to be extracted from existing codebase (kernel, supervisor, phases, tools, validation, convergence, adaptive modules), single-file registry implementation sufficient for current scale
+**Testing**: pytest (existing), Level 1 prompt tests for contract validation  
+**Target Platform**: Linux/macOS (Python runtime)  
+**Project Type**: Single Python package/library  
+**Performance Goals**: Prompt registry lookup <1ms, prompt rendering <10ms, Phase E synthesis <30s (LLM-dependent)  
+**Constraints**: Kernel <800 LOC (must remain compliant), prompt registry must support <100 prompts in single file, Phase E must always produce answer (never raise exceptions for missing state)  
+**Scale/Scope**: ~20-30 prompts to be extracted and registered, Phase E completes A→B→C→D→E reasoning loop
 
 ## Constitution Check
 
@@ -27,125 +29,181 @@ Establish a unified, contract-driven prompt subsystem by consolidating all inlin
 
 **Kernel Minimalism (Principle I)**: 
 - [x] Does this feature add code to the kernel? If yes, justify why it cannot be a tool/supervisor.
-  - **Answer**: Minimal kernel changes required - only removal of inline prompt imports and Phase E invocation wiring (~10-20 LOC). Prompt registry and Phase E module are outside kernel. Justification: Phase E must be invoked at C-loop exit point in `run_multipass()`, which is kernel orchestration logic (not domain logic). Prompt removal is refactoring, not new functionality.
+  - **Answer**: Yes, minimal code (~10-20 LOC) for Phase E invocation wiring. Phase E itself is outside kernel (in orchestration module). Wiring is necessary orchestration logic to complete the reasoning loop. Prompt registry and Phase E logic are outside kernel per Principle II.
 - [x] Will kernel LOC remain under 800 after this feature?
-  - **Answer**: YES - prompt removal reduces kernel LOC, Phase E wiring is minimal (~10-20 LOC net change)
+  - **Answer**: Yes. Kernel changes limited to: (1) removing inline prompt imports (~-50 LOC), (2) Phase E invocation wiring (~+20 LOC). Net change: ~-30 LOC. Kernel remains well under 800 LOC limit.
 - [x] Does this feature add domain logic to the kernel? (MUST be NO)
-  - **Answer**: NO - Phase E synthesis logic resides in `aeon/orchestration/phases.py` (outside kernel), kernel only invokes it
+  - **Answer**: NO. Prompt registry is outside kernel. Phase E synthesis logic is outside kernel. Only orchestration wiring (building PhaseEInput and calling execute_phase_e) is in engine, which is outside kernel proper. Kernel only removes prompt imports.
 
 **Separation of Concerns (Principle II)**:
 - [x] Are new capabilities implemented as tools/supervisors, not kernel changes?
-  - **Answer**: YES - Prompt registry is new module `aeon/prompts/registry.py` (outside kernel), Phase E is in orchestration module (outside kernel)
+  - **Answer**: YES. Prompt registry is a new top-level module (`aeon/prompts/`). Phase E is in orchestration module (`aeon/orchestration/phases.py`). Both are outside kernel.
 - [x] Do new modules interact through clean interfaces only?
-  - **Answer**: YES - Prompt registry provides `get_prompt(prompt_id, input_data)` interface, Phase E provides `execute_phase_e(phase_e_input)` interface
+  - **Answer**: YES. Prompt registry provides `get_prompt(prompt_id, input_data)` interface. Phase E provides `execute_phase_e(phase_e_input, llm_adapter, prompt_registry)` interface. All interactions through defined contracts.
 - [x] Are kernel internals accessed by external modules? (MUST be NO)
-  - **Answer**: NO - Prompt registry and Phase E are stateless modules that receive data via function parameters
+  - **Answer**: NO. Prompt registry and Phase E do not access kernel internals. They interact only through public interfaces (LLMAdapter, PromptRegistry).
 
 **Declarative Plans (Principle III)**:
 - [x] If this feature affects plans, are they JSON/YAML declarative structures?
-  - **Answer**: N/A - No changes to plan structure
+  - **Answer**: N/A. This feature does not modify plan structure. Plans remain declarative JSON/YAML structures.
 - [x] Is any procedural logic added to plans? (MUST be NO)
-  - **Answer**: NO - No procedural logic added to plans
+  - **Answer**: NO. Plans remain pure declarative structures. No procedural logic added.
 
 **Extensibility (Principle IX)**:
 - [x] Can this feature be added without kernel mutation?
-  - **Answer**: PARTIALLY - Minimal kernel mutation required for Phase E invocation (~10-20 LOC), but prompt registry and Phase E are external modules
+  - **Answer**: Mostly yes. Prompt registry is completely outside kernel. Phase E is outside kernel. Only minimal wiring (~20 LOC) in OrchestrationEngine (outside kernel proper) for Phase E invocation. Kernel itself only removes imports.
 - [x] If kernel changes are required, are they rare, deliberate, and documented?
-  - **Answer**: YES - Kernel changes are minimal, deliberate (required for Phase E integration), and will be documented in code comments
+  - **Answer**: YES. Kernel changes are minimal (prompt import removal only) and well-documented in spec. Phase E wiring is in OrchestrationEngine, not kernel proper.
 
 **Sprint 1 Scope (Principle X)**:
 - [x] Is this feature within Sprint 1 scope? (No diagrams, IaC, RAG, cloud logic, embeddings, multi-agent, advanced memory)
-  - **Answer**: NO - This feature is beyond Sprint 1 scope, but constitution allows features beyond Sprint 1. This is acceptable as it's a foundational infrastructure improvement.
+  - **Answer**: YES. This is Sprint 7 feature focused on prompt infrastructure and answer synthesis. No diagrams, IaC, RAG, cloud logic, embeddings, multi-agent, or advanced memory involved. Simple prompt registry and synthesis phase.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
+specs/007-prompt-infrastructure/
 ├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+├── research.md          # Phase 0 output (/speckit.plan command) ✅ COMPLETE
+├── data-model.md        # Phase 1 output (/speckit.plan command) ✅ COMPLETE
+├── quickstart.md        # Phase 1 output (/speckit.plan command) ✅ COMPLETE
+├── contracts/           # Phase 1 output (/speckit.plan command) ✅ COMPLETE
+│   ├── phase-e.md       # Phase E interface contract
+│   └── prompt-registry.md  # Prompt registry interface contract
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan) ✅ EXISTS
 ```
 
 ### Source Code (repository root)
 
 ```text
 aeon/
-├── prompts/                    # NEW: Prompt infrastructure module
+├── prompts/             # NEW: Prompt infrastructure module
 │   ├── __init__.py
-│   └── registry.py             # Prompt registry with contracts
+│   └── registry.py      # Prompt registry with contracts (single file for <100 prompts)
 ├── orchestration/
-│   ├── phases.py               # MODIFY: Add Phase E synthesis method
-│   └── engine.py               # MODIFY: Wire Phase E invocation at C-loop exit
-├── kernel/
-│   ├── orchestrator.py         # MODIFY: Remove inline prompt imports
-│   └── executor.py             # MODIFY: Remove inline prompt imports
+│   └── phases.py        # EXISTING: Enhanced with Phase E implementation
+├── kernel/              # EXISTING: Prompt imports removed, Phase E wiring (minimal)
+│   ├── executor.py      # Remove inline prompt imports
+│   └── orchestrator.py  # Remove inline prompt imports
+├── supervisor/
+│   └── repair.py        # Remove inline prompts, use registry
 ├── plan/
-│   └── prompts.py              # MODIFY: Remove prompt definitions, use registry
+│   ├── prompts.py       # Remove inline prompts, use registry
+│   └── recursive.py     # Remove inline prompts, use registry
 ├── validation/
-│   └── semantic.py             # MODIFY: Remove inline prompts, use registry
+│   └── semantic.py      # Remove inline prompts, use registry
 ├── convergence/
-│   └── engine.py               # MODIFY: Remove inline prompts, use registry
+│   └── engine.py        # Remove inline prompts, use registry
 ├── adaptive/
-│   └── heuristics.py           # MODIFY: Remove inline prompts, use registry
-└── supervisor/
-    └── repair.py               # MODIFY: Remove inline prompts, use registry
+│   └── heuristics.py    # Remove inline prompts, use registry
+└── cli/
+    └── main.py          # EXISTING: Enhanced with FinalAnswer display
 
 tests/
 ├── unit/
-│   └── prompts/                # NEW: Prompt registry tests
+│   └── prompts/         # NEW: Prompt infrastructure unit tests
 │       ├── __init__.py
-│       └── test_registry.py
-└── integration/
-    └── test_phase_e.py         # NEW: Phase E integration tests
+│       └── test_registry.py  # Level 1 prompt tests: model instantiation, rendering, validation, invariants
+├── integration/
+│   └── test_phase_e.py  # NEW: Phase E integration tests (3 scenarios: success, TTL expiration, incomplete data)
+└── [existing test structure preserved]
 ```
-- The `aeon/plan/` package contains the system’s planning logic. This includes 
-  both high-level plan prompt templates (in plan/prompts.py) and recursive 
-  planning behavior (in plan/recursive.py).
-- The recursive planning module defines domain-specific prompts for 
-  subplan generation and plan refinement. These prompts must be centralized 
-  into the prompt registry during Sprint 7.
-- Aeon does NOT define a generic or free-floating “reasoning prompt” 
-  category. All reasoning-related prompting is tied to specific domains such as 
-  execution reasoning (kernel/executor.py) or recursive planning (plan/recursive.py).
 
-**Structure Decision**: Single Python project structure (existing). New `aeon/prompts/` module added for prompt infrastructure. Phase E synthesis logic added to existing `aeon/orchestration/phases.py`. All prompt extraction and Phase E integration modifies existing modules without changing project structure.
+**Structure Decision**: Single Python package structure. New `aeon/prompts/` module for prompt infrastructure. Phase E in existing `aeon/orchestration/phases.py`. All prompt extraction from existing modules. No new top-level directories required. Tests mirror source structure.
 
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**
 
-No violations identified. All Constitution Check gates pass.
+No violations. All changes are justified and within constitutional bounds:
+- Prompt registry is outside kernel (new top-level module)
+- Phase E is outside kernel (in orchestration module)
+- Kernel changes are minimal (prompt import removal only)
+- Phase E wiring (~20 LOC) is in OrchestrationEngine, not kernel proper
+- All interactions through clean interfaces (PromptRegistry, LLMAdapter)
 
-## Phase Completion Status
+## Phase 0: Research & Technical Decisions ✅ COMPLETE
 
-### Phase 0: Outline & Research ✅
-- **Status**: Complete
-- **Output**: `research.md` generated with all technical decisions documented
-- **Clarifications Resolved**: All technical decisions resolved (Pydantic compatibility, rendering mechanism, registry organization, Phase E integration, extraction strategy, etc.)
+**Status**: All research decisions resolved. See `research.md` for details.
 
-### Phase 1: Design & Contracts ✅
-- **Status**: Complete
-- **Outputs Generated**:
-  - `data-model.md`: Complete data model with all entities (PromptRegistry, PromptId, PromptDefinition, PromptInput, PromptOutput, PhaseEInput, FinalAnswer)
-  - `contracts/prompt-registry.md`: Prompt registry interface contract
-  - `contracts/phase-e.md`: Phase E interface contract
-  - `quickstart.md`: Test scenarios and usage examples
-- **Agent Context**: Updated via `update-agent-context.sh cursor-agent`
+**Key Decisions**:
+1. ✅ Pydantic v2 API surface (codebase already uses >=2.0.0)
+2. ✅ F-string rendering for prompt templates (simple, native Python)
+3. ✅ Single-file registry for <100 prompts (current scale: ~20-30)
+4. ✅ Phase E at C-loop exit point (after `_execute_phase_c_loop` returns)
+5. ✅ Complete prompt extraction from identified modules
+6. ✅ Optional output models for JSON-producing prompts only
+7. ✅ System/user prompt pattern for Phase E synthesis
+8. ✅ Minimal kernel changes (prompt removal + Phase E wiring only)
+9. ✅ No versioning in Sprint 7 (contracts mutable, acceptable for <100 prompts)
+10. ✅ Level 1 prompt tests + Phase E integration tests (3 scenarios only)
 
-### Constitution Check Re-evaluation ✅
-- **Status**: Re-evaluated post-design
-- **Result**: All gates pass. Design maintains kernel minimalism, separation of concerns, and extensibility principles.
-- **Kernel Impact**: Minimal (~10-20 LOC for Phase E wiring, prompt removal reduces LOC)
-- **External Modules**: Prompt registry and Phase E are outside kernel per Constitution requirements
+**Research Output**: `research.md` ✅
 
-## Next Steps
+## Phase 1: Design & Contracts ✅ COMPLETE
 
-1. **Phase 2**: Run `/speckit.tasks` to generate task breakdown
-2. **Implementation**: Follow tasks.md to implement prompt infrastructure and Phase E
-3. **Testing**: Execute test scenarios from quickstart.md
-4. **Validation**: Run invariant tests to ensure compliance
+**Status**: All design artifacts generated. See `data-model.md`, `contracts/`, and `quickstart.md` for details.
+
+### Data Model
+
+**Output**: `data-model.md` ✅
+
+**Key Entities Defined**:
+- PromptRegistry: Central repository with Dict[PromptId, PromptDefinition]
+- PromptId: Enumeration of all prompt identifiers (~23 prompts)
+- PromptDefinition: Contains template, input model (required), output model (optional), render function
+- PromptInput: Base class for all prompt input models (Pydantic BaseModel)
+- PromptOutput: Base class for prompt output models (Pydantic BaseModel, optional)
+- PhaseEInput: Input model for Phase E with required/optional fields explicitly defined
+- FinalAnswer: Output model for Phase E with answer_text (required), optional fields, and metadata
+
+### Interface Contracts
+
+**Output**: `contracts/` ✅
+
+**Contracts Defined**:
+1. **`contracts/prompt-registry.md`**: PromptRegistry interface with `get_prompt(prompt_id, input_data) -> str`
+2. **`contracts/phase-e.md`**: Phase E interface with `execute_phase_e(phase_e_input, llm_adapter, prompt_registry) -> FinalAnswer`
+
+**Contract Details**:
+- PromptRegistry: Type-safe prompt retrieval with input validation and rendering
+- PhaseEInput: Pydantic model with required fields (request, correlation_id, execution_start_timestamp, convergence_status, total_passes, total_refinements, ttl_remaining) and optional fields (plan_state, execution_results, convergence_assessment, execution_passes, semantic_validation, task_profile)
+- FinalAnswer: Pydantic model with required answer_text and metadata, optional confidence, used_step_ids, notes, ttl_exhausted
+
+### Quickstart Guide
+
+**Output**: `quickstart.md` ✅
+
+**Quickstart Contents**:
+- Overview of prompt registry usage
+- Phase E synthesis examples
+- Test scenarios for User Story 3 (successful synthesis, TTL expiration, incomplete data)
+
+## Phase 2: Implementation Planning
+
+**Status**: Ready for task breakdown via `/speckit.tasks` command.
+
+**Implementation Phases** (from spec dependencies):
+1. **Phase 1 (P1)**: Prompt Consolidation & Registry
+   - Extract all prompts from identified modules
+   - Create prompt registry with PromptId enum
+   - Remove inline prompts from all modules
+   - Wire registry lookups
+
+2. **Phase 2 (P2)**: Schema-Backed Prompt Contracts
+   - Create input models for all prompts
+   - Create output models for JSON-producing prompts
+   - Implement validation before/after LLM calls
+   - Enforce invariants (Location, Schema, Registration)
+
+3. **Phase 3 (P3)**: Phase E Answer Synthesis
+   - Implement Phase E in `aeon/orchestration/phases.py`
+   - Create PhaseEInput and FinalAnswer models
+   - Create synthesis prompts (ANSWER_SYNTHESIS_SYSTEM, ANSWER_SYNTHESIS_USER)
+   - Wire Phase E invocation at C-loop exit
+   - Implement degraded answer handling
+   - Update CLI to display FinalAnswer
+
+**Next Steps**: Run `/speckit.tasks` to generate detailed task breakdown from this plan.

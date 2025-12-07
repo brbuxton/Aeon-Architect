@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/007-prompt-infrastructure/`
 **Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅
 
-**Tests**: Level 1 prompt tests are included per spec requirement FR-029.
+**Tests**: Level 1 prompt tests are included per spec requirement FR-047.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -61,28 +61,30 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Create `PromptId` enum in `aeon/prompts/registry.py` with all prompt identifiers (PLAN_GENERATION_SYSTEM, PLAN_GENERATION_USER, REASONING_STEP_SYSTEM, REASONING_STEP_USER, VALIDATION_SEMANTIC_SYSTEM, VALIDATION_SEMANTIC_USER, CONVERGENCE_ASSESSMENT_SYSTEM, CONVERGENCE_ASSESSMENT_USER, TASKPROFILE_INFERENCE_SYSTEM, TASKPROFILE_INFERENCE_USER, TASKPROFILE_UPDATE_SYSTEM, TASKPROFILE_UPDATE_USER, RECURSIVE_PLAN_GENERATION_USER, RECURSIVE_SUBPLAN_GENERATION_USER, RECURSIVE_REFINEMENT_SYSTEM, RECURSIVE_REFINEMENT_USER, SUPERVISOR_REPAIR_SYSTEM, SUPERVISOR_REPAIR_JSON_USER, SUPERVISOR_REPAIR_TOOLCALL_USER, SUPERVISOR_REPAIR_PLAN_USER, SUPERVISOR_REPAIR_MISSINGTOOL_USER, ANSWER_SYNTHESIS_SYSTEM, ANSWER_SYNTHESIS_USER)
+- [ ] T011 [US1] Create `PromptId` enum in `aeon/prompts/registry.py` with all 23 prompt identifiers from FR-005: PLAN_GENERATION_SYSTEM, PLAN_GENERATION_USER, REASONING_STEP_SYSTEM, REASONING_STEP_USER, VALIDATION_SEMANTIC_SYSTEM, VALIDATION_SEMANTIC_USER, CONVERGENCE_ASSESSMENT_SYSTEM, CONVERGENCE_ASSESSMENT_USER, TASKPROFILE_INFERENCE_SYSTEM, TASKPROFILE_INFERENCE_USER, TASKPROFILE_UPDATE_SYSTEM, TASKPROFILE_UPDATE_USER, RECURSIVE_PLAN_GENERATION_USER, RECURSIVE_SUBPLAN_GENERATION_USER, RECURSIVE_REFINEMENT_SYSTEM, RECURSIVE_REFINEMENT_USER, SUPERVISOR_REPAIR_SYSTEM, SUPERVISOR_REPAIR_JSON_USER, SUPERVISOR_REPAIR_TOOLCALL_USER, SUPERVISOR_REPAIR_PLAN_USER, SUPERVISOR_REPAIR_MISSINGTOOL_USER, ANSWER_SYNTHESIS_SYSTEM, ANSWER_SYNTHESIS_USER. Verify all 23 prompts are included.
 - [ ] T012 [US1] Create `PromptDefinition` class in `aeon/prompts/registry.py` with fields: prompt_id, template, input_model, output_model (optional), render_fn
 - [ ] T013 [US1] Create `PromptRegistry` class in `aeon/prompts/registry.py` with `_registry: Dict[PromptId, PromptDefinition]` and `__init__()` method
 - [ ] T014 [US1] Implement `get_prompt(prompt_id: PromptId, input_data: PromptInput) -> str` method in `PromptRegistry` class in `aeon/prompts/registry.py`
 - [ ] T015 [US1] Implement `list_prompts() -> List[PromptId]` method in `PromptRegistry` class in `aeon/prompts/registry.py`
 - [ ] T016 [US1] Create module-level `get_prompt()` convenience function in `aeon/prompts/registry.py` that uses global registry instance
-- [ ] T017 [US1] Extract plan generation prompts from `aeon/plan/prompts.py` and register in `aeon/prompts/registry.py` (PLAN_GENERATION_SYSTEM, PLAN_GENERATION_USER, REASONING_STEP_USER)
-- [ ] T018 [US1] Extract all recursive planning prompts from `aeon/plan/recursive.py` and register them in `aeon/prompts/registry.py` (RECURSIVE_PLAN_GENERATION_USER, RECURSIVE_SUBPLAN_GENERATION_USER, RECURSIVE_REFINEMENT_USER, RECURSIVE_REFINEMENT_SYSTEM)
-- [ ] T019 [US1] Extract semantic validation prompts from `aeon/validation/semantic.py` and register in `aeon/prompts/registry.py` (VALIDATION_SEMANTIC_SYSTEM, VALIDATION_SEMANTIC_USER)
-- [ ] T020 [US1] Extract convergence assessment prompts from `aeon/convergence/engine.py` and register in `aeon/prompts/registry.py` (CONVERGENCE_ASSESSMENT_SYSTEM, CONVERGENCE_ASSESSMENT_USER)
-- [ ] T021 [US1] Extract TaskProfile prompts from `aeon/adaptive/heuristics.py` and register in `aeon/prompts/registry.py` (TASKPROFILE_INFERENCE_SYSTEM, TASKPROFILE_INFERENCE_USER, TASKPROFILE_UPDATE_SYSTEM, TASKPROFILE_UPDATE_USER)
-- [ ] T022 [US1] Extract ALL repair-related prompts from `aeon/supervisor/repair.py` (SUPERVISOR_REPAIR_SYSTEM, SUPERVISOR_REPAIR_JSON_USER, SUPERVISOR_REPAIR_TOOLCALL_USER, SUPERVISOR_REPAIR_PLAN_USER, SUPERVISOR_REPAIR_MISSINGTOOL_USER) and register each with its own PromptId in `aeon/prompts/registry.py`.
-- [ ] T082 [US1] Extract ALL repair-related prompts from `aeon/kernel/executor.py` (REASONING_STEP_SYSTEM) and register each with its own PromptId in `aeon/prompts/registry.py`.
-- [ ] T023 [US1] Remove inline prompt imports from `aeon/kernel/executor.py` and replace with registry lookups
-- [ ] T024 [US1] Remove inline prompt imports from `aeon/kernel/orchestrator.py` and replace with registry lookups
-- [ ] T025 [US1] Remove inline prompts from `aeon/plan/prompts.py` and update to use registry
-- [ ] T026 [US1] Remove inline prompts from `aeon/validation/semantic.py` and update to use registry
-- [ ] T027 [US1] Remove inline prompts from `aeon/convergence/engine.py` and update to use registry
-- [ ] T028 [US1] Remove inline prompts from `aeon/adaptive/heuristics.py` and update to use registry
-- [ ] T029 [US1] Remove inline prompts from `aeon/supervisor/repair.py` and update to use registry
-- [ ] T030 [US1] Initialize global `PromptRegistry` instance at module level in `aeon/prompts/registry.py`
-- [ ] T031 [US1] Verify location invariant: run automated search for inline prompts and confirm zero matches outside registry
+- [ ] T017 [US1] Extract plan generation prompts from `aeon/plan/prompts.py` (source: FR-005) and register in `aeon/prompts/registry.py` with PromptIds: PLAN_GENERATION_SYSTEM, PLAN_GENERATION_USER, REASONING_STEP_USER
+- [ ] T018 [US1] Extract all recursive planning prompts from `aeon/plan/recursive.py` (source: FR-005) and register them in `aeon/prompts/registry.py` with PromptIds: RECURSIVE_PLAN_GENERATION_USER, RECURSIVE_SUBPLAN_GENERATION_USER, RECURSIVE_REFINEMENT_USER, RECURSIVE_REFINEMENT_SYSTEM
+- [ ] T019 [US1] Extract semantic validation prompts from `aeon/validation/semantic.py` (source: FR-005) and register in `aeon/prompts/registry.py` with PromptIds: VALIDATION_SEMANTIC_SYSTEM, VALIDATION_SEMANTIC_USER
+- [ ] T020 [US1] Extract convergence assessment prompts from `aeon/convergence/engine.py` (source: FR-005) and register in `aeon/prompts/registry.py` with PromptIds: CONVERGENCE_ASSESSMENT_SYSTEM, CONVERGENCE_ASSESSMENT_USER
+- [ ] T021 [US1] Extract TaskProfile prompts from `aeon/adaptive/heuristics.py` (source: FR-005) and register in `aeon/prompts/registry.py` with PromptIds: TASKPROFILE_INFERENCE_SYSTEM, TASKPROFILE_INFERENCE_USER, TASKPROFILE_UPDATE_SYSTEM, TASKPROFILE_UPDATE_USER
+- [ ] T022 [US1] Extract ALL repair-related prompts from `aeon/supervisor/repair.py` (source: FR-005) and register each with its own PromptId in `aeon/prompts/registry.py`: SUPERVISOR_REPAIR_SYSTEM, SUPERVISOR_REPAIR_JSON_USER, SUPERVISOR_REPAIR_TOOLCALL_USER, SUPERVISOR_REPAIR_PLAN_USER, SUPERVISOR_REPAIR_MISSINGTOOL_USER
+- [ ] T023 [US1] Extract REASONING_STEP_SYSTEM prompt from `aeon/kernel/executor.py` (source: FR-005) and register in `aeon/prompts/registry.py` with PromptId: REASONING_STEP_SYSTEM
+- [ ] T024 [US1] Remove inline prompt imports from `aeon/kernel/executor.py` and replace with registry lookups
+- [ ] T025 [US1] Remove inline prompt imports from `aeon/kernel/orchestrator.py` and replace with registry lookups
+- [ ] T026 [US1] Remove inline prompts from `aeon/plan/prompts.py` and update to use registry
+- [ ] T027 [US1] Remove inline prompts from `aeon/plan/recursive.py` and update to use registry
+- [ ] T028 [US1] Remove inline prompts from `aeon/validation/semantic.py` and update to use registry
+- [ ] T029 [US1] Remove inline prompts from `aeon/convergence/engine.py` and update to use registry
+- [ ] T030 [US1] Remove inline prompts from `aeon/adaptive/heuristics.py` and update to use registry
+- [ ] T031 [US1] Remove inline prompts from `aeon/supervisor/repair.py` and update to use registry
+- [ ] T032 [US1] Initialize global `PromptRegistry` instance at module level in `aeon/prompts/registry.py`
+- [ ] T033A [US1] Implement automated verification test in `tests/unit/prompts/test_registry.py` that searches codebase for inline prompt string patterns (per FR-005A). The test should search for common prompt patterns (e.g., strings containing "You are", "System:", "User:", etc.) and verify zero matches outside the prompt registry module.
+- [ ] T033B [US1] Run automated verification to confirm zero inline prompts outside registry (satisfies SC-001)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. All prompts are centralized in the registry, and all inline prompts have been removed.
 
@@ -98,29 +100,31 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T032 [P] [US2] Create test for input model validation (reject invalid inputs) in `tests/unit/prompts/test_registry.py`
-- [ ] T033 [P] [US2] Create test for prompt rendering with validated input in `tests/unit/prompts/test_registry.py`
-- [ ] T034 [P] [US2] Create test for output model validation for JSON prompts in `tests/unit/prompts/test_registry.py`
-- [ ] T035 [P] [US2] Create test for schema invariant (all prompts have input models) in `tests/unit/prompts/test_registry.py`
+- [ ] T034 [P] [US2] Create test for input model validation (reject invalid inputs) in `tests/unit/prompts/test_registry.py`
+- [ ] T035 [P] [US2] Create test for prompt rendering with validated input in `tests/unit/prompts/test_registry.py`
+- [ ] T036 [P] [US2] Create test for output model validation for JSON prompts in `tests/unit/prompts/test_registry.py`
+- [ ] T037 [P] [US2] Create test for schema invariant (all prompts have input models) in `tests/unit/prompts/test_registry.py`
+- [ ] T090 [P] [US2] Create test for Pydantic v1/v2 compatibility in `tests/unit/prompts/test_registry.py` (verify prompt input/output models can be instantiated and validated under both Pydantic v1 and v2) (FR-014A)
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] Create input models for plan generation prompts (`PlanGenerationInput`) in `aeon/prompts/registry.py`
-- [ ] T037 [US2] Create input models for semantic validation prompts (`SemanticValidationInput`) in `aeon/prompts/registry.py`
-- [ ] T038 [US2] Create input models for convergence assessment prompts (`ConvergenceAssessmentInput`) in `aeon/prompts/registry.py`
-- [ ] T039 [US2] Create input models for TaskProfile prompts (`TaskProfileInferenceInput`, `TaskProfileUpdateInput`) in `aeon/prompts/registry.py`
-- [ ] T040 [US2] Create input models for repair prompts (`RepairInput`) in `aeon/prompts/registry.py`
-- [ ] T041 [US2] Create input models for reasoning prompts (`ReasoningInput`) in `aeon/prompts/registry.py`
-- [ ] T042 [US2] Create output models for JSON-producing prompts: `ConvergenceAssessmentOutput` in `aeon/prompts/registry.py`
-- [ ] T043 [US2] Create output models for JSON-producing prompts: `TaskProfileInferenceOutput` in `aeon/prompts/registry.py`
-- [ ] T044 [US2] Create output models for JSON-producing prompts: `TaskProfileUpdateOutput` in `aeon/prompts/registry.py`
-- [ ] T045 [US2] Update `PromptDefinition.render()` method in `aeon/prompts/registry.py` to validate input_data against input_model before rendering
-- [ ] T046 [US2] Implement `validate_output(prompt_id: PromptId, llm_response: str) -> PromptOutput` method in `PromptRegistry` class in `aeon/prompts/registry.py`
-- [ ] T047 [US2] Update all prompt definitions in `aeon/prompts/registry.py` to include input_model for each prompt
-- [ ] T048 [US2] Update JSON-producing prompt definitions in `aeon/prompts/registry.py` to include output_model
-- [ ] T049 [US2] Update prompt rendering functions in `aeon/prompts/registry.py` to use f-strings with Pydantic model field access
-- [ ] T050 [US2] Update all modules using prompts to pass typed input models instead of raw dictionaries
-- [ ] T051 [US2] Verify schema invariant: all prompts have input models, JSON-producing prompts have output models
+- [ ] T038 [US2] Create input models for plan generation prompts (`PlanGenerationInput`) in `aeon/prompts/registry.py`
+- [ ] T039 [US2] Create input models for semantic validation prompts (`SemanticValidationInput`) in `aeon/prompts/registry.py`
+- [ ] T040 [US2] Create input models for convergence assessment prompts (`ConvergenceAssessmentInput`) in `aeon/prompts/registry.py`
+- [ ] T041 [US2] Create input models for TaskProfile prompts (`TaskProfileInferenceInput`, `TaskProfileUpdateInput`) in `aeon/prompts/registry.py`
+- [ ] T042 [US2] Create input models for repair prompts (`RepairInput`) in `aeon/prompts/registry.py`
+- [ ] T043 [US2] Create input models for reasoning prompts (`ReasoningInput`) in `aeon/prompts/registry.py`
+- [ ] T044 [US2] Create input models for recursive planning prompts (`RecursivePlanGenerationInput`, `RecursiveSubplanGenerationInput`, `RecursiveRefinementInput`) in `aeon/prompts/registry.py`
+- [ ] T045 [US2] Create output models for JSON-producing prompts: `ConvergenceAssessmentOutput` in `aeon/prompts/registry.py`
+- [ ] T046 [US2] Create output models for JSON-producing prompts: `TaskProfileInferenceOutput` in `aeon/prompts/registry.py`
+- [ ] T047 [US2] Create output models for JSON-producing prompts: `TaskProfileUpdateOutput` in `aeon/prompts/registry.py`
+- [ ] T048 [US2] Update `PromptDefinition.render()` method in `aeon/prompts/registry.py` to validate input_data against input_model before rendering
+- [ ] T049 [US2] Implement `validate_output(prompt_id: PromptId, llm_response: str) -> PromptOutput` method in `PromptRegistry` class in `aeon/prompts/registry.py`
+- [ ] T050 [US2] Update all prompt definitions in `aeon/prompts/registry.py` to include input_model for each prompt
+- [ ] T051 [US2] Update JSON-producing prompt definitions in `aeon/prompts/registry.py` to include output_model
+- [ ] T052 [US2] Update prompt rendering functions in `aeon/prompts/registry.py` to use f-strings with Pydantic model field access (e.g., `f"Goal: {input.goal}"` where `input` is the Pydantic model instance). Ensure all prompt templates use this pattern for field substitution.
+- [ ] T053 [US2] Update all modules using prompts to pass typed input models instead of raw dictionaries
+- [ ] T054 [US2] Verify schema invariant: all prompts have input models, JSON-producing prompts have output models
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. All prompts have typed contracts with validation.
 
@@ -136,29 +140,36 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T052 [P] [US3] Create test for Phase E successful synthesis in `tests/integration/test_phase_e.py`
-- [ ] T053 [P] [US3] Create test for Phase E with TTL expiration in `tests/integration/test_phase_e.py`
-- [ ] T054 [P] [US3] Create test for Phase E with incomplete data in `tests/integration/test_phase_e.py`
-- [ ] T055 [P] [US3] Create test for Phase E integration at C-loop exit in `tests/integration/test_phase_e.py`
+> **CRITICAL**: Per FR-051, tests MUST be limited to exactly 3 scenarios only
+
+- [ ] T055 [P] [US3] Create test for Phase E successful synthesis with complete execution state in `tests/integration/test_phase_e.py`. Test MUST call `execute_phase_e()` directly with mocked LLM adapter (not end-to-end through OrchestrationEngine). Mock LLM to return valid FinalAnswer JSON. Verify all PhaseEInput fields populated and FinalAnswer contains synthesized text, confidence, and metadata (per FR-051).
+- [ ] T056 [P] [US3] Create test for Phase E with TTL expiration scenario in `tests/integration/test_phase_e.py`. Test MUST call `execute_phase_e()` directly with mocked LLM adapter. Set ttl_remaining=0 or ttl_exhausted=True in PhaseEInput. Mock LLM to return degraded FinalAnswer. Verify degraded answer indicates TTL exhaustion in metadata (per FR-051).
+- [ ] T057 [P] [US3] Create test for Phase E with incomplete data scenario in `tests/integration/test_phase_e.py`. Test MUST call `execute_phase_e()` directly with mocked LLM adapter. Create PhaseEInput with one or more optional fields missing (plan_state, execution_results, task_profile, execution_passes, convergence_assessment, or semantic_validation). Mock LLM to return degraded FinalAnswer. Verify degraded answer has metadata indicating which fields were missing (per FR-051).
 
 ### Implementation for User Story 3
 
-- [ ] T056 [US3] Create `PhaseEInput` model in `aeon/orchestration/phases.py` with all required fields (request, execution_results, plan_state, convergence_assessment, correlation_id, execution_start_timestamp, convergence_status, total_passes, total_refinements, ttl_remaining) and optional fields (execution_passes, semantic_validation, task_profile)
-- [ ] T057 [US3] Create `FinalAnswer` model in `aeon/orchestration/phases.py` with required field (answer_text) and optional fields (confidence, used_step_ids, notes, ttl_exhausted, metadata)
-- [ ] T058 [US3] Create input models for Phase E synthesis prompts (`AnswerSynthesisInput`) in `aeon/prompts/registry.py`
-- [ ] T059 [US3] Create output model for Phase E synthesis prompts (`FinalAnswerOutput`) in `aeon/prompts/registry.py` (maps to FinalAnswer)
-- [ ] T060 [US3] Register ANSWER_SYNTHESIS_SYSTEM and ANSWER_SYNTHESIS_USER prompts in `aeon/prompts/registry.py` with AnswerSynthesisInput and FinalAnswerOutput models
-- [ ] T061 [US3] Implement `execute_phase_e(phase_e_input: PhaseEInput, llm_adapter: LLMAdapter, prompt_registry: PromptRegistry) -> FinalAnswer` function in `aeon/orchestration/phases.py`
-- [ ] T062 [US3] Implement prompt retrieval and rendering for Phase E synthesis in `execute_phase_e()` function in `aeon/orchestration/phases.py`
-- [ ] T063 [US3] Implement LLM call for synthesis in `execute_phase_e()` function in `aeon/orchestration/phases.py`
-- [ ] T064 [US3] Implement output validation against FinalAnswer model in `execute_phase_e()` function in `aeon/orchestration/phases.py`
-- [ ] T065 [US3] Implement degraded mode handling (errors, TTL expiration, incomplete data) in `execute_phase_e()` function in `aeon/orchestration/phases.py`
-- [ ] T066 [US3] Register Phase E in phases system (if phase registration is required) in `aeon/orchestration/phases.py`
-- [ ] T067 [US3] Wire Phase E invocation at C-loop exit point in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py` (after `_execute_phase_c_loop` returns, before building final execution result)
-- [ ] T068 [US3] Build PhaseEInput from final execution state in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py`
-- [ ] T069 [US3] Call `execute_phase_e()` with PhaseEInput in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py`
-- [ ] T070 [US3] Attach FinalAnswer to execution result in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py`
-- [ ] T071 [US3] Verify Phase E produces final_answer in all scenarios (successful convergence, TTL expiration, partial execution, error conditions)
+- [ ] T058 [US3] Create `PhaseEInput` model in `aeon/orchestration/phases.py` with required fields (request, correlation_id, execution_start_timestamp, convergence_status, total_passes, total_refinements, ttl_remaining) and optional fields (plan_state, execution_results, convergence_assessment, execution_passes, semantic_validation, task_profile) using Optional[] type hints
+- [ ] T059 [US3] Create `FinalAnswer` model in `aeon/orchestration/phases.py` with required field (answer_text, metadata) and optional fields (confidence, used_step_ids, notes, ttl_exhausted) using Optional[] type hints
+- [ ] T060 [US3] Create input models for Phase E synthesis prompts (`AnswerSynthesisInput`) in `aeon/prompts/registry.py`
+- [ ] T061 [US3] Create output model for Phase E synthesis prompts (`FinalAnswerOutput`) in `aeon/prompts/registry.py` (maps to FinalAnswer)
+- [ ] T062 [US3] Register ANSWER_SYNTHESIS_SYSTEM and ANSWER_SYNTHESIS_USER prompts in `aeon/prompts/registry.py` with AnswerSynthesisInput and FinalAnswerOutput models
+- [ ] T063 [US3] Implement `execute_phase_e(phase_e_input: PhaseEInput, llm_adapter: LLMAdapter, prompt_registry: PromptRegistry) -> FinalAnswer` function in `aeon/orchestration/phases.py`
+- [ ] T064 [US3] Implement prompt retrieval and rendering for Phase E synthesis in `execute_phase_e()` function in `aeon/orchestration/phases.py`
+- [ ] T065 [US3] Implement LLM call for synthesis in `execute_phase_e()` function in `aeon/orchestration/phases.py`
+- [ ] T066 [US3] Implement output validation against FinalAnswer model in `execute_phase_e()` function in `aeon/orchestration/phases.py`
+- [ ] T067 [US3] Implement degraded mode handling in `execute_phase_e()` function in `aeon/orchestration/phases.py` covering all scenarios from spec edge cases: (1) missing/incomplete execution state (missing plan_state, execution_results, task_profile, execution_passes, convergence_assessment, or semantic_validation), (2) TTL expiration (ttl_remaining=0 or ttl_exhausted=True), (3) zero passes (total_passes=0), (4) LLM synthesis errors. MUST always produce degraded FinalAnswer with metadata indicating missing fields, never raise exceptions. Degraded answer must conform to FinalAnswer schema with answer_text explaining the situation and metadata indicating which PhaseEInput fields were missing/incomplete.
+- [ ] T068 [US3] Wire Phase E invocation at C-loop exit point in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py`. Insert Phase E call after `_execute_phase_c_loop` returns and TTLExpiredError handling, but before any `build_execution_result` calls. Phase E must execute unconditionally regardless of convergence status, TTL expiration, or execution state completeness (per FR-020, FR-024).
+- [ ] T069 [US3] Build PhaseEInput from final execution state in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py` - handle optional fields gracefully (may be None)
+- [ ] T070 [US3] Call `execute_phase_e()` with PhaseEInput in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py`
+- [ ] T071 [US3] Attach FinalAnswer to execution result under key "final_answer" in `OrchestrationEngine.run_multipass()` method in `aeon/orchestration/engine.py`
+- [ ] T072 [US3] Verify Phase E produces final_answer in all scenarios (successful convergence, TTL expiration, partial execution, error conditions, zero passes)
+- [ ] T073 [US3] Update CLI command `aeon execute` in `aeon/cli/main.py` to display FinalAnswer when available in execution result (FR-043)
+- [ ] T074 [US3] Implement human-readable FinalAnswer display in CLI when `--json` flag is NOT used in `aeon/cli/main.py` (display answer_text, confidence, ttl_exhausted warning, notes, metadata summary) (FR-044)
+- [ ] T075 [US3] Implement JSON FinalAnswer output in CLI when `--json` flag IS used in `aeon/cli/main.py` (include final_answer as top-level key) (FR-045)
+- [ ] T076 [US3] Implement graceful handling of missing final_answer in CLI in `aeon/cli/main.py` (display message or omit section, do not crash) (FR-046)
+- [ ] T087 [P] [US3] Create integration test for CLI human-readable FinalAnswer display in `tests/integration/test_cli_final_answer.py`. Test executes `aeon execute` command (without `--json` flag) with execution result containing final_answer. Verify CLI output contains: answer_text prominently displayed, confidence if present, ttl_exhausted warning if True, notes if present, metadata summary if non-empty (per FR-053 scenario 1).
+- [ ] T088 [P] [US3] Create integration test for CLI JSON FinalAnswer output in `tests/integration/test_cli_final_answer.py`. Test executes `aeon execute` command with `--json` flag and execution result containing final_answer. Verify JSON output contains final_answer as top-level key with all FinalAnswer fields serialized (answer_text, confidence, used_step_ids, notes, ttl_exhausted, metadata) (per FR-053 scenario 2).
+- [ ] T089 [P] [US3] Create integration test for CLI graceful handling of missing final_answer in `tests/integration/test_cli_final_answer.py`. Test executes `aeon execute` command with execution result missing final_answer key. Verify CLI displays message "No final answer available" or omits final_answer section entirely, and does not crash (per FR-053 scenario 3).
 
 **Checkpoint**: At this point, all three user stories should be independently functional. Phase E completes the A→B→C→D→E reasoning loop.
 
@@ -168,16 +179,17 @@
 
 **Purpose**: Improvements that affect multiple user stories, validation, and cleanup
 
-- [ ] T072 [P] Run all Level 1 prompt tests to verify: model instantiation, prompt rendering, output-model loading, invariant enforcement in `tests/unit/prompts/test_registry.py`
-- [ ] T073 [P] Run all Phase E integration tests in `tests/integration/test_phase_e.py`
-- [ ] T074 [P] Verify kernel LOC remains under 800 (Constitution Principle I) by checking `aeon/kernel/` module sizes
-- [ ] T075 [P] Verify kernel minimalism: only prompt removal and Phase E wiring in kernel, no new business logic in `aeon/kernel/`
-- [ ] T076 [P] Verify separation of concerns: prompt registry and Phase E are outside kernel per Constitution Principle II
-- [ ] T077 [P] Run quickstart.md validation scenarios from `specs/007-prompt-infrastructure/quickstart.md`
-- [ ] T078 [P] Verify all three invariants pass automated tests: Location Invariant, Schema Invariant, Registration Invariant
-- [ ] T079 [P] Code cleanup and refactoring: remove unused imports, fix linting issues
-- [ ] T080 [P] Documentation updates: add docstrings to all new classes and functions in `aeon/prompts/registry.py` and `aeon/orchestration/phases.py`
-- [ ] T081 [P] Verify backward compatibility: existing execution flows still work with new prompt registry
+- [ ] T077 [P] Run all Level 1 prompt tests to verify: model instantiation, prompt rendering, output-model loading, invariant enforcement in `tests/unit/prompts/test_registry.py`
+- [ ] T078 [P] Run all Phase E integration tests in `tests/integration/test_phase_e.py`
+- [ ] T079 [P] Verify kernel LOC remains under 800 (Constitution Principle I) by checking `aeon/kernel/` module sizes
+- [ ] T080 [P] Verify kernel minimalism: only prompt removal and Phase E wiring in kernel, no new business logic in `aeon/kernel/`
+- [ ] T081 [P] Verify separation of concerns: prompt registry and Phase E are outside kernel per Constitution Principle II
+- [ ] T082 [P] Run quickstart.md validation scenarios from `specs/007-prompt-infrastructure/quickstart.md`
+- [ ] T083 [P] Verify all three invariants pass automated tests: Location Invariant, Schema Invariant, Registration Invariant
+- [ ] T084 [P] Code cleanup and refactoring: remove unused imports, fix linting issues
+- [ ] T085 [P] Documentation updates: add docstrings to all new classes and functions in `aeon/prompts/registry.py` and `aeon/orchestration/phases.py`
+- [ ] T086 [P] Verify backward compatibility: existing execution flows still work with new prompt registry
+- [ ] T091 [P] Verify prompt count constraint: validate that total number of prompts in `aeon/prompts/registry.py` is under 100 (per FR-008 requirement that single-file registry is acceptable for <100 prompts). If count exceeds 100, document need for multi-file registry refactoring.
 
 ---
 
@@ -210,10 +222,10 @@
 - All Setup tasks marked [P] can run in parallel
 - All Foundational tasks marked [P] can run in parallel (within Phase 2)
 - All tests for a user story marked [P] can run in parallel
-- Prompt extraction tasks (T017-T022) can run in parallel (different source files)
-- Prompt removal tasks (T023-T029) can run in parallel (different source files)
-- Input model creation tasks (T036-T041) can run in parallel (different models)
-- Output model creation tasks (T042-T044) can run in parallel (different models)
+- Prompt extraction tasks (T017-T023) can run in parallel (different source files)
+- Prompt removal tasks (T024-T031) can run in parallel (different source files)
+- Input model creation tasks (T038-T044) can run in parallel (different models)
+- Output model creation tasks (T045-T047) can run in parallel (different models)
 
 ---
 
@@ -232,6 +244,7 @@ Task: "Extract semantic validation prompts from aeon/validation/semantic.py"
 Task: "Extract convergence assessment prompts from aeon/convergence/engine.py"
 Task: "Extract TaskProfile prompts from aeon/adaptive/heuristics.py"
 Task: "Extract repair prompts from aeon/supervisor/repair.py"
+Task: "Extract REASONING_STEP_SYSTEM prompt from aeon/kernel/executor.py"
 
 # Launch all prompt removal tasks together (different source files):
 Task: "Remove inline prompts from aeon/plan/prompts.py"
@@ -253,6 +266,7 @@ Task: "Create input models for convergence assessment prompts in aeon/prompts/re
 Task: "Create input models for TaskProfile prompts in aeon/prompts/registry.py"
 Task: "Create input models for repair prompts in aeon/prompts/registry.py"
 Task: "Create input models for reasoning prompts in aeon/prompts/registry.py"
+Task: "Create input models for recursive planning prompts in aeon/prompts/registry.py"
 
 # Launch all output model creation tasks together (different models):
 Task: "Create output models for JSON-producing prompts: ConvergenceAssessmentOutput"
@@ -310,19 +324,21 @@ With multiple developers:
 - **Critical**: User Story 3 MUST wait for User Story 2 (Phase E prompts require contracts)
 - **Constitution Compliance**: Keep kernel changes minimal (prompt removal + Phase E wiring only, ~10-20 LOC net change)
 - **Constitution Compliance**: Prompt registry and Phase E must be outside kernel (Principle II)
+- **Phase E Tests**: Limited to exactly 3 scenarios per FR-046 (successful synthesis, TTL expiration, incomplete data)
+- **Phase E Degraded Mode**: MUST always produce FinalAnswer even with missing/incomplete state (FR-025, FR-027, FR-028)
 
 ---
 
 ## Summary
 
-- **Total Tasks**: 81
+- **Total Tasks**: 92
 - **Tasks per User Story**:
-  - User Story 1: 25 tasks (T007-T031)
-  - User Story 2: 20 tasks (T032-T051)
-  - User Story 3: 20 tasks (T052-T071)
+  - User Story 1: 28 tasks (T007-T032, T033A-T033B)
+  - User Story 2: 22 tasks (T034-T054, T090)
+  - User Story 3: 26 tasks (T055-T076, T087-T089)
   - Setup: 3 tasks (T001-T003)
   - Foundational: 3 tasks (T004-T006)
-  - Polish: 10 tasks (T072-T081)
+  - Polish: 11 tasks (T077-T086, T091)
 - **Parallel Opportunities**: Many extraction, removal, and model creation tasks can run in parallel
 - **Independent Test Criteria**: Each user story has clear independent test criteria
 - **Suggested MVP Scope**: User Story 1 only (centralized prompt management)
