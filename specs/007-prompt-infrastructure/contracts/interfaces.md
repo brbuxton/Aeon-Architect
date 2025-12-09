@@ -283,3 +283,4 @@ if "final_answer" in execution_result:
 - Phase E executes unconditionally after C-loop terminates
 - Phase E never raises exceptions for missing/incomplete state
 - FinalAnswer always conforms to FinalAnswer schema (even when degraded)
+
