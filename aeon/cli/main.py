@@ -283,6 +283,7 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
                     "supervisor_actions": state.supervisor_actions if state else [],
                 } if state else {},
             }
+            # FinalAnswer is already in result["final_answer"] if present (T087)
             print("\nResult (JSON):")
             print(json.dumps(full_result, indent=2, default=str))
         else:
@@ -391,6 +392,55 @@ def cmd_execute(args: argparse.Namespace, config: Config) -> int:
                 print("Step execution completed, but no LLM reasoning was performed during steps.")
                 print("In the current implementation, steps are marked complete without LLM calls.")
                 print("The plan structure above shows what the LLM generated during plan creation.")
+            
+            # Display FinalAnswer if available (T085, T086, T088)
+            final_answer = result.get("final_answer")
+            if final_answer:
+                print(f"\n{_SEPARATOR}")
+                print("Final Answer")
+                print(_SEPARATOR)
+                
+                # Display answer_text prominently (T086)
+                answer_text = final_answer.get("answer_text", "")
+                if answer_text:
+                    print(f"\n{answer_text}\n")
+                
+                # Display confidence if present (T086)
+                confidence = final_answer.get("confidence")
+                if confidence is not None:
+                    print(f"Confidence: {confidence:.2f}")
+                
+                # Display ttl_exhausted warning if True (T086)
+                ttl_exhausted = final_answer.get("ttl_exhausted")
+                if ttl_exhausted:
+                    print("⚠️  Warning: TTL was exhausted during execution")
+                
+                # Display notes if present (T086)
+                notes = final_answer.get("notes")
+                if notes:
+                    print(f"\nNotes: {notes}")
+                
+                # Display metadata summary if non-empty (T086)
+                metadata = final_answer.get("metadata", {})
+                if metadata:
+                    print(f"\nMetadata:")
+                    for key, value in metadata.items():
+                        if key not in ["degraded", "missing_fields", "reason"]:  # Skip internal fields
+                            print(f"  {key}: {value}")
+                    
+                    # Show degraded mode indicators
+                    if metadata.get("degraded"):
+                        print(f"\n⚠️  Degraded Mode:")
+                        if metadata.get("missing_fields"):
+                            print(f"  Missing fields: {', '.join(metadata['missing_fields'])}")
+                        if metadata.get("reason"):
+                            print(f"  Reason: {metadata['reason']}")
+            else:
+                # Graceful handling of missing final_answer (T088)
+                print(f"\n{_SEPARATOR}")
+                print("Final Answer")
+                print(_SEPARATOR)
+                print("No final answer available")
 
         return 0
     except Exception as e:

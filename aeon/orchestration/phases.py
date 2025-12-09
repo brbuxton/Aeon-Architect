@@ -2544,16 +2544,13 @@ def execute_phase_e(
         
         # Validate output against FinalAnswer model (T066)
         try:
-            # Parse JSON response
-            if isinstance(llm_response, str):
-                response_data = json.loads(llm_response)
-            else:
-                response_data = llm_response
-            
             # Validate against FinalAnswerOutput model via registry
+            # validate_output accepts either str or dict with "text" key
+            # If llm_response is a dict, pass it as-is (validate_output will extract "text" key)
+            # If llm_response is a str, pass it as-is
             validated_output = prompt_registry.validate_output(
                 PromptId.ANSWER_SYNTHESIS_USER,
-                llm_response if isinstance(llm_response, str) else json.dumps(llm_response)
+                llm_response  # Pass as-is: validate_output handles both str and dict formats
             )
             
             # Convert to FinalAnswer

@@ -341,11 +341,9 @@ Return only the JSON object, no explanation.
         return "\n".join(prompt_parts)
 
     def _get_system_prompt(self) -> str:
-        """Get system prompt for semantic validation."""
-        return """You are a semantic validation assistant. Analyze plans, steps, and execution artifacts for quality issues.
-Identify specificity problems, relevance issues, do/say mismatches, hallucinated tools, and consistency violations.
-Classify issues by type and assign severity scores. Propose semantic repairs when possible.
-Return structured JSON with detected issues."""
+        """Get system prompt for semantic validation (uses registry)."""
+        from aeon.prompts.registry import get_prompt, PromptId, SemanticValidationSystemInput
+        return get_prompt(PromptId.VALIDATION_SEMANTIC_SYSTEM, SemanticValidationSystemInput())
 
     def _parse_llm_validation_response(self, response_text: str) -> Dict[str, Any]:
         """

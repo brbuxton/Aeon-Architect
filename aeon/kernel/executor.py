@@ -6,7 +6,7 @@ Part of the kernel per Constitution. See orchestrator.py for constitutional LOC 
 import json
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from aeon.exceptions import ExecutionError, ToolError, ValidationError
+from aeon.exceptions import ExecutionError
 
 if TYPE_CHECKING:
     from aeon.observability.logger import JSONLLogger
@@ -14,6 +14,7 @@ from aeon.llm.interface import LLMAdapter
 from aeon.memory.interface import Memory
 from aeon.plan.models import PlanStep, StepStatus
 from aeon.plan.prompts import build_reasoning_prompt
+from aeon.prompts.registry import get_prompt, PromptId, ReasoningStepSystemInput
 from aeon.supervisor.repair import Supervisor
 from aeon.tools.registry import ToolRegistry
 from aeon.validation.schema import Validator
@@ -342,9 +343,11 @@ class StepExecutor:
             prompt = build_reasoning_prompt(step, memory, phase_context=phase_context_dict)
 
             # Invoke LLM (context already validated above)
+            # Get system prompt from registry
+            system_prompt = get_prompt(PromptId.REASONING_STEP_SYSTEM, ReasoningStepSystemInput())
             response = llm.generate(
                 prompt=prompt,
-                system_prompt="You are a reasoning assistant. Provide clear, structured responses. Include clarity_state and handoff_to_next in your response.",
+                system_prompt=system_prompt,
                 max_tokens=2048,
                 temperature=0.7,
             )

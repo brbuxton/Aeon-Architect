@@ -4,30 +4,17 @@ from typing import Any, Dict, Optional
 
 from aeon.plan.models import PlanStep
 from aeon.memory.interface import Memory
+from aeon.prompts.registry import get_prompt, PromptId, PlanGenerationSystemInput, PlanGenerationUserInput
 
 
 def get_plan_generation_system_prompt() -> str:
-    """Get system prompt for plan generation."""
-    return """You are a planning assistant. Generate declarative plans in JSON format.
-A plan must have:
-- "goal": string describing the objective
-- "steps": array of step objects, each with:
-  - "step_id": unique identifier (string)
-  - "description": what the step does (string)
-  - "status": "pending" (always pending for new plans)
-  - "tool": (optional) name of registered tool for tool-based execution
-  - "agent": (optional) "llm" for explicit LLM reasoning steps
-
-IMPORTANT: Only reference tools that exist in the available tools list. Do not invent tools.
-If a step requires a tool, use the "tool" field with the exact tool name from the available list.
-If a step requires reasoning without a tool, use "agent": "llm".
-
-Return only valid JSON."""
+    """Get system prompt for plan generation (uses registry)."""
+    return get_prompt(PromptId.PLAN_GENERATION_SYSTEM, PlanGenerationSystemInput())
 
 
 def construct_plan_generation_prompt(request: str, tool_registry: Optional[Any] = None) -> str:
     """
-    Construct prompt for plan generation.
+    Construct prompt for plan generation (uses registry).
     
     Includes tool registry if available.
     
@@ -38,27 +25,24 @@ def construct_plan_generation_prompt(request: str, tool_registry: Optional[Any] 
     Returns:
         Formatted prompt string
     """
-    prompt = f"""Generate a plan to accomplish the following request:
-
-{request}
-
-"""
-    
-    # Include tool registry if available
+    # Build tool registry export
+    tool_registry_export = ""
     if tool_registry:
         available_tools = tool_registry.export_tools_for_llm()
         if available_tools:
-            prompt += "Available tools:\n"
+            tool_registry_export = "Available tools:\n"
             for tool in available_tools:
-                prompt += f"- {tool['name']}: {tool.get('description', 'No description')}\n"
+                tool_registry_export += f"- {tool['name']}: {tool.get('description', 'No description')}\n"
                 if tool.get('input_schema'):
                     import json
-                    prompt += f"  Input schema: {json.dumps(tool['input_schema'], indent=2)}\n"
-            prompt += "\n"
-            prompt += "You may reference these tools in step.tool fields. Do not invent tools.\n\n"
+                    tool_registry_export += f"  Input schema: {json.dumps(tool['input_schema'], indent=2)}\n"
+            tool_registry_export += "\n"
+            tool_registry_export += "You may reference these tools in step.tool fields. Do not invent tools.\n\n"
     
-    prompt += "Return a JSON plan with goal and steps."
-    return prompt
+    return get_prompt(PromptId.PLAN_GENERATION_USER, PlanGenerationUserInput(
+        request=request,
+        tool_registry_export=tool_registry_export
+    ))
 
 
 def build_reasoning_prompt(

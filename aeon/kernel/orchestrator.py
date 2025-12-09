@@ -7,7 +7,7 @@ to orchestration modules.
 """
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional
 import uuid
 
 from aeon.adaptive.heuristics import AdaptiveDepth
@@ -42,6 +42,7 @@ from aeon.plan.executor import PlanExecutor
 from aeon.plan.models import Plan, PlanStep, StepStatus
 from aeon.plan.parser import PlanParser
 from aeon.plan.prompts import construct_plan_generation_prompt, get_plan_generation_system_prompt
+from aeon.prompts.registry import get_prompt, PromptId, PlanGenerationSystemInput, PlanGenerationUserInput
 from aeon.plan.validator import PlanValidator
 from aeon.tools.registry import ToolRegistry
 from aeon.validation.schema import Validator
@@ -141,9 +142,25 @@ class Orchestrator:
             LLMError: If LLM generation fails
             PlanError: If plan parsing/validation fails
         """
-        # Construct prompt for plan generation
-        system_prompt = get_plan_generation_system_prompt()
-        prompt = construct_plan_generation_prompt(request, self.tool_registry)
+        # Construct prompt for plan generation using registry
+        system_prompt = get_prompt(PromptId.PLAN_GENERATION_SYSTEM, PlanGenerationSystemInput())
+        # Build tool registry export for user prompt
+        tool_registry_export = ""
+        if self.tool_registry:
+            available_tools = self.tool_registry.export_tools_for_llm()
+            if available_tools:
+                tool_registry_export = "Available tools:\n"
+                for tool in available_tools:
+                    tool_registry_export += f"- {tool['name']}: {tool.get('description', 'No description')}\n"
+                    if tool.get('input_schema'):
+                        import json
+                        tool_registry_export += f"  Input schema: {json.dumps(tool['input_schema'], indent=2)}\n"
+                tool_registry_export += "\n"
+                tool_registry_export += "You may reference these tools in step.tool fields. Do not invent tools.\n\n"
+        prompt = get_prompt(PromptId.PLAN_GENERATION_USER, PlanGenerationUserInput(
+            request=request,
+            tool_registry_export=tool_registry_export
+        ))
 
         try:
             # Generate LLM response
