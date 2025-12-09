@@ -293,9 +293,9 @@ Return a JSON object with these fields.
         return prompt
 
     def _get_task_profile_system_prompt(self) -> str:
-        """Get system prompt for TaskProfile inference."""
-        return """You are a task complexity analyzer. Analyze tasks and infer their complexity characteristics.
-Return only valid JSON with the required fields: reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement, raw_inference."""
+        """Get system prompt for TaskProfile inference (uses registry)."""
+        from aeon.prompts.registry import get_prompt, PromptId, TaskProfileInferenceSystemInput
+        return get_prompt(PromptId.TASKPROFILE_INFERENCE_SYSTEM, TaskProfileInferenceSystemInput())
 
     def _get_task_profile_schema(self) -> Dict[str, Any]:
         """Get JSON schema for TaskProfile."""
@@ -391,10 +391,9 @@ Return an updated TaskProfile JSON with adjusted dimensions.
         return prompt
 
     def _get_update_task_profile_system_prompt(self) -> str:
-        """Get system prompt for TaskProfile update."""
-        return """You are a task complexity analyzer. Based on execution feedback (convergence failure, validation issues, blocked steps), update the TaskProfile to better reflect the actual task complexity.
-Return only valid JSON with the required fields: reasoning_depth, information_sufficiency, expected_tool_usage, output_breadth, confidence_requirement, raw_inference.
-Adjust dimensions based on whether complexity was underestimated (increase) or overestimated (decrease)."""
+        """Get system prompt for TaskProfile update (uses registry)."""
+        from aeon.prompts.registry import get_prompt, PromptId, TaskProfileUpdateSystemInput
+        return get_prompt(PromptId.TASKPROFILE_UPDATE_SYSTEM, TaskProfileUpdateSystemInput())
 
     def adjust_ttl_for_updated_profile(
         self,

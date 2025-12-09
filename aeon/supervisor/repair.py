@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from aeon.exceptions import SupervisorError
 from aeon.llm.interface import LLMAdapter
 from aeon.plan.models import PlanStep
+from aeon.prompts.registry import get_prompt, PromptId, SupervisorRepairSystemInput, SupervisorRepairJSONUserInput, SupervisorRepairToolCallUserInput, SupervisorRepairPlanUserInput
 
 
 class Supervisor:
@@ -24,10 +25,8 @@ class Supervisor:
         self.system_prompt = system_prompt or self._get_default_system_prompt()
 
     def _get_default_system_prompt(self) -> str:
-        """Get default system prompt for JSON repair."""
-        return """You are a JSON repair assistant. Fix malformed JSON, tool calls, or plan structures.
-Return only the corrected JSON. Do not add new fields, tools, or semantic meaning.
-Your job is to correct syntax and structure only."""
+        """Get default system prompt for JSON repair (uses registry)."""
+        return get_prompt(PromptId.SUPERVISOR_REPAIR_SYSTEM, SupervisorRepairSystemInput())
 
     def repair_json(
         self,
@@ -196,30 +195,24 @@ Your job is to correct syntax and structure only."""
         raise SupervisorError(f"Failed to repair plan after {max_attempts} attempts")
 
     def _construct_json_repair_prompt(self, malformed_json: str, expected_schema: Optional[Dict[str, Any]] = None) -> str:
-        """Construct prompt for JSON repair."""
-        prompt = f"Fix this malformed JSON: {malformed_json}"
-        if expected_schema:
-            prompt += f"\n\nExpected schema: {json.dumps(expected_schema, indent=2)}"
-        prompt += "\n\nReturn only the corrected JSON, no explanation."
-        return prompt
+        """Construct prompt for JSON repair (uses registry)."""
+        return get_prompt(PromptId.SUPERVISOR_REPAIR_JSON_USER, SupervisorRepairJSONUserInput(
+            malformed_json=malformed_json,
+            expected_schema=expected_schema
+        ))
 
     def _construct_tool_call_repair_prompt(self, malformed_call: Dict[str, Any], tool_schema: Dict[str, Any]) -> str:
-        """Construct prompt for tool call repair."""
-        return f"""Fix this malformed tool call: {json.dumps(malformed_call, indent=2)}
-
-Tool schema: {json.dumps(tool_schema, indent=2)}
-
-Return only the corrected tool call JSON, no explanation."""
+        """Construct prompt for tool call repair (uses registry)."""
+        return get_prompt(PromptId.SUPERVISOR_REPAIR_TOOLCALL_USER, SupervisorRepairToolCallUserInput(
+            malformed_call=malformed_call,
+            tool_schema=tool_schema
+        ))
 
     def _construct_plan_repair_prompt(self, malformed_plan: Dict[str, Any]) -> str:
-        """Construct prompt for plan repair."""
-        return f"""Fix this malformed plan: {json.dumps(malformed_plan, indent=2)}
-
-A valid plan must have:
-- "goal": string
-- "steps": array of step objects with "step_id", "description", "status"
-
-Return only the corrected plan JSON, no explanation."""
+        """Construct prompt for plan repair (uses registry)."""
+        return get_prompt(PromptId.SUPERVISOR_REPAIR_PLAN_USER, SupervisorRepairPlanUserInput(
+            malformed_plan=malformed_plan
+        ))
 
     def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
         """

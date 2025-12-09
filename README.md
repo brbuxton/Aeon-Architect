@@ -7,7 +7,7 @@
 Aeon Architect is an adaptive multi-pass reasoning engine that reliably executes complex tasks through iterative refinement cycles. The system uses:
 
 - **Multi-pass execution**: Iterative plan → execute → evaluate → refine loops until convergence or TTL expiration
-- **Deterministic phase control**: Five-phase orchestration (A: TaskProfile & TTL → B: Planning & Refinement → C: Execution Passes → D: Adaptive Depth → E: Final Answer Synthesis)
+- **Deterministic phase control**: Five-phase orchestration (A: TaskProfile & TTL → B: Planning & Refinement → C: Execution Passes → D: Adaptive Depth → E: Final Answer Synthesis) - All phases implemented and functional
 - **Declarative plans**: JSON/YAML data structures describing multi-step execution
 - **Semantic validation**: LLM-based validation of plans, steps, and execution artifacts
 - **Convergence detection**: Automatic assessment of solution completeness, coherence, and consistency
@@ -46,10 +46,12 @@ aeon/
 │   ├── executor.py      # Step execution routing (182 LOC)
 │   └── state.py         # Orchestration state data structures
 ├── orchestration/       # Orchestration strategy modules (extracted from kernel)
-│   ├── phases.py        # Phase A/B/C/D orchestration logic
+│   ├── phases.py        # Phase A/B/C/D/E orchestration logic (includes Phase E synthesis)
 │   ├── refinement.py    # Plan refinement action application
 │   ├── step_prep.py     # Step preparation and dependency checking
 │   └── ttl.py           # TTL expiration response generation
+├── prompts/             # Centralized prompt management (Sprint 7)
+│   └── registry.py      # Prompt registry with contracts and validation
 ├── plan/                # Plan engine (parser, validator, recursive planner)
 ├── adaptive/            # Adaptive reasoning heuristics
 │   ├── heuristics.py    # TaskProfile inference and adaptive depth
@@ -90,8 +92,8 @@ Phase-aware structured logging with correlation IDs, actionable error logging wi
 ### ✅ Sprint 6: Phase Transition Stabilization
 Explicit phase transition contracts, deterministic context propagation, prompt context alignment, TTL boundary behavior, ExecutionPass consistency, and phase boundary logging. See [Sprint 6 specification](specs/006-phase-transitions/spec.md) for details.
 
-### 🚧 Sprint 7: Prompt Infrastructure + Prompt Contracts (In Progress)
-Prompt consolidation and management, prompt contracts with validation, and Phase E (Final Answer Synthesis) implementation. See [Backlog](BACKLOG.md) for details.
+### ✅ Sprint 7: Prompt Infrastructure + Prompt Contracts (Completed)
+Centralized prompt management with registry, schema-backed prompt contracts with validation, unified JSON extraction, and Phase E (Final Answer Synthesis) implementation. All 23 system prompts consolidated, typed input/output models, and complete A→B→C→D→E reasoning loop. See [Sprint 7 specification](specs/007-prompt-infrastructure/spec.md) for details.
 
 ## Installation
 
@@ -347,7 +349,7 @@ All sprint documentation is available in the [`specs/`](specs/) directory:
 - **Sprint 4**: [Kernel Refactoring](specs/004-kernel-refactor/) - LOC reduction and module extraction
 - **Sprint 5**: [Observability & Logging](specs/005-observability-logging/) - Structured logging and error reporting
 - **Sprint 6**: [Phase Transition Stabilization](specs/006-phase-transitions/) - Phase contracts and context propagation
-- **Sprint 7**: Prompt Infrastructure + Prompt Contracts (see [Backlog](BACKLOG.md)) - Prompt consolidation and Phase E implementation
+- **Sprint 7**: [Prompt Infrastructure + Prompt Contracts](specs/007-prompt-infrastructure/) - Centralized prompt registry, schema-backed contracts, Phase E synthesis
 
 Each sprint folder contains specifications, implementation plans, tasks, data models, and interface contracts.
 
@@ -359,10 +361,10 @@ MIT
 
 ### Current State
 
-- **Current Sprint**: Sprint 7 (Prompt Infrastructure + Prompt Contracts) - See [Backlog](BACKLOG.md) for details
+- **Current Sprint**: Sprint 8 (Memory Foundations) - See [Backlog](BACKLOG.md) for details
 - **Test Coverage**: 62% overall (92-97% for kernel core modules)
 - **Kernel LOC**: 635 LOC (under 800 LOC constitutional limit)
-- **Tests Passing**: 448 passed, 14 failed (462 total tests)
+- **Tests Passing**: 468 passed, 30 failed (498 total tests)
 - **Kernel Coverage**: `executor.py` 92%, `orchestrator.py` 97% (constitutional requirement: 100%)
 
 ### Completed Sprints
@@ -371,7 +373,9 @@ MIT
 ✅ **Sprint 2** (Adaptive Multi-Pass Reasoning) - 6 user stories: Multi-pass execution, TaskProfile, convergence  
 ✅ **Sprint 4** (Kernel Refactoring) - Kernel LOC reduced 53%, 100% behavioral compatibility  
 ✅ **Sprint 5** (Observability & Logging) - 4 user stories: Structured logging, error codes, test coverage expansion  
-✅ **Sprint 6** (Phase Transition Stabilization) - Phase transition contracts, context propagation, ExecutionPass consistency
+✅ **Sprint 6** (Phase Transition Stabilization) - Phase transition contracts, context propagation, ExecutionPass consistency  
+✅ **Sprint 7** (Prompt Infrastructure + Prompt Contracts) - 3 user stories: Centralized prompt registry (23 prompts), schema-backed contracts with validation, Phase E final answer synthesis completing A→B→C→D→E loop  
+✅ **Sprint 7** (Prompt Infrastructure + Prompt Contracts) - Centralized prompt registry, schema-backed contracts, unified JSON extraction, Phase E final answer synthesis
 
 See individual sprint specifications in [`specs/`](specs/) for detailed status and user stories.
 

@@ -369,11 +369,9 @@ Return only the JSON object, no explanation.
         return "\n".join(prompt_parts)
 
     def _get_system_prompt(self) -> str:
-        """Get system prompt for convergence assessment."""
-        return """You are a convergence assessment assistant. Evaluate task execution for completeness, coherence, and consistency.
-Assess whether the execution has converged on a complete, coherent, consistent solution.
-Provide numeric scores (0.0-1.0) for completeness and coherence, and alignment status for consistency.
-Return structured JSON with scores, status, and explanations."""
+        """Get system prompt for convergence assessment (uses registry)."""
+        from aeon.prompts.registry import get_prompt, PromptId, ConvergenceAssessmentSystemInput
+        return get_prompt(PromptId.CONVERGENCE_ASSESSMENT_SYSTEM, ConvergenceAssessmentSystemInput())
 
     def _parse_llm_assessment_response(self, response_text: str) -> Dict[str, Any]:
         """

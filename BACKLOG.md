@@ -12,82 +12,47 @@ Aeon Architect — Backlog of Future Enhancements
 
 ### Sprint Breakdown (Recommended Phasing)
 
-#### Sprint 5 — Foundation & Observability ✓ COMPLETED
-**Status**: ✅ **COMPLETED** - Merged to master on 2025-01-27  
-**Dependencies**: None (foundational)  
-**Impact**: Enables all other improvements  
-**Effort**: Medium
-
-**Components**:
-- **Error Logging Infrastructure** (blocks debugging of other improvements)
-  - Structured error logging for refinement failures ✓
-  - Error context capture and reporting ✓
-  - Error recovery tracking and metrics ✓
-  - Integration with observability layer ✓
-- **Test Coverage Gaps** (enables safe refactoring)
-  - Edge cases in convergence assessment ✓
-  - Error paths in refinement logic ✓
-  - TTL expiration edge cases ✓
-  - Phase transition error scenarios ✓
-  - Memory context propagation edge cases ✓
-  - Target: 55% → 80%+ coverage ✓
-
-**Rationale**: Without error logging, you can't effectively debug issues in other components. Without test coverage, refactoring is risky. These are prerequisites for safe optimization.
-
-**Implementation Summary**:
-- Implemented comprehensive observability and logging system (US1-US4)
-- Phase-aware structured logging with correlation IDs
-- Actionable error logging with error codes and severity levels
-- Refinement and execution debug visibility
-- Comprehensive test coverage with 20+ new integration tests
-- Performance validation, backward compatibility, and determinism preservation
-- See `specs/005-observability-logging/` for full documentation
-
----
-
-#### Sprint 6 — Integration & Phase Transition Stabilization
-**Dependencies**: Sprint 5 ✓ (completed - error logging available)  
-**Impact**: Direct user experience improvement  
-**Effort**: Medium-High
-
-**Components**:
-- **Integration & Phase Transition Improvements**
-  - Phase A→B→C→D transitions need smoother handoffs
-  - Error handling and recovery paths need enhancement
-  - Memory context propagation between phases needs improvement
-  - TTL boundary checks need refinement
-  - Execution pass metadata collection needs enhancement
-  - Error recovery and graceful degradation need improvement
-
-**Rationale**: These improvements directly affect system reliability and user experience. They're cross-cutting concerns that benefit from Sprint 5's observability.
-
----
-
-#### Sprint 7 — Prompt Infrastructure + Prompt Contracts
+#### Sprint 7 — Prompt Infrastructure + Prompt Contracts ✅ COMPLETED
+**Status**: ✅ **COMPLETED** - All 110 tasks completed, 3 user stories delivered  
 **Dependencies**: None (but blocks Sprint 9-11 prompt optimization work)  
 **Impact**: Enables systematic prompt improvements  
 **Effort**: Medium
 
-**Components**:
-- **Prompt Consolidation & Management** (see separate section below)
-  - Consolidate all system prompts into dedicated `prompts.py` files
-  - Create centralized prompt registry/manager
-  - Extract inline prompts from executor.py and recursive.py
-  - Standardize prompt structure and formatting
-  - Enable prompt versioning and rollback capabilities
-- **Prompt Contracts**
-  - Define interface contracts for prompt inputs/outputs
-  - Establish prompt validation and schema enforcement
-  - Create prompt testing framework
-- **Phase E – Minimal Answer Synthesis**
-  - Aggregate step outputs after Phase D
-  - Perform a single LLM synthesis call
-  - Produce `final_answer` in Aeon's execution result
-  - Define a minimal output schema (answer + metadata)
-  - Strictly internal reasoning; NOT a presentation layer
-  - Required for correctness in downstream Golden Paths
+**Components Delivered**:
+- ✅ **Prompt Consolidation & Management** (User Story 1)
+  - Consolidated all 23 system prompts into centralized `aeon/prompts/registry.py`
+  - Created `PromptRegistry` class with unique prompt identifiers
+  - Extracted all inline prompts from 7 source modules (executor.py, recursive.py, semantic.py, engine.py, heuristics.py, repair.py, prompts.py)
+  - Removed all inline prompts from source modules
+  - Verified location invariant: zero inline prompts outside registry
+- ✅ **Prompt Contracts** (User Story 2)
+  - Defined typed input models (Pydantic) for all 23 prompts
+  - Defined output models for 9 JSON-producing prompts
+  - Implemented unified JSON extraction handling 4 LLM response formats:
+    - Dictionary with "text" key
+    - Markdown code blocks (```json ... ``` and ``` ... ```)
+    - Embedded JSON using brace matching
+    - Raw JSON string parsing
+  - Input validation before prompt rendering
+  - Output validation after LLM responses
+  - Comprehensive error handling (JSONExtractionError, ValidationError)
+- ✅ **Phase E – Final Answer Synthesis** (User Story 3)
+  - Implemented `execute_phase_e()` function in `aeon/orchestration/phases.py`
+  - Created `PhaseEInput` and `FinalAnswer` models
+  - Registered ANSWER_SYNTHESIS_SYSTEM and ANSWER_SYNTHESIS_USER prompts
+  - Integrated Phase E at C-loop exit point in `OrchestrationEngine`
+  - Phase E executes unconditionally (even on TTL expiration)
+  - Comprehensive degraded mode handling (missing state, TTL expiration, zero passes, LLM errors)
+  - CLI integration for FinalAnswer display (human-readable and JSON)
+  - Complete A→B→C→D→E reasoning loop
 
-**Rationale**: Must be done before optimizing prompts in ConvergenceEngine, SemanticValidator, etc. Enables A/B testing and systematic improvement. Phase E provides the final step of the reasoning pipeline. It ensures Aeon can produce coherent answers. This is NOT presentation-layer work; that will occur post-epic.
+**Test Coverage**: 22 unit tests + 3 integration tests (all passing)
+
+**Files Created**: `aeon/prompts/registry.py` (~953 LOC)
+
+**Files Modified**: 15+ modules updated, kernel LOC impact: ~20-30 LOC net change (constitutional compliance maintained)
+
+**Rationale**: Completed before optimizing prompts in ConvergenceEngine, SemanticValidator, etc. Enables A/B testing and systematic improvement. Phase E provides the final step of the reasoning pipeline, ensuring Aeon can produce coherent answers. This is NOT presentation-layer work; that will occur post-epic.
 
 > **Note:** Full presentation abstraction (Layer 2) and kernel output governance (Layer 3) will be implemented as post-epic work, not within Sprints 5–11.
 
@@ -464,6 +429,40 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 
 ---
 
+## [Category: feature] [Impact: high] Meta-Conditions for Stable AI Reasoning
+- Description: Define and implement a minimal set of system-level “meta conditions” that guarantee stable, consistent, non-drifting reasoning during human–AI co-development. These conditions do not attempt to simulate human metacognition, but instead engineer the cognitive environment in which meta-like coherence emerges reliably.
+- Core Conditions to Capture:
+   - Anchoring Protocols: explicit canonical sources of truth
+   - Inference Boundaries: rules for when the AI must not infer
+   - Mode Switching: generation / analysis / verification / meta modes
+   - Drift Detection: detection of contradictions or schema violations
+   - Intent Clarification: mechanisms to restate, confirm, or refine goals
+- Value: Prevents reasoning drift, prompt divergence, architectural incoherence, and misalignment between conceptual and concrete artifacts. Enables predictable, high-fidelity AI collaboration across complex multi-phase systems.
+- Notes: This is not “implement AI meta-awareness.” This is “engineer the conditions under which coherent reasoning emerges.”
+
+---
+
+[Category: infrastructure] [Impact: medium] Consolidate legacy JSON extraction into PromptRegistry
+
+- Legacy modules still contain ad-hoc JSON parsing paths that predate the new prompt-contract validation flow.
+- Sprint 7 introduces a centralized JSON extraction/validation pipeline in PromptRegistry, but does not migrate older modules to use it.
+- Maintain two extraction paths temporarily to avoid destabilizing semantic validation, supervisor repair, and convergence flows.
+- Future work must unify all JSON parsing under the centralized extraction logic once contracts and Phase E behavior have stabilized.
+- Migration requires careful regression coverage to prevent behavioral drift in legacy reasoning and repair modules.
+
+---
+
+[Category: infrastructure] [Impact: medium] Research and evaluate async parallel execution for Phase C
+
+- Investigate feasibility of parallelizing Phase C step execution using async and/or multiprocessing primitives.
+- Identify which step types are safe for concurrent execution (e.g., stateless tool calls, independent LLM invocations).
+- Analyze risks related to race conditions, step dependencies, nondeterministic ordering, and reproducibility.
+- Evaluate impact on execution state management, pass aggregation, and Phase D convergence logic.
+- Prototype a small-scale parallel executor to measure performance improvements and concurrency stability.
+- Define architectural requirements for step dependency metadata if parallel execution is pursued.
+- Deliver recommendation and implementation plan for safe incremental adoption of async parallelism in Phase C.
+
+---
 # Archive
 
 ## Resolved Issues
@@ -482,6 +481,38 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 - **Files Changed**: 35 files modified, 18 new test files created, 6,961 insertions
 - **Documentation**: Complete specification in `specs/005-observability-logging/` including quickstart, tasks, and coverage summary
 - **Impact**: Enables all future improvements with comprehensive observability and debugging capabilities
+
+---
+
+### [Category: core] [Impact: high] Sprint 7 — Prompt Infrastructure + Prompt Contracts ✓ COMPLETED
+- **Status**: ✅ **COMPLETED** - All 110 tasks completed
+- **Branch**: `007-prompt-infrastructure`
+- **Components Delivered**:
+  - **US1 - Centralized Prompt Management**: Created `PromptRegistry` with 23 prompt identifiers, extracted all prompts from 7 source modules, removed all inline prompts, verified location invariant
+  - **US2 - Schema-Backed Prompt Contracts**: Created typed input/output models for all prompts, implemented unified JSON extraction (4 formats), input/output validation, comprehensive error handling
+  - **US3 - Phase E Final Answer Synthesis**: Implemented `execute_phase_e()` function, created PhaseEInput/FinalAnswer models, integrated at C-loop exit point, degraded mode handling, CLI integration
+- **Test Coverage**: 22 unit tests + 3 integration tests (all passing)
+- **Files Changed**: 1 major new module (`aeon/prompts/registry.py`), 15+ modules updated
+- **Impact**: Enables systematic prompt improvements, A/B testing capabilities, completes A→B→C→D→E reasoning loop
+- **Documentation**: Complete specification in `specs/007-prompt-infrastructure/` including quickstart, tasks, and data models
+
+---
+
+### [Category: core] [Impact: high] Sprint 6 — Phase Transition Stabilization ✓ COMPLETED
+- **Status**: ✅ **COMPLETED** - Merged to master
+- **Branch**: `006-phase-transitions`
+- **Commit**: `a9bcce2` - "docs: Add Phase E (Final Answer Synthesis) and update architecture documentation"
+- **Components Delivered**:
+  - **US1 - Explicit Phase Transition Contracts**: Defined contracts for A→B, B→C, C→D, D→A/B transitions with required inputs, guaranteed outputs, invariants, and failure conditions
+  - **US2 - Deterministic Context Propagation**: Context propagation specifications per phase (must-have, must-pass-unchanged, may-modify fields)
+  - **US3 - TTL Boundary Behavior**: Corrected TTL checking at phase boundaries and after LLM calls
+  - **US4 - ExecutionPass Consistency**: Enhanced ExecutionPass metadata collection and consistency
+  - **US5 - Phase Boundary Logging**: Phase entry/exit logging with state snapshots and TTL tracking
+  - **New Orchestration Modules**: Created `context_ops.py`, `contracts.py`, `engine.py`, `errors.py`, `execution_pass_ops.py`, `strategy.py`, `tool_ops.py`, `validation.py`
+- **Test Coverage**: Added comprehensive phase transition contract tests and context propagation tests
+- **Files Changed**: Multiple orchestration modules created, kernel refactored to use new orchestration engine
+- **Documentation**: Complete specification in `specs/006-phase-transitions/` including contracts, data models, and interface definitions
+- **Impact**: Stabilized phase transitions, enabled deterministic context propagation, prepared foundation for Sprint 7 (Prompt Contracts)
 
 ---
 

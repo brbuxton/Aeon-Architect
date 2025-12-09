@@ -176,11 +176,79 @@ class OrchestrationEngine:
                 # TTL expiration handled by _execute_phase_c_loop, re-raise to be caught by outer handler
                 raise
 
+            # Phase E: Answer Synthesis (T080-T083)
+            from aeon.orchestration.phases import execute_phase_e, PhaseEInput
+            from aeon.prompts.registry import get_prompt_registry
+            from aeon.orchestration.execution_pass_ops import get_execution_results
+            
+            # Build PhaseEInput from final execution state (T081)
+            final_pass_number = len(execution_passes) if execution_passes else 0
+            total_refinements = state.total_refinements if hasattr(state, 'total_refinements') else 0
+            
+            # Extract data from execution passes if available
+            plan_state = None
+            execution_results_list = None
+            convergence_assessment = None
+            semantic_validation = None
+            execution_passes_data = None
+            
+            if execution_passes:
+                last_pass = execution_passes[-1]
+                # Serialize plan state from last pass or current state
+                if last_pass.plan_state:
+                    plan_state = last_pass.plan_state
+                elif state.plan:
+                    plan_state = state.plan.model_dump() if hasattr(state.plan, 'model_dump') else state.plan
+                
+                # Extract execution results from all passes
+                execution_results_list = []
+                for pass_item in execution_passes:
+                    pass_results = get_execution_results(pass_item)
+                    if pass_results:
+                        execution_results_list.extend(pass_results if isinstance(pass_results, list) else [pass_results])
+                
+                # Extract convergence assessment and semantic validation from last pass
+                if hasattr(last_pass, 'evaluation_results') and last_pass.evaluation_results:
+                    evaluation_results = last_pass.evaluation_results
+                    if isinstance(evaluation_results, dict):
+                        convergence_assessment = evaluation_results.get('convergence_assessment')
+                        semantic_validation = evaluation_results.get('semantic_validation')
+                    else:
+                        convergence_assessment = evaluation_results
+                
+                # Serialize execution passes
+                execution_passes_data = [
+                    pass_item.model_dump() if hasattr(pass_item, 'model_dump') else pass_item
+                    for pass_item in execution_passes
+                ]
+            
+            # Determine convergence status (PhaseEInput uses bool, but AnswerSynthesisInput accepts Union[bool, str])
+            # We pass bool to PhaseEInput, and it will be converted to string in AnswerSynthesisInput if needed
+            
+            phase_e_input = PhaseEInput(
+                request=request,
+                correlation_id=execution_context.correlation_id,
+                execution_start_timestamp=execution_start_timestamp.isoformat() if isinstance(execution_start_timestamp, datetime) else execution_start_timestamp,
+                convergence_status=converged,
+                total_passes=final_pass_number,
+                total_refinements=total_refinements,
+                ttl_remaining=state.ttl_remaining,
+                plan_state=plan_state,
+                execution_results=execution_results_list,
+                convergence_assessment=convergence_assessment,
+                execution_passes=execution_passes_data,
+                semantic_validation=semantic_validation,
+                task_profile=task_profile.model_dump() if task_profile and hasattr(task_profile, 'model_dump') else task_profile,
+            )
+            
+            # Execute Phase E (T082) - must execute unconditionally (FR-020, FR-024)
+            prompt_registry = get_prompt_registry()
+            final_answer = execute_phase_e(phase_e_input, self.llm, prompt_registry)
+            
             # Check if max passes limit was reached
             execution_end = datetime.now()
-            final_pass_number = len(execution_passes) if execution_passes else 0
             if final_pass_number >= max_passes and not converged:
-                return build_execution_result(
+                result = build_execution_result(
                     execution_id,
                     request,
                     execution_start,
@@ -192,9 +260,12 @@ class OrchestrationEngine:
                     state=state,
                     execution_passes=execution_passes,
                 )
+                # Attach FinalAnswer to execution result (T083)
+                result["final_answer"] = final_answer.model_dump() if hasattr(final_answer, 'model_dump') else final_answer
+                return result
 
             # Build ExecutionHistory
-            return build_execution_result(
+            result = build_execution_result(
                 execution_id,
                 request,
                 execution_start,
@@ -206,9 +277,71 @@ class OrchestrationEngine:
                 state=state,
                 execution_passes=execution_passes,
             )
+            # Attach FinalAnswer to execution result (T083)
+            result["final_answer"] = final_answer.model_dump() if hasattr(final_answer, 'model_dump') else final_answer
+            return result
 
         except TTLExpiredError as e:
-            # Handle TTL expiration
+            # Handle TTL expiration - Phase E must still execute (FR-020, FR-024)
+            from aeon.orchestration.phases import execute_phase_e, PhaseEInput
+            from aeon.prompts.registry import get_prompt_registry
+            from aeon.orchestration.execution_pass_ops import get_execution_results
+            
+            # Build PhaseEInput for TTL expiration scenario
+            final_pass_number = len(execution_passes) if execution_passes else 0
+            total_refinements = state.total_refinements if hasattr(state, 'total_refinements') else 0
+            
+            plan_state = None
+            execution_results_list = None
+            convergence_assessment = None
+            semantic_validation = None
+            execution_passes_data = None
+            
+            if execution_passes:
+                last_pass = execution_passes[-1]
+                if last_pass.plan_state:
+                    plan_state = last_pass.plan_state
+                elif state.plan:
+                    plan_state = state.plan.model_dump() if hasattr(state.plan, 'model_dump') else state.plan
+                
+                execution_results_list = []
+                for pass_item in execution_passes:
+                    pass_results = get_execution_results(pass_item)
+                    if pass_results:
+                        execution_results_list.extend(pass_results if isinstance(pass_results, list) else [pass_results])
+                
+                if hasattr(last_pass, 'evaluation_results') and last_pass.evaluation_results:
+                    evaluation_results = last_pass.evaluation_results
+                    if isinstance(evaluation_results, dict):
+                        convergence_assessment = evaluation_results.get('convergence_assessment')
+                        semantic_validation = evaluation_results.get('semantic_validation')
+                
+                execution_passes_data = [
+                    pass_item.model_dump() if hasattr(pass_item, 'model_dump') else pass_item
+                    for pass_item in execution_passes
+                ]
+            
+            phase_e_input = PhaseEInput(
+                request=request,
+                correlation_id=execution_context.correlation_id,
+                execution_start_timestamp=execution_start_timestamp.isoformat() if isinstance(execution_start_timestamp, datetime) else execution_start_timestamp,
+                convergence_status=False,  # TTL expired means not converged
+                total_passes=final_pass_number,
+                total_refinements=total_refinements,
+                ttl_remaining=0,  # TTL expired
+                plan_state=plan_state,
+                execution_results=execution_results_list,
+                convergence_assessment=convergence_assessment,
+                execution_passes=execution_passes_data,
+                semantic_validation=semantic_validation,
+                task_profile=task_profile.model_dump() if task_profile and hasattr(task_profile, 'model_dump') else task_profile,
+            )
+            
+            # Execute Phase E even on TTL expiration
+            prompt_registry = get_prompt_registry()
+            final_answer = execute_phase_e(phase_e_input, self.llm, prompt_registry)
+            
+            # Try to get TTL expiration response if available
             if execution_passes:
                 last_pass = execution_passes[-1]
                 success, response, error = self._ttl_strategy.create_expiration_response(
@@ -221,8 +354,18 @@ class OrchestrationEngine:
                     request,
                 )
                 if success:
+                    # Attach FinalAnswer to expiration response
+                    response["final_answer"] = final_answer.model_dump() if hasattr(final_answer, 'model_dump') else final_answer
                     return response
-            raise
+            
+            # Fallback: return minimal response with FinalAnswer
+            execution_end = datetime.now()
+            return {
+                "execution_id": execution_id,
+                "request": request,
+                "status": "ttl_expired",
+                "final_answer": final_answer.model_dump() if hasattr(final_answer, 'model_dump') else final_answer,
+            }
 
     def execute_phase_a(
         self,

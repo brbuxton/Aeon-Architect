@@ -9,6 +9,9 @@ Auto-generated from all feature plans. Last updated: 2025-11-17
 - Memory subsystem (ephemeral for Sprint 2, via K/V interface from Sprint 1) (003-adaptive-reasoning)
 - Python 3.11+ + pydantic>=2.0.0 (for data models), existing orchestration modules (`aeon/orchestration/phases.py`), existing state models (`aeon/kernel/state.py`), existing logging infrastructure (`aeon/observability/logger.py`), existing exception models (`aeon/exceptions.py`) (006-phase-transitions)
 - N/A (process context only, no persistent storage required) (006-phase-transitions)
+- Python 3.x (existing codebase) + Pydantic >= 2.0.0 (existing), existing ModelClient/LLMAdapter abstraction (no modifications needed) (007-prompt-infrastructure)
+- N/A (in-memory prompt registry, no persistence required) (007-prompt-infrastructure)
+- Python 3.11+ + pydantic>=2.0.0 (existing), jsonschema>=4.0.0 (existing), requests>=2.31.0 (existing), pyyaml>=6.0.0 (existing), existing ModelClient/LLMAdapter abstraction (no modifications needed) (007-prompt-infrastructure)
 
 - Python 3.11+ (001-aeon-core)
 
@@ -28,9 +31,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- 007-prompt-infrastructure: Added Python 3.11+ + pydantic>=2.0.0 (existing), jsonschema>=4.0.0 (existing), requests>=2.31.0 (existing), pyyaml>=6.0.0 (existing), existing ModelClient/LLMAdapter abstraction (no modifications needed)
+- 007-prompt-infrastructure: Added Python 3.x (existing codebase) + Pydantic >= 2.0.0 (existing), existing ModelClient/LLMAdapter abstraction (no modifications needed)
 - 006-phase-transitions: Added Python 3.11+ + pydantic>=2.0.0 (for data models), existing orchestration modules (`aeon/orchestration/phases.py`), existing state models (`aeon/kernel/state.py`), existing logging infrastructure (`aeon/observability/logger.py`), existing exception models (`aeon/exceptions.py`)
-- 003-adaptive-reasoning: Added Python 3.11+ + pydantic>=2.0.0 (existing), jsonschema>=4.0.0 (existing), requests>=2.31.0 (existing), pyyaml>=6.0.0 (existing)
-- 001-aeon-core: Added Python 3.11+ + pydantic>=2.0.0, jsonschema>=4.0.0, requests>=2.31.0, pyyaml>=6.0.0
 
 
 <!-- MANUAL ADDITIONS START -->

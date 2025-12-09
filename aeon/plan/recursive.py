@@ -8,6 +8,7 @@ from aeon.llm.interface import LLMAdapter
 from aeon.plan.models import Plan, PlanStep, RefinementAction, Subplan
 from aeon.plan.parser import PlanParser
 from aeon.plan.prompts import construct_plan_generation_prompt, get_plan_generation_system_prompt
+from aeon.prompts.registry import get_prompt, PromptId, RecursiveRefinementSystemInput
 from aeon.supervisor.repair import Supervisor
 from aeon.tools.registry import ToolRegistry
 
@@ -458,7 +459,7 @@ Steps:
             # Generate LLM response
             response = self.llm_adapter.generate(
                 prompt=prompt,
-                system_prompt="You are a plan refinement assistant. Generate refinement actions as JSON array.",
+                system_prompt=get_prompt(PromptId.RECURSIVE_REFINEMENT_SYSTEM, RecursiveRefinementSystemInput()),
                 max_tokens=4096,
                 temperature=0.7,
             )
