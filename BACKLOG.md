@@ -442,7 +442,7 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 
 ---
 
-[Category: infrastructure] [Impact: medium] Consolidate legacy JSON extraction into PromptRegistry
+## [Category: infrastructure] [Impact: medium] Consolidate legacy JSON extraction into PromptRegistry
 
 - Legacy modules still contain ad-hoc JSON parsing paths that predate the new prompt-contract validation flow.
 - Sprint 7 introduces a centralized JSON extraction/validation pipeline in PromptRegistry, but does not migrate older modules to use it.
@@ -452,7 +452,7 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 
 ---
 
-[Category: infrastructure] [Impact: medium] Research and evaluate async parallel execution for Phase C
+## [Category: infrastructure] [Impact: medium] Research and evaluate async parallel execution for Phase C
 
 - Investigate feasibility of parallelizing Phase C step execution using async and/or multiprocessing primitives.
 - Identify which step types are safe for concurrent execution (e.g., stateless tool calls, independent LLM invocations).
@@ -463,6 +463,17 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 - Deliver recommendation and implementation plan for safe incremental adoption of async parallelism in Phase C.
 
 ---
+
+## [Category: bug] [Impact: high] ExecutionPass.execution_results not populated during Phase C
+
+- Step execution completes successfully and produces valid step_output, but ExecutionResult objects are never created or appended.
+- execution_results remains an empty list across all passes, preventing semantic validation, convergence assessment, and Phase E from accessing execution evidence.
+- Likely regression introduced during Sprint 7 prompt registry / Phase E integration, where step output extraction or aggregation was bypassed or invalidated.
+- Requires tracing Phase C step execution, result transformation, and build_execution_pass_after_phase aggregation logic.
+- Must restore proper recording of execution_results for correctness, future memory integration, and accurate convergence behavior.
+
+---
+
 # Archive
 
 ## Resolved Issues
