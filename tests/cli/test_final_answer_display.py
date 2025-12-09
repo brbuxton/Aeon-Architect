@@ -222,3 +222,4 @@ class TestCLIMissingFinalAnswer:
             assert result.returncode == 0
             # JSON output should still be valid (may or may not include final_answer)
             assert "Result (JSON):" in result.stdout or "status" in result.stdout
+

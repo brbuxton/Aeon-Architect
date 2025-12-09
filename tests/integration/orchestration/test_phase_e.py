@@ -379,3 +379,4 @@ class TestPhaseEVerificationAllScenarios:
         assert result.answer_text
         assert result.metadata.get("degraded") is True
         assert result.metadata.get("reason") == "zero_passes" or phase_e_input.total_passes == 0
+
