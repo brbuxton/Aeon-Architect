@@ -34,20 +34,25 @@ As a developer maintaining Aeon, I can access all system prompts from a single r
 
 ---
 
-### User Story 2 - Schema-Backed Prompt Contracts (Priority: P2)
+### User Story 2 - Schema-Backed Prompt Contracts with JSON Extraction (Priority: P2)
 
-As a developer using Aeon's prompt system, I can rely on typed input and output contracts for all prompts, ensuring data validation and preventing runtime errors from malformed prompt inputs or outputs.
+As a developer using Aeon's prompt system, I can rely on typed input and output contracts for all prompts, with unified JSON extraction behavior that handles LLM responses in any format (dictionary with "text" key, markdown code blocks, embedded JSON, or raw JSON strings), ensuring data validation and preventing runtime errors from malformed prompt inputs or outputs.
 
-**Why this priority**: Schema-backed contracts provide type safety and validation, preventing errors before they reach the LLM. This reduces debugging time and improves system reliability. However, prompt consolidation (P1) must be complete before contracts can be enforced.
+**Why this priority**: Schema-backed contracts provide type safety and validation, preventing errors before they reach the LLM. Unified JSON extraction ensures consistent behavior regardless of LLM response format, reducing debugging time and improving system reliability. However, prompt consolidation (P1) must be complete before contracts can be enforced.
 
-**Independent Test**: Can be fully tested by creating a prompt contract with defined input and output models, then verifying that invalid inputs are rejected and valid inputs produce correctly structured outputs. The test delivers value by proving the system can validate prompt data at compile-time and runtime, catching errors early.
+**Independent Test**: Can be fully tested by creating a prompt contract with defined input and output models, then verifying that: (1) invalid inputs are rejected, (2) valid inputs produce correctly structured outputs, and (3) JSON extraction works correctly for all response formats (dictionary with "text" key, markdown code blocks, embedded JSON, raw JSON). The test delivers value by proving the system can validate prompt data at compile-time and runtime, catch errors early, and handle LLM response format variations consistently.
 
 **Acceptance Scenarios**:
 
 1. **Given** a prompt has a defined input model, **When** a developer attempts to use the prompt with invalid input data, **Then** the system rejects the input with clear validation errors before the prompt is rendered
-2. **Given** a prompt produces JSON output, **When** the LLM returns a response, **Then** the system validates the response against the prompt's output model and rejects malformed responses
-3. **Given** a prompt contract is defined, **When** a developer uses the prompt, **Then** they receive type hints and autocomplete support for input fields
-4. **Given** all prompts have contracts, **When** the system validates prompt usage, **Then** every prompt identifier has a corresponding contract definition
+2. **Given** a prompt produces JSON output, **When** the LLM returns a dictionary response containing a "text" key with JSON content, **Then** the system extracts the value from the "text" key and validates it against the prompt's output model
+3. **Given** a prompt produces JSON output, **When** the LLM returns a response with JSON wrapped in markdown code blocks (```json ... ``` or ``` ... ```), **Then** the system extracts JSON from the first complete code block and validates it against the prompt's output model
+4. **Given** a prompt produces JSON output, **When** the LLM returns a response with JSON embedded in free text, **Then** the system extracts the first complete JSON object using brace matching and validates it against the prompt's output model
+5. **Given** a prompt produces JSON output, **When** the LLM returns a raw JSON string response, **Then** the system parses the JSON directly and validates it against the prompt's output model
+6. **Given** an LLM response contains no extractable JSON, **When** the system attempts to validate the output, **Then** it raises a clear `JSONExtractionError` exception rather than attempting recovery or supervisor repair
+7. **Given** a prompt contract is defined, **When** a developer uses the prompt, **Then** they receive type hints and autocomplete support for input fields
+8. **Given** all prompts have contracts, **When** the system validates prompt usage, **Then** every prompt identifier has a corresponding contract definition
+9. **Given** JSON extraction succeeds but validation against the output model fails, **When** the system processes the response, **Then** it raises `ValidationError` (not `JSONExtractionError`) with clear messages about which fields are invalid
 
 ---
 
@@ -74,6 +79,23 @@ As a user submitting requests to Aeon, I receive a synthesized final answer that
 - How does the system handle prompts that have no output model (non-JSON prompts)? (Answer: Output model is optional; prompts without output models skip JSON validation)
 - What happens when Phase E receives incomplete execution state (e.g., missing convergence assessment, plan_state, execution_results, task_profile, or execution_passes)? (Answer: Phase E MUST still execute and produce a degraded final answer using available data, with metadata indicating which required or optional fields were missing. Phase E MUST NOT raise exceptions for missing upstream artifacts.)
 - How does the system handle prompt rendering when input data is missing required fields? (Answer: Validation fails before rendering, returning clear error messages about missing fields)
+**JSON Extraction Edge Cases**:
+
+- How does the system handle LLM responses that wrap JSON in a "text" key (e.g., `{"text": "{\"key\": \"value\"}"}`)? (Answer: `validate_output()` extracts the value from the "text" key and processes it as the candidate JSON string. The extraction pipeline then processes this string to extract the nested JSON)
+- How does the system handle LLM responses that wrap JSON in markdown code blocks (e.g., ```json ... ``` or ``` ... ```)? (Answer: `validate_output()` extracts JSON from the first markdown code block found. Code blocks are identified by triple backticks followed by optional language identifier, and content is extracted between matching closing triple backticks)
+- How does the system handle LLM responses with JSON embedded in free text? (Answer: `validate_output()` uses brace matching to identify and extract the first complete JSON object. The system handles nested JSON structures and selects the first complete JSON object with balanced braces)
+- What happens when multiple JSON objects are present in the response? (Answer: System extracts the first complete JSON object found. Subsequent JSON objects are ignored)
+- What happens when no valid JSON can be extracted from the response? (Answer: System raises `JSONExtractionError` exception with context about which extraction methods were attempted. No supervisor repair or recovery attempts are made)
+- How does the system handle empty "text" key values in dictionary responses? (Answer: System treats empty string as candidate JSON and attempts extraction/parsing through all extraction methods. If no valid JSON is found, raises `JSONExtractionError`)
+- How does the system handle nested JSON in "text" key (e.g., `{"text": "{\"key\": \"value\"}"}`)? (Answer: System extracts the "text" value as a string, then processes it through the extraction pipeline (markdown code blocks, embedded JSON, direct parsing) to find the nested JSON)
+- What happens when a dictionary response is missing the "text" key? (Answer: System raises `JSONExtractionError` indicating that dictionary responses must contain a "text" key)
+- What happens when the "text" key contains a non-string value? (Answer: System raises `JSONExtractionError` indicating that the "text" key value must be a string)
+- How does the system handle markdown code blocks with language identifiers other than "json"? (Answer: System extracts content from any code block (```json ... ``` or ``` ... ```), regardless of language identifier)
+- What happens when a markdown code block is not properly closed (missing closing triple backticks)? (Answer: System treats the unclosed code block as invalid and proceeds to next extraction method. If all methods fail, raises `JSONExtractionError`)
+- How does the system handle JSON with trailing text after the closing brace? (Answer: System extracts the first complete JSON object and ignores trailing text. The extracted JSON is validated against the output model)
+- What happens when JSON extraction succeeds but validation against the output model fails? (Answer: System raises `ValidationError` (not `JSONExtractionError`) with Pydantic validation error messages indicating which fields are invalid)
+- How does the system handle responses containing both markdown code blocks and embedded JSON? (Answer: System prioritizes extraction methods in order: (1) dictionary "text" key, (2) markdown code blocks, (3) embedded JSON, (4) direct parsing. First successful extraction is used)
+- What happens when multiple markdown code blocks are present? (Answer: System extracts JSON from the first complete markdown code block found)
 - What happens when Phase E synthesis fails (LLM error during synthesis)? (Answer: System produces a degraded final answer with available raw data and error indication in metadata. The degraded answer MUST contain at minimum: answer_text (explaining the error), ttl_exhausted (if applicable), and metadata indicating the synthesis failure)
 - How does the system handle backward compatibility when prompt contracts change? (Answer: Contracts are mutable; changes apply immediately to all usages. No explicit versioning in Sprint 7; acceptable for <100 prompts. Versioning can be added later if needed.)
 - What happens when multiple prompts reference the same input field with different validation rules? (Answer: Each prompt contract defines its own input model; no shared validation conflicts)
@@ -139,6 +161,23 @@ All other prompts produce free-form natural language output.
 - **FR-011**: System MUST make output models optional for prompts that do not produce structured JSON
 - **FR-012**: System MUST validate prompt input data against the input model before prompt rendering
 - **FR-013**: System MUST validate prompt output data against the output model (when defined) after LLM response
+
+#### JSON Extraction and Normalization (P2)
+
+**Method Contract for `validate_output()`**:
+
+- **FR-013A**: System MUST implement JSON extraction and normalization in `validate_output()` method to handle LLM responses that wrap JSON in various formats before validation
+- **FR-013B**: System MUST update `validate_output()` method signature to accept `Union[str, Dict[str, Any]]` for `llm_response` parameter, allowing both raw string responses and dictionary responses containing a "text" key
+- **FR-013C**: When `llm_response` is a dictionary, System MUST extract the value from the "text" key as the candidate JSON string before attempting extraction. If the "text" key is missing or its value is not a string, System MUST raise `JSONExtractionError`
+- **FR-013D**: System MUST extract JSON from markdown code blocks of the form ```json ... ``` or ``` ... ```, selecting the first complete JSON object found. The system MUST identify code blocks by the presence of triple backticks followed by optional language identifier and extract content between matching closing triple backticks
+- **FR-013E**: System MUST extract JSON from raw text containing embedded JSON by identifying the first complete JSON object using brace matching. The system MUST handle nested JSON structures and MUST select the first complete JSON object (balanced braces) found in the text
+- **FR-013F**: System MUST attempt to parse the entire response as JSON if no extraction method succeeds (fallback to direct parsing). This fallback MUST occur after all extraction methods (dictionary "text" key, markdown code blocks, embedded JSON) have been attempted
+- **FR-013G**: System MUST raise a domain-specific `JSONExtractionError` exception if no valid JSON can be extracted from the response, rather than attempting supervisor repair or other recovery mechanisms. The exception MUST include context about which extraction methods were attempted
+- **FR-013H**: System MUST centralize all JSON extraction logic within the prompt registry's `validate_output()` method, ensuring no duplicate extraction logic remains in other modules for new prompt-contract-based output validation. All new prompt-contract-based output validation MUST rely exclusively on the registry's extraction rules
+- **FR-013I**: System MUST NOT modify existing custom parsing logic in other modules (parser, repair, semantic, engine, recursive, heuristics) during this sprint. Migration of existing modules to use the new extraction logic is explicitly out of scope
+- **FR-013J**: After successful JSON extraction, System MUST validate the extracted JSON against the prompt's output model using Pydantic validation. If validation fails, System MUST raise `ValidationError` (not `JSONExtractionError`)
+- **FR-013K**: System MUST handle edge cases: empty "text" key values (treat as empty string candidate), multiple JSON objects in response (select first complete object), trailing text after JSON (ignore trailing text), and nested JSON in "text" key (extract "text" value then process through extraction pipeline)
+- **FR-013L**: The specification MUST define method-level expectations, error cases, and success conditions for JSON extraction, but MUST NOT prescribe implementation details such as algorithms, helper functions, or refactoring strategies
 - **FR-014**: System MUST use Pydantic API surface compatible with both v1 and v2
 - **FR-014A**: System MUST include automated tests that validate Pydantic v1 and v2 compatibility by instantiating prompt input/output models and performing validation operations under both versions
 - **FR-015**: System MUST keep contract constraints minimal and structural (not business-logic validation)
@@ -236,6 +275,8 @@ All other prompts produce free-form natural language output.
 
 - **PromptOutput**: Base class for all prompt output models. Only JSON-producing prompts define output models extending this base.
 
+- **JSONExtractionError**: Domain-specific exception raised by `validate_output()` when no valid JSON can be extracted from an LLM response. This exception is raised instead of attempting supervisor repair or other recovery mechanisms. The exception MUST include context about which extraction methods were attempted (dictionary "text" key extraction, markdown code block extraction, embedded JSON extraction, direct parsing). Defined in `aeon/prompts/registry.py` or appropriate exceptions module. This exception is distinct from `ValidationError`, which is raised when JSON extraction succeeds but validation against the output model fails.
+
 - **PhaseEInput**: Input model for Phase E synthesis, defined in `aeon/orchestration/phases.py` using Pydantic BaseModel with explicit Optional[] type hints. Fields:
   - **Required fields** (must not be None): `request` (str), `correlation_id` (str), `execution_start_timestamp` (datetime), `convergence_status` (str), `total_passes` (int, must be >= 0, must accept 0), `total_refinements` (int, must be >= 0, must accept 0), `ttl_remaining` (int, must be >= 0)
   - **Optional fields** (must use Optional[] type hints with concrete types): `plan_state` (Optional[Dict[str, Any]]), `execution_results` (Optional[Dict[str, Any]]), `convergence_assessment` (Optional[Dict[str, Any]]), `execution_passes` (Optional[List[Dict[str, Any]]]), `semantic_validation` (Optional[Dict[str, Any]]), `task_profile` (Optional[Dict[str, Any]])
@@ -257,6 +298,9 @@ All other prompts produce free-form natural language output.
 - **SC-001**: 100% of inline prompts are removed from kernel, supervisor, phases, and tools modules (verified by automated search with zero matches)
 - **SC-002**: 100% of prompts have typed input models defined in the registry (every PromptId has corresponding input model)
 - **SC-003**: 100% of JSON-producing prompts have typed output models defined in the registry (verified by checking all prompts that return structured data)
+- **SC-003A**: `validate_output()` successfully extracts and validates JSON from all response formats: dictionary with "text" key (including nested JSON), markdown code blocks (with and without "json" language identifier), raw JSON strings, and text with embedded JSON (verified by automated tests covering all extraction scenarios including edge cases: empty "text" values, multiple JSON objects, trailing text, unclosed code blocks, missing "text" key, non-string "text" values)
+- **SC-003B**: `validate_output()` raises `JSONExtractionError` (not `ValidationError`) when no valid JSON can be extracted, and raises `ValidationError` (not `JSONExtractionError`) when JSON extraction succeeds but validation against output model fails (verified by automated tests)
+- **SC-003C**: All JSON extraction logic is centralized in the prompt registry's `validate_output()` method with no duplicate extraction logic in other modules for new prompt-contract-based output validation (verified by code review and automated detection of duplicate extraction patterns)
 - **SC-004**: All three invariants pass automated tests: Location Invariant (no inline prompts), Schema Invariant (all prompts have input models), Registration Invariant (all PromptIds have registry entries)
 - **SC-005**: Phase E successfully produces final_answer for 100% of execution scenarios including: successful convergence with complete data, TTL expiration, incomplete/missing data (degraded mode), zero passes, and error conditions. Phase E must never raise exceptions for missing state.
 - **SC-006**: All Level 1 prompt tests pass: input model validation, prompt rendering checks, output model validation for JSON prompts, and invariant tests
@@ -293,3 +337,4 @@ All other prompts produce free-form natural language output.
 - Reasoning-quality evaluation beyond basic synthesis
 - Prompt versioning beyond basic registry structure
 - Prompt analytics or usage tracking
+- Migration of existing modules (parser, repair, semantic, engine, recursive, heuristics) to use the new JSON extraction logic in `validate_output()`. Existing custom parsing logic remains unchanged in this sprint

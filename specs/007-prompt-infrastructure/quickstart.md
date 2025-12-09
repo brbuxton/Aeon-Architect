@@ -1,577 +1,378 @@
-# Quickstart: Prompt Infrastructure & Phase E
+# Quickstart Guide: Prompt Infrastructure, Prompt Contracts & Phase E Synthesis
 
+**Date**: 2025-12-07  
 **Feature**: Prompt Infrastructure, Prompt Contracts & Phase E Synthesis  
-**Date**: 2025-12-07
+**Phase**: 1 - Design
 
 ## Overview
 
-This document provides quickstart examples and test scenarios for the prompt infrastructure system and Phase E answer synthesis.
+This guide provides a quick introduction to using the prompt infrastructure and Phase E synthesis in Aeon. It demonstrates how to use the prompt registry, validate prompt outputs, and integrate Phase E into the orchestration flow.
 
-## Test Scenarios
+## Prerequisites
 
-### Scenario 1: Prompt Registry Lookup
+- Python 3.11+
+- pydantic>=2.0.0
+- Existing Aeon codebase with orchestration engine
 
-**Goal**: Verify prompt registry can retrieve and render prompts with input validation.
+## Basic Usage
 
-**Steps**:
-1. Import prompt registry and prompt identifiers
-2. Create input data conforming to prompt's input model
-3. Retrieve and render prompt
-4. Verify rendered prompt contains expected content
+### 1. Using the Prompt Registry
 
-**Example**:
 ```python
-from aeon.prompts.registry import get_prompt, PromptId
-from aeon.prompts.registry import PlanGenerationInput
+from aeon.prompts.registry import PromptRegistry, PromptId, PlanGenerationInput
 
-# Create input data
+# Initialize prompt registry (typically done once at startup)
+registry = PromptRegistry()
+
+# Create input data for a prompt
 input_data = PlanGenerationInput(
-    request="Create a plan to deploy a web application",
-    tool_registry={
-        "calculator": {
-            "name": "calculator",
-            "description": "Perform calculations"
-        }
-    }
+    request="Build a web application",
+    goal="Create a simple web app with user authentication",
+    context={}
 )
 
-# Retrieve and render prompt
-prompt = get_prompt(PromptId.PLAN_GENERATION_USER, input_data)
-
-# Verify prompt contains request
-assert "deploy a web application" in prompt.lower()
-assert "calculator" in prompt.lower()
+# Retrieve and render the prompt
+prompt = registry.get_prompt(PromptId.PLAN_GENERATION_USER, input_data)
+print(prompt)
 ```
 
-**Expected Result**: Prompt is successfully retrieved and rendered with input data.
+### 2. Validating Prompt Outputs
 
-### Scenario 2: Input Validation Failure
-
-**Goal**: Verify prompt registry rejects invalid input data.
-
-**Steps**:
-1. Create input data with missing required fields
-2. Attempt to retrieve prompt
-3. Verify ValidationError is raised
-
-**Example**:
 ```python
-from aeon.prompts.registry import get_prompt, PromptId
-from aeon.prompts.registry import PlanGenerationInput
-from pydantic import ValidationError
-
-# Create invalid input (missing required field)
-try:
-    input_data = PlanGenerationInput(
-        # request field missing
-        tool_registry={}
-    )
-    prompt = get_prompt(PromptId.PLAN_GENERATION_USER, input_data)
-    assert False, "Should have raised ValidationError"
-except ValidationError as e:
-    # Verify error message indicates missing field
-    assert "request" in str(e).lower()
-```
-
-**Expected Result**: ValidationError is raised with clear message about missing required field.
-
-### Scenario 3: Output Validation for JSON Prompts
-
-**Goal**: Verify output validation works for prompts with output models.
-
-**Steps**:
-1. Retrieve prompt with output model
-2. Get LLM response
-3. Validate response against output model
-4. Verify validated output can be used
-
-**Example**:
-```python
-from aeon.prompts.registry import PromptRegistry, PromptId
-from aeon.prompts.registry import ConvergenceAssessmentInput
+from aeon.prompts.registry import PromptRegistry, PromptId, PlanGenerationOutput
 
 registry = PromptRegistry()
 
-# Create input and get prompt
-input_data = ConvergenceAssessmentInput(...)
-prompt = registry.get_prompt(PromptId.CONVERGENCE_ASSESSMENT_USER, input_data)
+# LLM response (could be string, dict with "text" key, markdown code block, etc.)
+llm_response = '{"plan": {"goal": "Build web app", "steps": [{"step_id": "1", "description": "Setup project"}]}}'
 
-# Get LLM response (simulated)
-llm_response = '{"converged": true, "completeness_score": 0.9, ...}'
-
-# Validate output
-output = registry.validate_output(
-    PromptId.CONVERGENCE_ASSESSMENT_USER,
-    llm_response
-)
-
-# Use validated output
-assert output.converged == True
-assert 0.0 <= output.completeness_score <= 1.0
-```
-
-**Expected Result**: LLM response is validated against output model and can be used type-safely.
-
-### Scenario 4: Output Validation Failure
-
-**Goal**: Verify output validation rejects malformed LLM responses.
-
-**Steps**:
-1. Retrieve prompt with output model
-2. Get malformed LLM response
-3. Attempt to validate response
-4. Verify ValidationError is raised
-
-**Example**:
-```python
-from aeon.prompts.registry import PromptRegistry, PromptId
-from pydantic import ValidationError
-
-registry = PromptRegistry()
-
-# Get malformed LLM response
-llm_response = '{"converged": "yes"}'  # Wrong type (should be boolean)
-
-# Attempt to validate
+# Validate output against output model
 try:
     output = registry.validate_output(
-        PromptId.CONVERGENCE_ASSESSMENT_USER,
-        llm_response
+        PromptId.PLAN_GENERATION_USER,
+        llm_response,
+        PlanGenerationOutput
     )
-    assert False, "Should have raised ValidationError"
+    print(f"Validated plan: {output.plan.goal}")
+except JSONExtractionError as e:
+    print(f"Failed to extract JSON: {e.message}")
+    print(f"Methods attempted: {e.extraction_methods_attempted}")
 except ValidationError as e:
-    # Verify error message indicates type mismatch
-    assert "converged" in str(e).lower()
+    print(f"Validation failed: {e}")
 ```
 
-**Expected Result**: ValidationError is raised with clear message about invalid field type.
+### 3. Handling Different LLM Response Formats
 
-### Scenario 5: Phase E Successful Synthesis
-
-**Goal**: Verify Phase E produces final answer from successful execution.
-
-**Steps**:
-1. Execute request through A→B→C→D cycle
-2. Collect final execution state
-3. Invoke Phase E
-4. Verify FinalAnswer is produced with synthesized text
-
-**Example**:
-```python
-from aeon.orchestration.engine import OrchestrationEngine
-from aeon.orchestration.phases import execute_phase_e, PhaseEInput
-
-# Execute request (simplified)
-engine = OrchestrationEngine(...)
-execution_result = engine.run_multipass(
-    request="Calculate 2 + 2",
-    plan=None,
-    execution_context=context,
-    state=state,
-    ttl=10000,
-    execute_step_fn=execute_step
-)
-
-# Phase E is automatically invoked and final_answer is attached
-assert "final_answer" in execution_result
-final_answer = execution_result["final_answer"]
-
-# Verify final answer structure
-assert "answer_text" in final_answer
-assert len(final_answer["answer_text"]) > 0
-assert final_answer.get("confidence") is not None
-```
-
-**Expected Result**: FinalAnswer is produced with synthesized answer text and metadata.
-
-### Scenario 6: Phase E with TTL Expiration
-
-**Goal**: Verify Phase E produces final answer even when TTL is exhausted.
-
-**Steps**:
-1. Execute request that exhausts TTL
-2. Verify execution terminates due to TTL expiration
-3. Verify Phase E still produces final answer
-4. Verify final answer indicates TTL exhaustion
-
-**Example**:
-```python
-from aeon.orchestration.engine import OrchestrationEngine
-from aeon.exceptions import TTLExpiredError
-
-# Execute with low TTL
-engine = OrchestrationEngine(...)
-try:
-    execution_result = engine.run_multipass(
-        request="Complex multi-step task",
-        plan=None,
-        execution_context=context,
-        state=state,
-        ttl=100,  # Very low TTL
-        execute_step_fn=execute_step
-    )
-except TTLExpiredError:
-    # TTL expired, but Phase E should still produce answer
-    pass
-
-# Verify final answer indicates TTL exhaustion
-assert execution_result.get("final_answer") is not None
-final_answer = execution_result["final_answer"]
-assert final_answer.get("ttl_exhausted") == True
-assert "ttl" in final_answer["answer_text"].lower() or "timeout" in final_answer["answer_text"].lower()
-```
-
-**Expected Result**: FinalAnswer is produced indicating TTL exhaustion while synthesizing available results.
-
-### Scenario 7: Phase E with Incomplete Data
-
-**Goal**: Verify Phase E handles incomplete execution state gracefully.
-
-**Steps**:
-1. Create PhaseEInput with missing optional fields
-2. Invoke Phase E
-3. Verify FinalAnswer is still produced
-4. Verify metadata indicates missing fields
-
-**Example**:
-```python
-from aeon.orchestration.phases import execute_phase_e, PhaseEInput
-
-# Create PhaseEInput with missing optional fields
-phase_e_input = PhaseEInput(
-    request="Test request",
-    execution_results=[],
-    plan_state={},
-    convergence_assessment={},
-    # execution_passes=None (optional)
-    # semantic_validation=None (optional)
-    correlation_id="test123",
-    execution_start_timestamp="2025-01-27T10:00:00Z",
-    convergence_status=False,
-    total_passes=0,
-    total_refinements=0,
-    ttl_remaining=0
-)
-
-# Execute Phase E
-final_answer = execute_phase_e(
-    phase_e_input=phase_e_input,
-    llm_adapter=llm_adapter,
-    prompt_registry=prompt_registry
-)
-
-# Verify answer is produced
-assert final_answer.answer_text is not None
-assert len(final_answer.answer_text) > 0
-
-# Verify metadata indicates incomplete data
-if final_answer.metadata:
-    assert "incomplete" in final_answer.metadata or "partial" in final_answer.metadata
-```
-
-**Expected Result**: FinalAnswer is produced with available data, metadata indicates missing fields.
-
-### Scenario 8: Invariant Enforcement - Location Invariant
-
-**Goal**: Verify no inline prompts exist outside the registry.
-
-**Steps**:
-1. Search codebase for inline prompt strings
-2. Verify zero matches found
-3. Verify all prompts are retrieved from registry
-
-**Example**:
-```python
-import re
-import os
-
-# Search for common prompt patterns
-prompt_patterns = [
-    r'prompt\s*=\s*["\']',
-    r'f["\'].*Generate.*plan',
-    r'You are.*assistant',
-]
-
-inline_prompts_found = []
-for root, dirs, files in os.walk('aeon'):
-    # Skip prompts directory (registry is allowed)
-    if 'prompts' in root:
-        continue
-    
-    for file in files:
-        if file.endswith('.py'):
-            filepath = os.path.join(root, file)
-            with open(filepath, 'r') as f:
-                content = f.read()
-                for pattern in prompt_patterns:
-                    if re.search(pattern, content, re.IGNORECASE):
-                        inline_prompts_found.append((filepath, pattern))
-
-# Verify no inline prompts found
-assert len(inline_prompts_found) == 0, f"Found inline prompts: {inline_prompts_found}"
-```
-
-**Expected Result**: Zero inline prompts found outside the registry.
-
-### Scenario 9: Invariant Enforcement - Schema Invariant
-
-**Goal**: Verify all prompts have typed input models.
-
-**Steps**:
-1. List all prompts in registry
-2. Verify each prompt has an input model
-3. Verify JSON-producing prompts have output models
-
-**Example**:
-```python
-from aeon.prompts.registry import PromptRegistry, PromptId
-
-registry = PromptRegistry()
-
-# List all prompts
-all_prompts = registry.list_prompts()
-
-# Verify each prompt has input model
-for prompt_id in all_prompts:
-    prompt_def = registry._get_definition(prompt_id)
-    assert prompt_def.input_model is not None, f"{prompt_id} missing input model"
-    
-    # Verify JSON-producing prompts have output models
-    if prompt_id in JSON_PRODUCING_PROMPTS:
-        assert prompt_def.output_model is not None, f"{prompt_id} missing output model"
-```
-
-**Expected Result**: All prompts have input models; JSON-producing prompts have output models.
-
-### Scenario 10: Invariant Enforcement - Registration Invariant
-
-**Goal**: Verify every PromptId has a corresponding registry entry.
-
-**Steps**:
-1. List all PromptId enum values
-2. Verify each PromptId has a registry entry
-3. Verify registry lookup succeeds for all PromptIds
-
-**Example**:
-```python
-from aeon.prompts.registry import PromptRegistry, PromptId
-
-registry = PromptRegistry()
-
-# Get all PromptId enum values
-all_prompt_ids = list(PromptId)
-
-# Verify each has registry entry
-for prompt_id in all_prompt_ids:
-    try:
-        # Attempt to get prompt (will raise if not found)
-        # Use minimal input for testing
-        test_input = create_minimal_input(prompt_id)
-        prompt = registry.get_prompt(prompt_id, test_input)
-        assert prompt is not None
-    except PromptNotFoundError:
-        assert False, f"{prompt_id} not found in registry"
-```
-
-**Expected Result**: All PromptId values have corresponding registry entries.
-
-## Integration Test Scenarios
-
-### Integration Test 1: End-to-End Prompt Usage
-
-**Goal**: Verify prompts work correctly in actual execution flow.
-
-**Steps**:
-1. Execute a request through the full orchestration flow
-2. Verify prompts are retrieved from registry (not inline)
-3. Verify prompts render correctly with execution state
-4. Verify execution completes successfully
-
-**Expected Result**: Execution completes using prompts from registry.
-
-### Integration Test 2: Phase E Integration
-
-**Goal**: Verify Phase E integrates correctly with execution flow.
-
-**Steps**:
-1. Execute a request through A→B→C→D cycle
-2. Verify Phase E is invoked at C-loop exit
-3. Verify FinalAnswer is attached to execution result
-4. Verify FinalAnswer contains synthesized text
-
-**Expected Result**: Phase E produces FinalAnswer and attaches it to execution result.
-
-### Integration Test 3: Prompt Contract Changes
-
-**Goal**: Verify prompt contract changes propagate correctly.
-
-**Steps**:
-1. Update a prompt's input model (add optional field)
-2. Verify existing code still works (backward compatible)
-3. Update code to use new field
-4. Verify new field is used correctly
-
-**Expected Result**: Contract changes apply immediately to all usages.
-
-## Performance Test Scenarios
-
-### Performance Test 1: Prompt Registry Lookup
-
-**Goal**: Verify prompt registry lookups are fast (O(1)).
-
-**Steps**:
-1. Measure time for prompt registry lookup
-2. Verify lookup time is < 1ms
-3. Verify lookup time does not increase with registry size
-
-**Expected Result**: Prompt registry lookups are fast and constant-time.
-
-### Performance Test 2: Prompt Rendering
-
-**Goal**: Verify prompt rendering does not add significant latency.
-
-**Steps**:
-1. Measure time for prompt rendering
-2. Verify rendering time is < 10ms
-3. Compare with LLM call time (rendering should be negligible)
-
-**Expected Result**: Prompt rendering adds minimal overhead compared to LLM calls.
-
-## Error Handling Test Scenarios
-
-### Error Test 1: Missing Prompt
-
-**Goal**: Verify error handling when prompt is not found.
-
-**Steps**:
-1. Attempt to retrieve non-existent prompt
-2. Verify PromptNotFoundError is raised
-3. Verify error message is clear
-
-**Expected Result**: Clear error message when prompt not found.
-
-### Error Test 2: Invalid Input
-
-**Goal**: Verify error handling when input is invalid.
-
-**Steps**:
-1. Attempt to retrieve prompt with invalid input
-2. Verify ValidationError is raised
-3. Verify error message indicates which fields are invalid
-
-**Expected Result**: Clear validation error messages.
-
-### Error Test 3: Synthesis Failure
-
-**Goal**: Verify Phase E handles synthesis failures gracefully.
-
-**Steps**:
-1. Simulate LLM error during synthesis
-2. Verify degraded FinalAnswer is produced
-3. Verify error indication in metadata
-
-**Expected Result**: Degraded answer produced with error indication.
-
-## Usage Examples
-
-### Example 1: Using Prompt Registry in New Module
+The `validate_output()` method handles multiple response formats automatically:
 
 ```python
-from aeon.prompts.registry import get_prompt, PromptId
-from aeon.prompts.registry import MyPromptInput
+# Format 1: Dictionary with "text" key
+response1 = {"text": '{"plan": {"goal": "Build app"}}'}
 
-def my_function(request: str, context: dict):
-    # Create input data
-    input_data = MyPromptInput(
-        request=request,
-        context=context,
-        additional_field="value"
-    )
-    
-    # Get prompt from registry
-    prompt = get_prompt(PromptId.MY_PROMPT, input_data)
-    
-    # Use with LLM
-    response = llm_adapter.generate(prompt=prompt)
-    return response
-```
+# Format 2: Markdown code block
+response2 = "Here's the plan:\n```json\n{\"plan\": {\"goal\": \"Build app\"}}\n```"
 
-### Example 2: Adding New Prompt to Registry
+# Format 3: Embedded JSON in text
+response3 = "The plan is: {\"plan\": {\"goal\": \"Build app\"}}"
 
-```python
-from aeon.prompts.registry import PromptId, PromptDefinition, PromptRegistry
-from aeon.prompts.registry import PromptInput, PromptOutput
-from pydantic import BaseModel
+# Format 4: Raw JSON string
+response4 = '{"plan": {"goal": "Build app"}}'
 
-# Define input model
-class MyNewPromptInput(PromptInput):
-    request: str
-    context: dict
-
-# Define output model (if JSON-producing)
-class MyNewPromptOutput(PromptOutput):
-    result: str
-    confidence: float
-
-# Define prompt template
-def render_my_prompt(input_data: MyNewPromptInput) -> str:
-    return f"""
-    Process this request: {input_data.request}
-    
-    Context: {input_data.context}
-    """
-
-# Register prompt
-registry = PromptRegistry()
-registry.register(
-    PromptDefinition(
-        prompt_id=PromptId.MY_NEW_PROMPT,
-        template="...",
-        input_model=MyNewPromptInput,
-        output_model=MyNewPromptOutput,  # Optional
-        render_fn=render_my_prompt
-    )
+# All formats work the same way
+output = registry.validate_output(
+    PromptId.PLAN_GENERATION_USER,
+    response1,  # or response2, response3, response4
+    PlanGenerationOutput
 )
 ```
 
-### Example 3: Using Phase E Directly
+### 4. Using Phase E Synthesis
 
 ```python
 from aeon.orchestration.phases import execute_phase_e, PhaseEInput
 from aeon.prompts.registry import PromptRegistry
+from aeon.llm.interface import LLMAdapter
+from datetime import datetime
+
+# Initialize components
+llm_adapter = LLMAdapter(...)  # Your LLM adapter
+prompt_registry = PromptRegistry()
 
 # Build PhaseEInput from execution state
 phase_e_input = PhaseEInput(
-    request="User's original request",
-    execution_results=[...],
-    plan_state={...},
-    convergence_assessment={...},
+    request="Build a web application",
     correlation_id="abc123",
-    execution_start_timestamp="2025-01-27T10:00:00Z",
-    convergence_status=True,
+    execution_start_timestamp=datetime.now(),
+    convergence_status="converged",
     total_passes=3,
     total_refinements=1,
-    ttl_remaining=5000
+    ttl_remaining=10,
+    plan_state={"goal": "Build web app", "steps": [...]},
+    execution_results={"step_1": "completed", "step_2": "completed"},
+    convergence_assessment={"converged": True, "confidence": 0.95},
+    execution_passes=[...],  # List of execution passes
+    semantic_validation={"valid": True},
+    task_profile={"complexity": "medium"}
 )
 
 # Execute Phase E
-final_answer = execute_phase_e(
-    phase_e_input=phase_e_input,
-    llm_adapter=llm_adapter,
-    prompt_registry=PromptRegistry()
-)
+final_answer = execute_phase_e(phase_e_input, llm_adapter, prompt_registry)
 
-# Use final answer
+# Access final answer
 print(f"Answer: {final_answer.answer_text}")
 print(f"Confidence: {final_answer.confidence}")
-if final_answer.used_step_ids:
-    print(f"Used steps: {final_answer.used_step_ids}")
+if final_answer.ttl_exhausted:
+    print("⚠️  Time limit reached")
+```
+
+### 5. Handling Degraded FinalAnswer
+
+Phase E produces degraded answers when execution state is incomplete:
+
+```python
+# PhaseEInput with missing optional fields
+phase_e_input = PhaseEInput(
+    request="Build a web application",
+    correlation_id="abc123",
+    execution_start_timestamp=datetime.now(),
+    convergence_status="not_converged",
+    total_passes=0,  # Zero passes scenario
+    total_refinements=0,
+    ttl_remaining=0,
+    # Optional fields are None
+    plan_state=None,
+    execution_results=None,
+    convergence_assessment=None,
+    execution_passes=None,
+    semantic_validation=None,
+    task_profile=None,
+)
+
+# Phase E still executes and produces degraded answer
+final_answer = execute_phase_e(phase_e_input, llm_adapter, prompt_registry)
+
+# Check for degradation
+if final_answer.metadata.get("degraded"):
+    print(f"Degraded answer: {final_answer.answer_text}")
+    print(f"Missing fields: {final_answer.metadata.get('missing_fields', [])}")
+    print(f"Reason: {final_answer.metadata.get('reason')}")
+```
+
+### 6. Integrating Phase E in OrchestrationEngine
+
+```python
+# In OrchestrationEngine.run_multipass(), after _execute_phase_c_loop returns
+converged, task_profile = self._execute_phase_c_loop(...)
+
+# Build PhaseEInput from execution state
+phase_e_input = PhaseEInput(
+    request=request,
+    correlation_id=execution_context.correlation_id,
+    execution_start_timestamp=execution_context.execution_start_timestamp,
+    convergence_status="converged" if converged else "not_converged",
+    total_passes=len(execution_passes),
+    total_refinements=sum(1 for p in execution_passes if hasattr(p, 'refinement_changes') and p.refinement_changes),
+    ttl_remaining=state.ttl_remaining,
+    plan_state=state.plan.model_dump() if state.plan else None,
+    execution_results=get_execution_results_from_passes(execution_passes),
+    convergence_assessment=get_convergence_assessment_from_passes(execution_passes),
+    execution_passes=[p.model_dump() for p in execution_passes] if execution_passes else None,
+    semantic_validation=get_semantic_validation_from_passes(execution_passes),
+    task_profile=task_profile.model_dump() if task_profile else None,
+)
+
+# Execute Phase E
+from aeon.orchestration.phases import execute_phase_e
+final_answer = execute_phase_e(phase_e_input, self.llm, prompt_registry)
+
+# Attach to execution result
+execution_result = build_execution_result(...)
+execution_result["final_answer"] = final_answer.model_dump()
+```
+
+## Testing Scenarios
+
+### Level 1 Prompt Tests (Unit Tests)
+
+Test prompt infrastructure components in isolation:
+
+```python
+# Test 1: Model instantiation
+def test_plan_generation_input_validation():
+    input_data = PlanGenerationInput(
+        request="Build app",
+        goal="Create web app",
+        context={}
+    )
+    assert input_data.request == "Build app"
+
+# Test 2: Prompt rendering
+def test_prompt_rendering():
+    registry = PromptRegistry()
+    input_data = PlanGenerationInput(request="Build app", goal="Create app", context={})
+    prompt = registry.get_prompt(PromptId.PLAN_GENERATION_USER, input_data)
+    assert "Build app" in prompt
+    assert "Create app" in prompt
+
+# Test 3: Output model validation
+def test_output_validation():
+    registry = PromptRegistry()
+    valid_json = '{"plan": {"goal": "Build app", "steps": []}}'
+    output = registry.validate_output(
+        PromptId.PLAN_GENERATION_USER,
+        valid_json,
+        PlanGenerationOutput
+    )
+    assert output.plan.goal == "Build app"
+
+# Test 4: Invariant enforcement
+def test_location_invariant():
+    # Automated search for inline prompts should return zero matches
+    assert search_inline_prompts() == 0
+
+def test_schema_invariant():
+    # Every PromptId should have an input model
+    for prompt_id in PromptId:
+        assert has_input_model(prompt_id)
+
+def test_registration_invariant():
+    # Every PromptId should have a registry entry
+    registry = PromptRegistry()
+    for prompt_id in PromptId:
+        assert registry.has_prompt(prompt_id)
+```
+
+### Phase E Integration Tests
+
+Test Phase E with mocked LLM adapter:
+
+```python
+# Test 1: Successful synthesis with complete data
+def test_phase_e_complete_data():
+    phase_e_input = PhaseEInput(
+        request="Build app",
+        correlation_id="test123",
+        execution_start_timestamp=datetime.now(),
+        convergence_status="converged",
+        total_passes=3,
+        total_refinements=1,
+        ttl_remaining=10,
+        plan_state={"goal": "Build app"},
+        execution_results={"step_1": "completed"},
+        convergence_assessment={"converged": True},
+        execution_passes=[{"pass_number": 1}],
+        semantic_validation={"valid": True},
+        task_profile={"complexity": "medium"}
+    )
+    
+    # Mock LLM adapter to return valid FinalAnswer JSON
+    mock_llm = MockLLMAdapter(return_value='{"answer_text": "Successfully built app", "confidence": 0.95}')
+    registry = PromptRegistry()
+    
+    final_answer = execute_phase_e(phase_e_input, mock_llm, registry)
+    assert final_answer.answer_text == "Successfully built app"
+    assert final_answer.confidence == 0.95
+    assert not final_answer.metadata.get("degraded")
+
+# Test 2: TTL expiration scenario
+def test_phase_e_ttl_expiration():
+    phase_e_input = PhaseEInput(
+        request="Build app",
+        correlation_id="test123",
+        execution_start_timestamp=datetime.now(),
+        convergence_status="not_converged",
+        total_passes=2,
+        total_refinements=0,
+        ttl_remaining=0,  # TTL exhausted
+        # ... other fields
+    )
+    
+    # Mock LLM adapter to return degraded FinalAnswer
+    mock_llm = MockLLMAdapter(return_value='{"answer_text": "TTL expired", "ttl_exhausted": true, "confidence": 0.5}')
+    registry = PromptRegistry()
+    
+    final_answer = execute_phase_e(phase_e_input, mock_llm, registry)
+    assert final_answer.ttl_exhausted is True
+    assert "TTL" in final_answer.answer_text or "time limit" in final_answer.answer_text.lower()
+
+# Test 3: Incomplete data scenario
+def test_phase_e_incomplete_data():
+    phase_e_input = PhaseEInput(
+        request="Build app",
+        correlation_id="test123",
+        execution_start_timestamp=datetime.now(),
+        convergence_status="not_converged",
+        total_passes=1,
+        total_refinements=0,
+        ttl_remaining=5,
+        # Missing optional fields
+        plan_state=None,
+        execution_results=None,
+        convergence_assessment=None,
+        execution_passes=None,
+        semantic_validation=None,
+        task_profile=None,
+    )
+    
+    # Mock LLM adapter to return degraded FinalAnswer
+    mock_llm = MockLLMAdapter(return_value='{"answer_text": "Insufficient data", "metadata": {"degraded": true, "missing_fields": ["execution_results"]}}')
+    registry = PromptRegistry()
+    
+    final_answer = execute_phase_e(phase_e_input, mock_llm, registry)
+    assert final_answer.metadata.get("degraded") is True
+    assert "execution_results" in final_answer.metadata.get("missing_fields", [])
+    assert len(final_answer.answer_text) > 0  # Must explain situation
+```
+
+## Common Patterns
+
+### Pattern 1: Extracting Prompts from Existing Code
+
+When migrating inline prompts to the registry:
+
+1. Identify the prompt string in the code
+2. Determine the PromptId (or create new one if needed)
+3. Define input/output models (if JSON-producing)
+4. Add PromptDefinition to registry
+5. Replace inline prompt with `registry.get_prompt(PromptId.X, input_data)`
+
+### Pattern 2: Handling JSON Extraction Errors
+
+```python
+try:
+    output = registry.validate_output(prompt_id, llm_response, output_model)
+except JSONExtractionError as e:
+    # JSON extraction failed - cannot proceed
+    logger.error(f"Failed to extract JSON: {e.message}")
+    logger.error(f"Methods attempted: {e.extraction_methods_attempted}")
+    # Do not attempt supervisor repair (per spec)
+    raise
+except ValidationError as e:
+    # JSON extracted but validation failed - may attempt repair
+    logger.warning(f"Validation failed: {e}")
+    # May route to supervisor for repair
+```
+
+### Pattern 3: Degraded FinalAnswer Handling
+
+Always check for degradation when displaying FinalAnswer:
+
+```python
+final_answer = execute_phase_e(phase_e_input, llm_adapter, registry)
+
+if final_answer.metadata.get("degraded"):
+    # Show degradation warning
+    print("⚠️  Answer may be incomplete due to missing execution data")
+    if final_answer.metadata.get("missing_fields"):
+        print(f"Missing: {', '.join(final_answer.metadata['missing_fields'])}")
+
+# Always display answer_text (it explains the situation)
+print(f"Answer: {final_answer.answer_text}")
 ```
 
 ## Next Steps
 
-1. **Implementation**: Follow tasks.md to implement prompt infrastructure
-2. **Testing**: Run test scenarios to verify implementation
-3. **Integration**: Integrate prompt registry into existing modules
-4. **Phase E**: Implement and integrate Phase E synthesis
-5. **Validation**: Run invariant tests to ensure compliance
+- Review the [data model](./data-model.md) for complete entity definitions
+- Review the [API contracts](./contracts/interfaces.md) for detailed interface specifications
+- Review the [research decisions](./research.md) for technology choices
+- See the [implementation plan](./plan.md) for architecture details

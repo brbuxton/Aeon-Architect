@@ -28,6 +28,9 @@ __all__ = [
     "build_llm_context",
     "execute_with_retry",
     "call_llm_with_provider_error_handling",
+    "PhaseEInput",
+    "FinalAnswer",
+    "execute_phase_e",
 ]
 
 
@@ -2369,3 +2372,236 @@ class PhaseOrchestrator:
                 )
             # If update fails, return error
             return (False, None, str(e))
+
+# ============================================================================
+# Phase E: Answer Synthesis Models and Implementation (T058, T059, T063-T067)
+# ============================================================================
+
+class PhaseEInput(BaseModel):
+    """Input model for Phase E answer synthesis (T058).
+    
+    Contains complete final execution state needed to synthesize a final answer.
+    All optional fields may be None to support degraded mode scenarios.
+    """
+    
+    # Required fields
+    request: str = Field(..., description="Original user request that initiated execution")
+    correlation_id: str = Field(..., description="Execution correlation identifier")
+    execution_start_timestamp: str = Field(..., description="ISO format timestamp of execution start")
+    convergence_status: bool = Field(..., description="Whether execution converged")
+    total_passes: int = Field(..., ge=0, description="Total number of execution passes (must be >= 0, accepts 0)")
+    total_refinements: int = Field(..., ge=0, description="Total number of plan refinements (must be >= 0, accepts 0)")
+    ttl_remaining: int = Field(..., ge=0, description="Remaining TTL tokens (must be >= 0)")
+    
+    # Optional fields (may be None for degraded mode)
+    plan_state: Optional[Dict[str, Any]] = Field(None, description="Current plan state (serialized Plan object)")
+    execution_results: Optional[List[Dict[str, Any]]] = Field(None, description="List of step execution results from all passes")
+    convergence_assessment: Optional[Dict[str, Any]] = Field(None, description="Convergence assessment results (serialized ConvergenceAssessment)")
+    execution_passes: Optional[List[Dict[str, Any]]] = Field(None, description="Optional list of execution pass metadata")
+    semantic_validation: Optional[Dict[str, Any]] = Field(None, description="Optional semantic validation report")
+    task_profile: Optional[Dict[str, Any]] = Field(None, description="Optional task profile information")
+
+
+class FinalAnswer(BaseModel):
+    """Output model for Phase E answer synthesis (T059).
+    
+    Contains the synthesized final answer with metadata.
+    Must always be valid even in degraded mode scenarios.
+    """
+    
+    # Required fields
+    answer_text: str = Field(..., min_length=1, description="Synthesized answer text (must never be None or empty, must explain the situation even in degraded mode)")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata (must never be None, may be empty dict, used to indicate missing/incomplete fields in degraded mode)")
+    
+    # Optional fields
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0")
+    used_step_ids: Optional[List[str]] = Field(None, description="List of step IDs that contributed to the answer")
+    notes: Optional[str] = Field(None, description="Additional notes or context")
+    ttl_exhausted: Optional[bool] = Field(None, description="Whether TTL was exhausted during execution")
+
+
+def execute_phase_e(
+    phase_e_input: PhaseEInput,
+    llm_adapter: "LLMAdapter",
+    prompt_registry: Any,  # PromptRegistry
+) -> FinalAnswer:
+    """
+    Execute Phase E: Answer Synthesis (T063-T067).
+    
+    Synthesizes a final answer from execution results, plan state, and
+    convergence assessment. This phase completes the A→B→C→D→E reasoning
+    loop by producing a coherent response for the user.
+    
+    Handles degraded mode scenarios gracefully:
+    - Missing/incomplete execution state (missing plan_state, execution_results, etc.)
+    - TTL expiration (ttl_remaining=0 or ttl_exhausted=True)
+    - Zero passes (total_passes=0)
+    - LLM synthesis errors
+    
+    Args:
+        phase_e_input: Complete final execution state
+        llm_adapter: LLM adapter for synthesis calls
+        prompt_registry: Prompt registry for synthesis prompts
+        
+    Returns:
+        FinalAnswer containing synthesized answer text and metadata.
+        Always returns a valid FinalAnswer, even in degraded conditions.
+        
+    Raises:
+        Never raises exceptions. Always produces a degraded FinalAnswer if synthesis fails.
+    """
+    from aeon.prompts.registry import PromptId, PromptNotFoundError, NoOutputModelError, RenderingError
+    import json
+    
+    # Detect degraded conditions (T067)
+    missing_fields = []
+    if phase_e_input.plan_state is None:
+        missing_fields.append("plan_state")
+    if phase_e_input.execution_results is None:
+        missing_fields.append("execution_results")
+    if phase_e_input.convergence_assessment is None:
+        missing_fields.append("convergence_assessment")
+    if phase_e_input.execution_passes is None:
+        missing_fields.append("execution_passes")
+    if phase_e_input.semantic_validation is None:
+        missing_fields.append("semantic_validation")
+    if phase_e_input.task_profile is None:
+        missing_fields.append("task_profile")
+    
+    ttl_exhausted = phase_e_input.ttl_remaining == 0
+    zero_passes = phase_e_input.total_passes == 0
+    is_degraded = len(missing_fields) > 0 or ttl_exhausted or zero_passes or not phase_e_input.convergence_status
+    
+    # Build metadata for degraded mode
+    degraded_metadata = {
+        "degraded": is_degraded,
+        "missing_fields": missing_fields,
+        "ttl_exhausted": ttl_exhausted,
+        "zero_passes": zero_passes,
+        "convergence_status": phase_e_input.convergence_status,
+    }
+    if is_degraded:
+        if missing_fields:
+            degraded_metadata["reason"] = "incomplete_state"
+        elif ttl_exhausted:
+            degraded_metadata["reason"] = "ttl_expiration"
+        elif zero_passes:
+            degraded_metadata["reason"] = "zero_passes"
+        else:
+            degraded_metadata["reason"] = "non_convergent"
+    
+    try:
+        # Convert PhaseEInput to AnswerSynthesisInput for prompt registry
+        from aeon.prompts.registry import AnswerSynthesisInput
+        synthesis_input = AnswerSynthesisInput(
+            request=phase_e_input.request,
+            correlation_id=phase_e_input.correlation_id,
+            execution_start_timestamp=phase_e_input.execution_start_timestamp,
+            convergence_status=phase_e_input.convergence_status,
+            total_passes=phase_e_input.total_passes,
+            total_refinements=phase_e_input.total_refinements,
+            ttl_remaining=phase_e_input.ttl_remaining,
+            plan_state=phase_e_input.plan_state,
+            execution_results=phase_e_input.execution_results,
+            convergence_assessment=phase_e_input.convergence_assessment,
+            execution_passes=phase_e_input.execution_passes,
+            semantic_validation=phase_e_input.semantic_validation,
+            task_profile=phase_e_input.task_profile,
+        )
+        
+        # Retrieve synthesis prompts (T064)
+        try:
+            system_prompt = prompt_registry.get_prompt(
+                PromptId.ANSWER_SYNTHESIS_SYSTEM,
+                synthesis_input
+            )
+            user_prompt = prompt_registry.get_prompt(
+                PromptId.ANSWER_SYNTHESIS_USER,
+                synthesis_input
+            )
+        except (PromptNotFoundError, RenderingError) as e:
+            # Degraded mode: prompts not available
+            return FinalAnswer(
+                answer_text=f"Unable to synthesize final answer: {str(e)}. Execution completed with {phase_e_input.total_passes} passes.",
+                metadata=degraded_metadata,
+                ttl_exhausted=ttl_exhausted,
+            )
+        
+        # Call LLM for synthesis (T065)
+        try:
+            llm_response = llm_adapter.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=2000,
+            )
+        except Exception as e:
+            # Degraded mode: LLM call failed
+            return FinalAnswer(
+                answer_text=f"Execution completed but synthesis failed: {str(e)}. Execution had {phase_e_input.total_passes} passes, TTL remaining: {phase_e_input.ttl_remaining}.",
+                metadata=degraded_metadata,
+                ttl_exhausted=ttl_exhausted,
+            )
+        
+        # Validate output against FinalAnswer model (T066)
+        try:
+            # Parse JSON response
+            if isinstance(llm_response, str):
+                response_data = json.loads(llm_response)
+            else:
+                response_data = llm_response
+            
+            # Validate against FinalAnswerOutput model via registry
+            validated_output = prompt_registry.validate_output(
+                PromptId.ANSWER_SYNTHESIS_USER,
+                llm_response if isinstance(llm_response, str) else json.dumps(llm_response)
+            )
+            
+            # Convert to FinalAnswer
+            final_answer = FinalAnswer(
+                answer_text=validated_output.answer_text,
+                confidence=validated_output.confidence if hasattr(validated_output, "confidence") else None,
+                used_step_ids=validated_output.used_step_ids if hasattr(validated_output, "used_step_ids") else None,
+                notes=validated_output.notes if hasattr(validated_output, "notes") else None,
+                ttl_exhausted=validated_output.ttl_exhausted if hasattr(validated_output, "ttl_exhausted") else ttl_exhausted,
+                metadata=validated_output.metadata if hasattr(validated_output, "metadata") else degraded_metadata,
+            )
+            
+            # Merge degraded metadata if applicable
+            if is_degraded:
+                if final_answer.metadata is None:
+                    final_answer.metadata = {}
+                final_answer.metadata.update(degraded_metadata)
+            
+            return final_answer
+            
+        except (json.JSONDecodeError, NoOutputModelError, Exception) as e:
+            # Degraded mode: output validation failed
+            # Extract answer_text from response if possible
+            answer_text = "Execution completed but response validation failed."
+            if isinstance(llm_response, str):
+                # Try to extract any text that looks like an answer
+                try:
+                    parsed = json.loads(llm_response)
+                    if isinstance(parsed, dict) and "answer_text" in parsed:
+                        answer_text = parsed["answer_text"]
+                    elif isinstance(parsed, str):
+                        answer_text = parsed
+                except:
+                    # Use raw response if it's reasonable length
+                    if len(llm_response) < 1000:
+                        answer_text = llm_response
+            
+            return FinalAnswer(
+                answer_text=f"{answer_text} (Validation error: {str(e)})",
+                metadata=degraded_metadata,
+                ttl_exhausted=ttl_exhausted,
+            )
+            
+    except Exception as e:
+        # Ultimate fallback: produce degraded answer for any unexpected error
+        return FinalAnswer(
+            answer_text=f"Execution completed with {phase_e_input.total_passes} passes. Synthesis encountered an error: {str(e)}.",
+            metadata=degraded_metadata,
+            ttl_exhausted=ttl_exhausted,
+        )
+
