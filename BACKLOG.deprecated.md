@@ -1,3 +1,15 @@
+# ⚠️ DEPRECATED — BACKLOG.md
+
+**This file has been deprecated as of December 11, 2025.**
+
+The backlog has been migrated to a structured TOML format for better maintainability, queryability, and flexibility.
+
+**👉 Please use the new file: [`BACKLOG.toml`](./BACKLOG.toml)**
+
+This markdown file is kept for historical reference only and will not be updated.
+
+---
+
 # BACKLOG.md  
 Aeon Architect — Backlog of Future Enhancements  
 (High-level, non-committal, unordered, no sprint assignments)
@@ -79,8 +91,26 @@ Aeon Architect — Backlog of Future Enhancements
   - Summarize memory when it grows too large
   - Handle conflicting memories with resolution logic
   - Memory compression and optimization
+- **Ephemeral Memory Guarantee**  
+  - Working memory must exist only for the duration of a single Aeon task.  
+  - No STM data may be persisted across sessions or written to disk.  
+  - STM structures must be non-serializable in logs (content-free logging only).
+- **Memory Access Interface (MAI)**  
+  - Define a stable interface for Phase B/C/D/E to read/write STM.  
+  - Ensure the MAI is modular so Private-mode policies can wrap it later without refactoring.
+- **Prohibit Memory Promotion**  
+  - STM must not contain any mechanism that exports or promotes memory into any persistent store.  
+  - Future LTM layers must explicitly opt-in to receive data.
+- **Structured, Reasoning-Aware Memory Model**  
+  - STM must store structured facts tied to steps, passes, and task profile, not raw conversation history.  
+  - Include importance scoring, deduplication, and TTL-based pruning.
+- **No Private-mode Required for Sprint 8**  
+  - Sprint 8 must remain independent of corporate data governance modes.  
+  - Provide extension points for later Private-mode enforcement: redaction gates, write-blocking, sensitivity hooks.
 
-**Rationale**: Memory foundations enable better context propagation between phases and support the refinement work in subsequent sprints. Addresses Gap 4 — Memory Timing.
+**Rationale**: Memory foundations enable better context propagation between phases and support the refinement work in subsequent sprints. Addresses Gap 4 — Memory Timing.  Sprint 8 implements only Short-Term Working Memory (STM), which is strictly ephemeral and inherently safe. 
+Private-mode enforcement (data governance, persistence controls, sensitivity filters) is not implemented here, but Sprint 8 must expose clean boundaries so that these controls can be applied in future epics without modifying STM logic.
+
 
 ---
 
@@ -317,6 +347,33 @@ Items below are not currently assigned to the 7-sprint refinement sequence but r
 - Task-specific memory buckets
 - Automatic forgetting and summarization policies
 - Snapshot system ("memory frames") for debugging
+
+### LTM Requirements
+
+- **Opt-In Only Persistence**
+  - No conversational content is stored unless explicitly passed through a validated long-term memory API.
+  - STM may never be automatically promoted into LTM.
+- **Structured Memory Types (Semantic / Episodic / Procedural)**
+  - *Semantic*: user preferences, stable facts, configurations.
+  - *Episodic*: high-level summaries of past tasks (content redacted).
+  - *Procedural*: learned strategies or reasoning shortcuts (schema-only, content-free).
+- **Private-Mode Enforcement Hooks**
+  - Sensitivity classifier must block any content that resembles corporate data or user-provided privileged information.
+  - LTM must never store arbitrary free-text from prompts, answers, or tool outputs.
+  - Logs, embeddings, vector stores, and snapshots must all follow redaction policies.
+- **Retrieval Pipeline**
+  - Semantic search must operate only on whitelisted content.
+  - Retrieval results injected into prompts must be summarized and schema-constrained.
+- **Memory Frames (Debugging Only)**
+  - Provide optional, content-free structural snapshots for debugging.
+  - Must contain model states, structural metadata, not user data.
+
+### Non-Goals
+- No automatic memory accumulation.
+- No persistent chat history.
+- No per-user free-form profiles.
+
+**Rationale** - Aeon’s Long-Term Memory (LTM) is explicitly deferred to post-epic work. LTM provides persistent knowledge storage, but must follow strict data-governance constraints to avoid retention of sensitive user or corporate information.
 
 ---
 

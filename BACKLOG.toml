@@ -1,0 +1,763 @@
+# Aeon Architect — Backlog of Future Enhancements
+# TOML format representation of BACKLOG.md
+# High-level, non-committal, unordered, no sprint assignments
+
+[metadata]
+title = "Aeon Architect Backlog"
+description = "Backlog of Future Enhancements"
+note = "High-level, non-committal, unordered, no sprint assignments"
+legend = "[Category: core|feature|infrastructure|security|quality-of-life] [Impact: critical|high|medium|low]"
+
+# ============================================================================
+# Aeon Adaptive Reasoning Framework Epic
+# ============================================================================
+
+[epic.adaptive_reasoning]
+category = "core"
+impact = "high"
+title = "Aeon Adaptive Reasoning Framework Epic"
+note = "This large body of work has been broken down into prioritized sprints below. See 'Sprint Breakdown' section for phased approach."
+
+# Sprint Breakdown
+[[epic.adaptive_reasoning.sprints]]
+id = "prompt-infrastructure"
+order = 7
+title = "Prompt Infrastructure + Prompt Contracts"
+status = "completed"
+dependencies = []
+blocks = ["convergence-refinement", "semantic-validator", "recursive-planner"]
+impact = "Enables systematic prompt improvements"
+effort = "medium"
+tasks_completed = 110
+user_stories_delivered = 3
+
+[[epic.adaptive_reasoning.sprints]]
+id = "memory-foundations"
+order = 8
+title = "Memory Foundations"
+status = "pending"
+dependencies = ["observability", "phase-transitions", "prompt-infrastructure"]
+impact = "Enables memory-aware reasoning and context propagation"
+effort = "medium-high"
+
+[[epic.adaptive_reasoning.sprints]]
+id = "convergence-refinement"
+order = 9
+title = "Convergence Engine Refinement"
+status = "pending"
+dependencies = ["observability", "phase-transitions", "prompt-infrastructure", "memory-foundations"]
+impact = "Quality improvements, requires empirical data"
+effort = "high"
+note = "iterative, data-driven"
+
+[[epic.adaptive_reasoning.sprints]]
+id = "semantic-validator"
+order = 10
+title = "Semantic Validator Depth Expansion"
+status = "pending"
+dependencies = ["observability", "phase-transitions", "prompt-infrastructure", "memory-foundations", "convergence-refinement"]
+impact = "Quality improvements, requires empirical data"
+effort = "high"
+note = "iterative, data-driven"
+
+[[epic.adaptive_reasoning.sprints]]
+id = "recursive-planner"
+order = 11
+title = "Recursive Planner & Adaptive Depth Enhancements"
+status = "pending"
+dependencies = ["observability", "phase-transitions", "prompt-infrastructure", "memory-foundations", "convergence-refinement", "semantic-validator"]
+impact = "Quality improvements, requires empirical data"
+effort = "high"
+note = "iterative, data-driven"
+
+# Sprint Details - Using Slug IDs
+[epic.adaptive_reasoning.sprints.prompt-infrastructure.components]
+prompt_consolidation = true
+prompt_contracts = true
+phase_e_synthesis = true
+
+[epic.adaptive_reasoning.sprints.prompt-infrastructure.deliverables]
+files_created = ["aeon/prompts/registry.py"]
+files_modified_count = 15
+test_coverage = "22 unit tests + 3 integration tests (all passing)"
+loc_created = 953
+rationale = "Completed before optimizing prompts in ConvergenceEngine, SemanticValidator, etc. Enables A/B testing and systematic improvement. Phase E provides the final step of the reasoning pipeline, ensuring Aeon can produce coherent answers. This is NOT presentation-layer work; that will occur post-epic."
+
+# Memory Foundations Components
+[epic.adaptive_reasoning.sprints.memory-foundations.components]
+short_term_memory_engine = [
+    "Automatic storage of intermediate results",
+    "Relevance scoring for recent results",
+    "Expiration rules based on TTL",
+    "Dynamic injection of relevant short-term memory into LLM prompts",
+    "Running summaries of state",
+    "Plan-step-oriented storage structure (per-step memory slots)",
+    "Memory prioritization and eviction policies"
+]
+memory_oriented_heuristics = [
+    "Decide what gets written to short-term vs long-term",
+    "Prioritize memory based on importance, novelty, recurrence",
+    "Identify redundant or trivial memory entries",
+    "Summarize memory when it grows too large",
+    "Handle conflicting memories with resolution logic",
+    "Memory compression and optimization"
+]
+ephemeral_memory_guarantee = [
+    "Working memory must exist only for the duration of a single Aeon task",
+    "No STM data may be persisted across sessions or written to disk",
+    "STM structures must be non-serializable in logs (content-free logging only)"
+]
+memory_access_interface = [
+    "Define a stable interface for Phase B/C/D/E to read/write STM",
+    "Ensure the MAI is modular so Private-mode policies can wrap it later without refactoring"
+]
+prohibit_memory_promotion = [
+    "STM must not contain any mechanism that exports or promotes memory into any persistent store",
+    "Future LTM layers must explicitly opt-in to receive data"
+]
+structured_memory_model = [
+    "STM must store structured facts tied to steps, passes, and task profile, not raw conversation history",
+    "Include importance scoring, deduplication, and TTL-based pruning"
+]
+no_private_mode_required = [
+    "Sprint 8 must remain independent of corporate data governance modes",
+    "Provide extension points for later Private-mode enforcement: redaction gates, write-blocking, sensitivity hooks"
+]
+
+[epic.adaptive_reasoning.sprints.memory-foundations]
+rationale = "Memory foundations enable better context propagation between phases and support the refinement work in subsequent sprints. Addresses Gap 4 — Memory Timing. Memory Foundations implements only Short-Term Working Memory (STM), which is strictly ephemeral and inherently safe. Private-mode enforcement (data governance, persistence controls, sensitivity filters) is not implemented here, but Memory Foundations must expose clean boundaries so that these controls can be applied in future epics without modifying STM logic."
+
+# Convergence Engine Refinement Components
+[epic.adaptive_reasoning.sprints.convergence-refinement.components]
+convergence_assessment = "refinement and tuning"
+score_thresholds = "adjustment based on empirical data (0.95 completeness, 0.90 coherence)"
+llm_prompts = "optimization (requires prompt-infrastructure)"
+consistency_alignment = "strengthening"
+conflict_detection = "improvement"
+semantic_validator_integration = "cross-validation (addresses Gap 3)"
+
+[epic.adaptive_reasoning.sprints.convergence-refinement]
+rationale = "These are optimization tasks that require: 1. Empirical data from production use, 2. A/B testing capabilities (from prompt-infrastructure), 3. Error logging to identify failure patterns (from observability), 4. Stable integration layer (from phase-transitions), 5. Memory context for better convergence assessment (from memory-foundations)"
+
+# Semantic Validator Depth Expansion Components
+[epic.adaptive_reasoning.sprints.semantic-validator.components]
+issue_detection = "refinement"
+severity_assessment = "tuning based on impact analysis"
+do_say_mismatch = "improvement"
+hallucination_detection = "enhancement"
+cross_artifact_consistency = "strengthening"
+validation_report = "quality and actionability improvement"
+convergence_engine_integration = "bidirectional feedback (addresses Gap 3)"
+
+[epic.adaptive_reasoning.sprints.semantic-validator]
+rationale = "These optimizations benefit from the full foundation and can leverage convergence data for better validation."
+
+# Recursive Planner & Adaptive Depth Enhancements Components
+[epic.adaptive_reasoning.sprints.recursive-planner.components.recursive_planner]
+fragment_identification = "enhancement"
+delta_operations = "refinement"
+validation_integration = "strengthening"
+subplan_generation = "improvement"
+refinement_action_quality = "optimization"
+plan_schema_evolution = "support (addresses Gap 6)"
+
+[epic.adaptive_reasoning.sprints.recursive-planner.components.adaptive_depth]
+task_profile_inference = "improvement"
+ttl_allocation = "tuning"
+profile_update_triggers = "refinement"
+bidirectional_ttl_adjustment = "optimization"
+complexity_detection = "improvement"
+confidence_estimation = "refinement"
+
+[epic.adaptive_reasoning.sprints.recursive-planner]
+rationale = "These are the final optimization tasks that can leverage all previous improvements and empirical data."
+
+# ============================================================================
+# Architectural Gaps
+# ============================================================================
+
+[[architectural_gaps]]
+id = 1
+title = "Interface Governance"
+status = "resolved"
+addressed_in = "observability"
+description = "Addressed through observability sprint's error logging infrastructure and test coverage improvements. Interface contracts enforced through comprehensive testing and observability. Structured error handling ensures interface violations are caught and reported."
+
+[[architectural_gaps]]
+id = 3
+title = "Convergence ↔ Validator Interaction"
+status = "pending"
+addressed_in = ["convergence-refinement", "semantic-validator"]
+description = "Addressed in convergence-refinement and semantic-validator sprints through bidirectional integration. Convergence Engine Refinement includes integration with SemanticValidator. Semantic Validator Depth Expansion includes integration with ConvergenceEngine. Cross-validation enables better quality assessment and refinement decisions."
+
+[[architectural_gaps]]
+id = 4
+title = "Memory Timing"
+status = "pending"
+addressed_in = "memory-foundations"
+description = "Resolved in memory-foundations sprint (Memory Foundations). Establishes short-term memory engine with proper timing for context injection. Memory prioritization and eviction policies ensure optimal memory usage across phases. Addresses when and how memory is accessed during phase transitions."
+
+[[architectural_gaps]]
+id = 6
+title = "Plan Schema Evolution"
+status = "pending"
+addressed_in = "recursive-planner"
+description = "Addressed in recursive-planner sprint (Recursive Planner & Adaptive Depth Enhancements). RecursivePlanner enhancements include plan schema evolution support. Delta-style operations refined to handle schema changes gracefully. Validation integration ensures schema changes are validated properly."
+
+[[architectural_gaps]]
+id = 7
+title = "Prompt Contracts"
+status = "resolved"
+addressed_in = "prompt-infrastructure"
+description = "Addressed in prompt-infrastructure sprint (Prompt Infrastructure + Prompt Contracts). Defines interface contracts for prompt inputs/outputs. Establishes prompt validation and schema enforcement. Creates prompt testing framework for systematic improvement."
+
+# ============================================================================
+# Additional Backlog Items
+# ============================================================================
+
+[[backlog]]
+category = "infrastructure"
+impact = "high"
+title = "Recurring Tech Debt Paydown (Infrastructure Sprint Template)"
+note = "Recurring every 3-4 sprints. Structural health work, not features. Applies to all infrastructure sprints."
+recurrence = "Every 3-4 sprints"
+purpose = "Ensure structural health, contract alignment, and codebase consistency across sprints"
+
+[backlog.0.test_invariants]
+description = "Every infrastructure sprint should ensure test coverage and quality"
+items = [
+    "Ensure 100% kernel tests pass",
+    "Add tests for any newly identified regression class",
+    "Tighten schema-enforcement tests",
+    "Add or update smoke tests for A→B→C→D→E pipeline",
+    "Confirm prompt-contract tests for each PromptId",
+    "Confirm JSON extraction tests"
+]
+
+[backlog.0.contract_alignment]
+description = "Every sprint adds new models, fields, or invariants. Infrastructure sprints ensure alignment."
+items = [
+    "Input/output models match spec.md",
+    "Required vs optional fields are correctly typed",
+    "PhaseEInput and ExecutionPass contracts are up-to-date",
+    "No drift between the spec, docs, and code"
+]
+
+[backlog.0.prompt_registry_hygiene]
+description = "Every infrastructure sprint ensures prompt registry integrity"
+items = [
+    "All prompts registered",
+    "No inline prompts left in the codebase",
+    "All PromptIds tested",
+    "All output schemas validated",
+    "JSON extraction rules consistent"
+]
+
+[backlog.0.regression_cleanup]
+description = "By definition, this is part of every Infrastructure Sprint"
+items = [
+    "Fix bugs discovered during major feature sprints",
+    "Review warnings, logs, and failure modes",
+    "Check for contract mismatches",
+    "Validate state propagation integrity"
+]
+
+[backlog.0.codebase_consistency]
+description = "Not refactoring for elegance, but ensuring consistency and quality"
+items = [
+    "No dead code",
+    "No unused imports",
+    "No stale modules from deprecated phases",
+    "Consistent naming patterns and docstrings",
+    "Linting and type checks pass",
+    "Internal tooling updated (like build scripts or interface adapters)"
+]
+
+[backlog.0.stabilize_phase_boundaries]
+description = "Ensure each phase has correct boundaries and contracts"
+items = [
+    "Each phase accepts the correct inputs",
+    "Each phase produces the correct outputs",
+    "Each phase returns errors in the correct format",
+    "Each phase does not leak cross-phase artifacts"
+]
+
+[[backlog]]
+category = "feature"
+impact = "medium"
+title = "Tool Intelligence Upgrades"
+items = [
+    "Tool ranking algorithms",
+    "Tool selection heuristics based on context",
+    "Tool recommendations for refinement steps",
+    "Automatic tool chaining (multi-step tool workflows)",
+    "Detect missing tools and suggest alternatives",
+    "Tool usage prediction based on context",
+    "Tool effectiveness metrics and feedback loops"
+]
+
+[[backlog]]
+category = "feature"
+impact = "medium"
+title = "Supervisor Enhancements"
+note = "Partially Graduated - Sprint 2"
+items = [
+    "Semantic repair, not only structural repair (deferred to Tier-2)",
+    "Multi-round self-correction",
+    "Plan quality analysis",
+    "Detect low-information or low-utility steps",
+    "Ability to refine poorly formed steps ✓ (Sprint 2 - Supervisor integrated into refinement loop, FR-004)",
+    "Fallback mechanism for incomplete reasoning",
+    "Enhanced error recovery strategies"
+]
+
+[[backlog]]
+category = "feature"
+impact = "medium"
+title = "Long-Term Memory Engine"
+items = [
+    "Persistent storage of general knowledge",
+    "Retrieval based on embeddings or semantic search",
+    "Memory ranking / scoring",
+    "Cross-session memory persistence",
+    "Episodic memory for conversations",
+    "Task-specific memory buckets",
+    "Automatic forgetting and summarization policies",
+    "Snapshot system ('memory frames') for debugging"
+]
+
+[backlog.3.requirements]
+opt_in_only = [
+    "No conversational content is stored unless explicitly passed through a validated long-term memory API",
+    "STM may never be automatically promoted into LTM"
+]
+structured_types = [
+    "Semantic: user preferences, stable facts, configurations",
+    "Episodic: high-level summaries of past tasks (content redacted)",
+    "Procedural: learned strategies or reasoning shortcuts (schema-only, content-free)"
+]
+private_mode_enforcement = [
+    "Sensitivity classifier must block any content that resembles corporate data or user-provided privileged information",
+    "LTM must never store arbitrary free-text from prompts, answers, or tool outputs",
+    "Logs, embeddings, vector stores, and snapshots must all follow redaction policies"
+]
+retrieval_pipeline = [
+    "Semantic search must operate only on whitelisted content",
+    "Retrieval results injected into prompts must be summarized and schema-constrained"
+]
+memory_frames = [
+    "Provide optional, content-free structural snapshots for debugging",
+    "Must contain model states, structural metadata, not user data"
+]
+
+[backlog.3.non_goals]
+items = [
+    "No automatic memory accumulation",
+    "No persistent chat history",
+    "No per-user free-form profiles"
+]
+
+[backlog.3]
+rationale = "Aeon's Long-Term Memory (LTM) is explicitly deferred to post-epic work. LTM provides persistent knowledge storage, but must follow strict data-governance constraints to avoid retention of sensitive user or corporate information."
+
+[[backlog]]
+category = "feature"
+impact = "medium"
+title = "Reflection & Self-Interrogation"
+items = [
+    "\"What am I missing?\" reasoning pass",
+    "\"What assumptions did I make?\" pass",
+    "\"Does this answer fully satisfy the goal?\" pass",
+    "Error introspection (root cause analysis)",
+    "Detect when additional research or tool usage is needed",
+    "Self-critique and quality assessment loops"
+]
+
+[[backlog]]
+category = "feature"
+impact = "medium"
+title = "Semantic Search Over Artifacts"
+note = "Partially Graduated - Sprint 2"
+items = [
+    "Cross-artifact consistency checks ✓ (Sprint 2 - Convergence Engine & Semantic Validation)",
+    "Automated alignment between plan, prompt, answer, and memory ✓ (Sprint 2 - Cross-phase validation)",
+    "Multi-document reasoning",
+    "Artifact-level diff reasoning",
+    "Detect changes that require re-planning ✓ (Sprint 2 - Refinement detection)",
+    "Semantic search and retrieval across execution history"
+]
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "Expanded Observability / Telemetry"
+note = "Partially Graduated - Sprint 2"
+items = [
+    "Per-step reasoning traces",
+    "Confidence or uncertainty metadata",
+    "Execution heatmaps",
+    "Metrics dashboard (cycles, convergence, tool effectiveness)",
+    "Plan evolution history ✓ (Sprint 2 - Execution Inspection and History)",
+    "Memory evolution history",
+    "Performance profiling and bottleneck identification",
+    "Cost tracking (token usage, API calls)"
+]
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "LLM Prompt Pipeline Improvements"
+items = [
+    "Dynamic prompt templates based on task complexity",
+    "Multi-pass LLM pipelines with sub-prompts",
+    "Specialized prompts for refinement, introspection, validation",
+    "Plug-in model for additional prompt types (planning, review, rewrite, expand)",
+    "Prompt A/B testing framework (note: foundational work in prompt-infrastructure sprint, advanced features unassigned)",
+    "Prompt effectiveness metrics"
+]
+
+[[backlog]]
+category = "feature"
+impact = "medium"
+title = "Knowledge Tools + Research Tools"
+items = [
+    "Web search integration (configurable)",
+    "Fact-checking passes",
+    "Skeptical mode for validating claims",
+    "Multi-source aggregation",
+    "Providing citations in responses",
+    "Source credibility assessment"
+]
+
+[[backlog]]
+category = "feature"
+impact = "low"
+title = "Multi-Agent Foundations"
+note = "future sprint, not immediate"
+items = [
+    "Spawn sub-agents for isolated reasoning tasks",
+    "Coordinator agent with meta-reasoning",
+    "Specialized agents (research, planning, critic, tester)",
+    "Shared memory between agents",
+    "Round-based collaborative reasoning",
+    "Agent communication protocols"
+]
+
+[[backlog]]
+category = "infrastructure"
+impact = "low"
+title = "Advanced Memory Persistence"
+note = "optional"
+items = [
+    "SQLite or LiteFS backend",
+    "Graph-based memory (nodes = concepts, edges = relations)",
+    "Versioned memory trees",
+    "AI-assisted memory cleanup / compaction",
+    "Server mode (memory available across AEON sessions)",
+    "Memory backup and restore capabilities"
+]
+
+[[backlog]]
+category = "quality-of-life"
+impact = "low"
+title = "CLI Enhancements"
+items = [
+    "Run interactive sessions with incremental planning",
+    "Visualize step trees",
+    "Inspect memory stores",
+    "Inspect cycle logs in real time",
+    "Replay modes for debugging",
+    "Benchmark mode (speed, cost, convergence)",
+    "Interactive debugging and step-through execution"
+]
+
+[[backlog]]
+category = "quality-of-life"
+impact = "low"
+title = "Configuration & Profiles"
+items = [
+    "Profiles for: 'shallow reasoning', 'balanced reasoning', 'deep research', 'stepwise explain'",
+    "Adjustable heuristic parameters",
+    "Per-request override flags",
+    "Configuration validation and schema",
+    "Profile templates and presets"
+]
+
+[[backlog]]
+category = "quality-of-life"
+impact = "low"
+title = "Quality-of-Life Improvements"
+items = [
+    "Better error reporting with actionable messages",
+    "Color-coded CLI output",
+    "Auto-formatting of plans",
+    "Verbose vs minimal modes",
+    "Streaming output support",
+    "Progress indicators and status updates",
+    "User-friendly error messages"
+]
+
+[[backlog]]
+category = "feature"
+impact = "high"
+title = "Meta-Conditions for Stable AI Reasoning"
+description = "Define and implement a minimal set of system-level 'meta conditions' that guarantee stable, consistent, non-drifting reasoning during human–AI co-development. These conditions do not attempt to simulate human metacognition, but instead engineer the cognitive environment in which meta-like coherence emerges reliably."
+core_conditions = [
+    "Anchoring Protocols: explicit canonical sources of truth",
+    "Inference Boundaries: rules for when the AI must not infer",
+    "Mode Switching: generation / analysis / verification / meta modes",
+    "Drift Detection: detection of contradictions or schema violations",
+    "Intent Clarification: mechanisms to restate, confirm, or refine goals"
+]
+value = "Prevents reasoning drift, prompt divergence, architectural incoherence, and misalignment between conceptual and concrete artifacts. Enables predictable, high-fidelity AI collaboration across complex multi-phase systems."
+notes = "This is not 'implement AI meta-awareness.' This is 'engineer the conditions under which coherent reasoning emerges.'"
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "Consolidate legacy JSON extraction into PromptRegistry"
+description = "Legacy modules still contain ad-hoc JSON parsing paths that predate the new prompt-contract validation flow. The prompt-infrastructure sprint introduces a centralized JSON extraction/validation pipeline in PromptRegistry, but does not migrate older modules to use it. Maintain two extraction paths temporarily to avoid destabilizing semantic validation, supervisor repair, and convergence flows. Future work must unify all JSON parsing under the centralized extraction logic once contracts and Phase E behavior have stabilized. Migration requires careful regression coverage to prevent behavioral drift in legacy reasoning and repair modules."
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "Research and evaluate async parallel execution for Phase C"
+description = "Investigate feasibility of parallelizing Phase C step execution using async and/or multiprocessing primitives."
+tasks = [
+    "Identify which step types are safe for concurrent execution (e.g., stateless tool calls, independent LLM invocations)",
+    "Analyze risks related to race conditions, step dependencies, nondeterministic ordering, and reproducibility",
+    "Evaluate impact on execution state management, pass aggregation, and Phase D convergence logic",
+    "Prototype a small-scale parallel executor to measure performance improvements and concurrency stability",
+    "Define architectural requirements for step dependency metadata if parallel execution is pursued",
+    "Deliver recommendation and implementation plan for safe incremental adoption of async parallelism in Phase C"
+]
+
+[[backlog]]
+category = "bug"
+impact = "high"
+title = "ExecutionPass.execution_results not populated during Phase C"
+description = "Step execution completes successfully and produces valid step_output, but ExecutionResult objects are never created or appended. execution_results remains an empty list across all passes, preventing semantic validation, convergence assessment, and Phase E from accessing execution evidence. Likely regression introduced during prompt-infrastructure sprint (prompt registry / Phase E integration), where step output extraction or aggregation was bypassed or invalidated. Requires tracing Phase C step execution, result transformation, and build_execution_pass_after_phase aggregation logic. Must restore proper recording of execution_results for correctness, future memory integration, and accurate convergence behavior."
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "Legacy Logging Migration"
+issue = "Legacy logging methods need refactoring for consistency"
+current_state = [
+    "format_entry: Creates LogEntry with event='cycle' for legacy cycle-based logging (Sprint 1)",
+    "log_multipass_entry: Unused method from Sprint 2, creates raw dicts instead of LogEntry models"
+]
+action_needed = [
+    "Remove log_multipass_entry (dead code, never used)",
+    "Migrate orchestrator.execute() to phase-aware logging: Replace format_entry calls with phase-aware logging methods, Use log_phase_entry / log_phase_exit for phase transitions, Use log_state_transition for state changes, Ensure correlation_id is included in all entries",
+    "Deprecate format_entry after migration: Mark as deprecated with warning, Remove after migration complete, Maintain backward compatibility during transition (FR-009)"
+]
+benefits = [
+    "Consistent logging architecture across all execution modes",
+    "Better traceability with correlation IDs",
+    "Cleaner codebase without dead code",
+    "Full phase-aware logging coverage"
+]
+dependencies = "None (can be done independently)"
+effort = "Low-Medium (mostly refactoring existing code)"
+note = "This addresses the gap identified in TEST_US1_US3_ANALYSIS.md regarding legacy method coverage."
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "Normalize and reduce verbosity of Phase C step_output"
+description = "Phase C reasoning prompts currently produce verbose, loosely structured outputs including legacy sections such as 'Clarity State' and 'Handoff to Next'. This introduces noise for semantic validation, convergence assessment, Phase E synthesis, and future memory mechanisms. Update step execution prompts to emit compact, contract-aligned outputs with only the minimal required fields. Ensure updated prompts are registered, typed, and validated through the PromptRegistry."
+
+[[backlog]]
+category = "infrastructure"
+impact = "medium"
+title = "Add regression test for ExecutionPass.execution_results population"
+description = "Introduce a kernel-level regression test asserting that completed Phase C steps produce populated ExecutionResult entries. This prevents future regressions where step_output exists but execution_results remains empty, and enforces execution evidence invariants required by semantic validation, convergence assessment, and Phase E."
+
+# ============================================================================
+# Post-Epic Work
+# ============================================================================
+
+[post_epic]
+note = "The following epics are explicitly deferred to post-epic work and are NOT part of Sprints 5–11."
+
+[[post_epic.epics]]
+title = "Aeon Output Interfaces & Presentation Layer (Layer 2)"
+items = [
+    "Structured Result object",
+    "Verbosity modes",
+    "Stable public API for UI/CLI/Web/MCP",
+    "Output formatting policies",
+    "User-facing presentation abstraction"
+]
+note = "NOT part of Sprints 5–11"
+
+[[post_epic.epics]]
+title = "Aeon Kernel Output Governance & Deep Integration (Layer 3)"
+items = [
+    "Kernel-level answer contracts",
+    "Integration with memory, convergence, semantic validator",
+    "Deterministic output schema invariants",
+    "Output versioning and governance"
+]
+note = "NOT part of Sprints 5–11; post-epic architecture work"
+
+# ============================================================================
+# Archive - Resolved Issues
+# ============================================================================
+
+[[archive.resolved]]
+id = "observability"
+category = "core"
+impact = "high"
+title = "Sprint 5 — Foundation & Observability"
+status = "completed"
+merged_date = "2025-01-27"
+branch = "005-observability-logging"
+commit = "1f77915"
+commit_message = "feat(observability): Implement comprehensive observability, logging, and test coverage"
+
+[archive.resolved.0.components]
+us1 = "Phase-Aware Structured Logging: Correlation ID generation, phase entry/exit logging, state transitions, ExecutionContext integration"
+us2 = "Actionable Error Logging: Error codes (AEON.<COMPONENT>.<CODE>), severity levels, structured error records, error recovery logging"
+us3 = "Refinement and Execution Debug Visibility: Refinement outcome logging, execution result logging, convergence assessment logging"
+us4 = "Comprehensive Test Coverage: 20+ new integration tests, expanded unit test coverage, phase transitions, error paths, TTL boundaries, context propagation, deterministic convergence"
+phase_7 = "Polish: Performance validation (<10ms latency), backward compatibility, determinism preservation, schema validation, diagnostic capability (≥90%)"
+
+[archive.resolved.0]
+test_coverage = "Expanded from 55% to 80%+ with comprehensive integration and unit tests"
+files_changed = "35 files modified, 18 new test files created, 6,961 insertions"
+documentation = "Complete specification in specs/005-observability-logging/ including quickstart, tasks, and coverage summary"
+impact = "Enables all future improvements with comprehensive observability and debugging capabilities"
+
+[[archive.resolved]]
+id = "prompt-infrastructure"
+category = "core"
+impact = "high"
+title = "Sprint 7 — Prompt Infrastructure + Prompt Contracts"
+status = "completed"
+branch = "007-prompt-infrastructure"
+tasks_completed = 110
+
+[archive.resolved.1.components]
+us1 = "Centralized Prompt Management: Created PromptRegistry with 23 prompt identifiers, extracted all prompts from 7 source modules, removed all inline prompts, verified location invariant"
+us2 = "Schema-Backed Prompt Contracts: Created typed input/output models for all prompts, implemented unified JSON extraction (4 formats), input/output validation, comprehensive error handling"
+us3 = "Phase E Final Answer Synthesis: Implemented execute_phase_e() function, created PhaseEInput/FinalAnswer models, integrated at C-loop exit point, degraded mode handling, CLI integration"
+
+[archive.resolved.1]
+test_coverage = "22 unit tests + 3 integration tests (all passing)"
+files_changed = "1 major new module (aeon/prompts/registry.py), 15+ modules updated"
+impact = "Enables systematic prompt improvements, A/B testing capabilities, completes A→B→C→D→E reasoning loop"
+documentation = "Complete specification in specs/007-prompt-infrastructure/ including quickstart, tasks, and data models"
+
+[[archive.resolved]]
+id = "phase-transitions"
+category = "core"
+impact = "high"
+title = "Sprint 6 — Phase Transition Stabilization"
+status = "completed"
+branch = "006-phase-transitions"
+commit = "a9bcce2"
+commit_message = "docs: Add Phase E (Final Answer Synthesis) and update architecture documentation"
+
+[archive.resolved.2.components]
+us1 = "Explicit Phase Transition Contracts: Defined contracts for A→B, B→C, C→D, D→A/B transitions with required inputs, guaranteed outputs, invariants, and failure conditions"
+us2 = "Deterministic Context Propagation: Context propagation specifications per phase (must-have, must-pass-unchanged, may-modify fields)"
+us3 = "TTL Boundary Behavior: Corrected TTL checking at phase boundaries and after LLM calls"
+us4 = "ExecutionPass Consistency: Enhanced ExecutionPass metadata collection and consistency"
+us5 = "Phase Boundary Logging: Phase entry/exit logging with state snapshots and TTL tracking"
+
+[archive.resolved.2]
+new_modules = ["context_ops.py", "contracts.py", "engine.py", "errors.py", "execution_pass_ops.py", "strategy.py", "tool_ops.py", "validation.py"]
+test_coverage = "Added comprehensive phase transition contract tests and context propagation tests"
+files_changed = "Multiple orchestration modules created, kernel refactored to use new orchestration engine"
+documentation = "Complete specification in specs/006-phase-transitions/ including contracts, data models, and interface definitions"
+impact = "Stabilized phase transitions, enabled deterministic context propagation, prepared foundation for prompt-infrastructure sprint (Prompt Contracts)"
+
+[[archive.resolved]]
+category = "core"
+impact = "critical"
+title = "Kernel LOC Violation (Constitutional Issue)"
+status = "resolved"
+resolution = "Sprint 4 (004-kernel-refactor) completed successfully"
+issue = "Kernel was 1351 LOC (orchestrator.py: 1092, executor.py: 259), exceeded 800 LOC constitutional limit"
+resolution_details = "Kernel refactored to 635 LOC (orchestrator.py: 453, executor.py: 182) - 53% reduction"
+
+[archive.resolved.3.action_taken]
+extracted_modules = [
+    "phases.py: Phase A/B/C/D orchestration logic (537 LOC)",
+    "refinement.py: Plan refinement action application (100 LOC)",
+    "step_prep.py: Step preparation and dependency checking (137 LOC)",
+    "ttl.py: TTL expiration response generation (106 LOC)"
+]
+
+[archive.resolved.3]
+result = "Kernel now constitutional compliant (635 LOC < 800 LOC limit)"
+verification = "All 289 tests passing, 100% behavioral preservation, performance maintained"
+
+# ============================================================================
+# Graduated Features
+# ============================================================================
+
+[[archive.graduated]]
+title = "Recursive Planning & Re-Planning"
+sprint = 2
+status = "graduated"
+items = [
+    "Multi-pass plan refinement ✓",
+    "Step expansion when ambiguity is detected ✓",
+    "Automatic follow-up question generation ✓",
+    "Detect missing details and regenerate plan fragments ✓",
+    "Partial plan revision without discarding entire plan ✓",
+    "Hierarchical and nested subplans ✓",
+    "Integrate supervisor into plan refinement loop ✓"
+]
+
+[[archive.graduated]]
+title = "Adaptive Depth Heuristics"
+sprint = 2
+status = "graduated"
+items = [
+    "Automatic detection of task complexity ✓",
+    "Escalate reasoning depth when required ✓",
+    "Reduce depth for simple tasks ✓",
+    "Adaptive TTL scaling based on complexity ✓",
+    "Confidence/uncertainty estimation ✓",
+    "Token-level or structural heuristics (ambiguity, lack of specificity, missing gradients) ✓"
+]
+
+[[archive.graduated]]
+title = "Convergence Engine"
+sprint = 2
+status = "graduated"
+items = [
+    "Detect whether the task is complete ✓",
+    "Determine whether additional reasoning is needed ✓",
+    "Identify inconsistencies or gaps in final answer ✓",
+    "Retry reasoning until convergence threshold is met ✓",
+    "Configurable convergence criteria (completeness, coherence, correctness) ✓"
+]
+
+[[archive.graduated]]
+title = "Semantic Validation Layer"
+sprint = 2
+status = "graduated"
+items = [
+    "Validate step descriptions for specificity ✓",
+    "Detect vague steps, contradictions, or irrelevant steps ✓",
+    "Validate that step outputs contribute to goal ✓",
+    "Perform 'do/say mismatch' analysis ✓",
+    "Detect hallucinations (tools, facts, outputs) ✓",
+    "Logical consistency checks across plan + answer + memory ✓"
+]
+
+[[archive.graduated]]
+title = "Multi-Pass Execution Loop"
+sprint = 2
+status = "graduated"
+description = "Replace single-pass execution with: plan, execute, evaluate, refine, re-execute (if needed), converge, stop"
+items = [
+    "Persistent loop until convergence or TTL exhaustion ✓",
+    "Each cycle may modify plan, memory, or step definitions ✓"
+]
+

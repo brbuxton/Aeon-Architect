@@ -39,13 +39,37 @@ Every orchestration cycle MUST log: step number, plan state, LLM output, supervi
 ### IX. Extensibility Without Mutation
 New capabilities MUST be added through new tools or supervisors, not by modifying kernel internals. Kernel changes MUST be rare, deliberate, and well-documented. When kernel changes are necessary, they MUST maintain backward compatibility or follow semantic versioning for breaking changes. Rationale: Extensibility through composition preserves kernel stability and enables independent evolution of system capabilities.
 
-### X. Sprint 1 Scope Constraints
-Sprint 1 MUST NOT include: diagram generation, IaC generation, RAG, cloud logic, embeddings, multi-agent concurrency, or advanced memory ranking. Sprint 1 ONLY delivers: kernel, plan engine, state manager, simple memory K/V, tool interface, supervisor, and validation layer. The goal of Sprint 1 is to produce a minimal but functional reasoning loop that can create plans, call stub tools, and update state reliably. Rationale: Focused scope ensures delivery of a working foundation before adding advanced features.
+### X. Subsystem Authority (NON-NEGOTIABLE)
+
+Only kernel-designated components may influence execution control flow, convergence determination, or correctness guarantees. All other subsystems — including memory, heuristics, evaluators, validators, supervisors, tools, and adapters — are advisory by default.
+
+Advisory subsystems MUST NOT:
+- alter execution control flow
+- suppress or bypass validation
+- force or short-circuit convergence
+- override kernel decisions
+- introduce implicit instructions or directives
+
+A subsystem may become authoritative only through an explicit kernel-level designation with defined scope, invariants, and failure behavior.
+
+Rationale: This prevents accidental authority creep where auxiliary systems silently become decision-makers, preserving determinism, debuggability, and architectural safety as the system evolves.
+
+### XI. Scope Discipline
+
+Each sprint MUST explicitly declare its scope and non-goals. Features, subsystems, behaviors, or guarantees not explicitly in scope MUST NOT be introduced implicitly.
+
+Architectural expansion MUST be:
+- intentional
+- documented
+- isolated behind interfaces
+
+Rationale: Explicit scope control prevents silent feature creep, protects kernel stability, and ensures that architectural growth remains deliberate rather than emergent.
 
 ## Architecture Constraints
 
 ### Kernel Boundaries
 - The kernel MUST NOT exceed 800 LOC at any time
+- LOC (Lines of Code) is defined as all lines in a file EXCEPT whitespace and comments
 - The kernel MUST NOT import or depend on domain-specific modules
 
 ### Kernel Composition Rules
@@ -88,33 +112,6 @@ Sprint 1 MUST NOT include: diagram generation, IaC generation, RAG, cloud logic,
 - Plan format MUST be documented with examples
 - Architecture decisions MUST be recorded in ADRs
 
-## Sprint 1 Deliverables
-
-### Required Components
-1. **Kernel**: Core orchestrator (<800 LOC) handling LLM loop, plan execution, state management
-2. **Plan Engine**: JSON/YAML plan parser, validator, and executor
-3. **State Manager**: Manages orchestration state transitions
-4. **Simple Memory K/V**: Basic key-value store with minimal API
-5. **Tool Interface**: Schema-defined interface for tool registration and invocation
-6. **Supervisor**: LLM-based repair module for malformed outputs
-7. **Validation Layer**: Schema validation for plans, LLM outputs, tool calls
-
-### Out of Scope (Sprint 1)
-- Diagram generation tools
-- Infrastructure as Code (IaC) generation
-- RAG (Retrieval Augmented Generation) systems
-- Cloud-specific logic (Azure, AWS, etc.)
-- Embeddings and vector search
-- Multi-agent concurrency
-- Advanced memory ranking/retrieval
-
-### Success Criteria
-- Kernel executes a complete reasoning loop: plan creation → tool invocation → state update
-- Supervisor successfully repairs malformed JSON/tool calls
-- Validation layer rejects invalid plans and tool calls
-- Memory K/V stores and retrieves state correctly
-- All orchestration cycles are logged in JSONL format
-
 ## Governance
 
 This constitution supersedes all other development practices and architectural guidelines. All code, designs, and documentation MUST comply with these principles.
@@ -142,4 +139,4 @@ This constitution supersedes all other development practices and architectural g
 - Kernel changes that add domain logic MUST be rejected
 - Proposed kernel changes MUST demonstrate that the functionality cannot be achieved through tools or supervisors
 
-**Version**: 1.0.0 | **Ratified**: 2025-01-27 | **Last Amended**: 2025-01-27
+**Version**: 1.1.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-12-15
