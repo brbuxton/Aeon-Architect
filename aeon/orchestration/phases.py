@@ -1001,6 +1001,9 @@ class PhaseOrchestrator:
         logger: Optional["JSONLLogger"] = None,
         pass_number: int = 0,
         ttl_remaining: Optional[int] = None,
+        memory_access: Optional[Any] = None,  # MemoryAccessInterface
+        session_id: Optional[str] = None,
+        execution_id: Optional[str] = None,
     ) -> PhaseBResult:
         """
         Phase B: Initial Plan & Pre-Execution Refinement.
@@ -1016,6 +1019,9 @@ class PhaseOrchestrator:
             logger: JSONL logger instance (optional)
             pass_number: Pass number (default 0 for Phase B)
             ttl_remaining: TTL cycles remaining
+            memory_access: Optional memory access interface for memory injection
+            session_id: Optional session ID for memory injection
+            execution_id: Optional execution ID for memory injection
 
         Returns:
             Tuple of (success, refined_plan, error_message)
@@ -1132,10 +1138,15 @@ class PhaseOrchestrator:
                 try:
                     # T029: Context validated before LLM call
                     # Regenerate plan using RecursivePlanner to ensure step_index, total_steps, etc. are set
+                    # Pass memory context for cross-execution memory injection
                     refined_plan = recursive_planner.generate_plan(
                         task_description=request,
                         task_profile=task_profile,
                         tool_registry=tool_registry,
+                        memory=memory_access,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                        phase="B",
                     )
                 except Exception:
                     # If RecursivePlanner fails, fall back to existing plan
@@ -2424,9 +2435,11 @@ def execute_phase_e(
     phase_e_input: PhaseEInput,
     llm_adapter: "LLMAdapter",
     prompt_registry: Any,  # PromptRegistry
+    memory: Optional[Any] = None,  # MemoryAccessInterface (T105)
+    session_id: Optional[str] = None,  # Session ID for memory stats (T105)
 ) -> FinalAnswer:
     """
-    Execute Phase E: Answer Synthesis (T063-T067).
+    Execute Phase E: Answer Synthesis (T063-T067, T104-T105).
     
     Synthesizes a final answer from execution results, plan state, and
     convergence assessment. This phase completes the A→B→C→D→E reasoning
@@ -2442,9 +2455,12 @@ def execute_phase_e(
         phase_e_input: Complete final execution state
         llm_adapter: LLM adapter for synthesis calls
         prompt_registry: Prompt registry for synthesis prompts
+        memory: Optional memory access interface for collecting usage statistics (T105)
+        session_id: Optional session ID for memory statistics collection (T105)
         
     Returns:
         FinalAnswer containing synthesized answer text and metadata.
+        Metadata includes memory usage statistics if memory is provided (T104).
         Always returns a valid FinalAnswer, even in degraded conditions.
         
     Raises:
@@ -2472,7 +2488,27 @@ def execute_phase_e(
     zero_passes = phase_e_input.total_passes == 0
     is_degraded = len(missing_fields) > 0 or ttl_exhausted or zero_passes or not phase_e_input.convergence_status
     
-    # Build metadata for degraded mode
+    # Collect memory usage statistics if memory is available (T104, T105)
+    memory_stats = {}
+    if memory and session_id:
+        try:
+            # Import here to avoid circular dependency
+            from aeon.memory.interface import MemoryAccessInterface
+            
+            if hasattr(memory, 'get_usage_stats'):
+                usage_stats = memory.get_usage_stats(session_id)
+                memory_stats = {
+                    "memory_used": usage_stats.memory_used,
+                    "memory_entries_considered": usage_stats.memory_entries_considered,
+                    "memory_entries_injected": usage_stats.memory_entries_injected,
+                    "memory_failures": usage_stats.memory_failures,
+                }
+        except Exception:
+            # Graceful degradation: if memory stats collection fails, continue without stats
+            # Don't log here as memory subsystem handles its own logging
+            pass
+    
+    # Build metadata for degraded mode (T104)
     degraded_metadata = {
         "degraded": is_degraded,
         "missing_fields": missing_fields,
@@ -2480,6 +2516,10 @@ def execute_phase_e(
         "zero_passes": zero_passes,
         "convergence_status": phase_e_input.convergence_status,
     }
+    # Add memory usage statistics to metadata (T104)
+    if memory_stats:
+        degraded_metadata.update(memory_stats)
+    
     if is_degraded:
         if missing_fields:
             degraded_metadata["reason"] = "incomplete_state"
@@ -2563,11 +2603,15 @@ def execute_phase_e(
                 metadata=validated_output.metadata if hasattr(validated_output, "metadata") else degraded_metadata,
             )
             
-            # Merge degraded metadata if applicable
+            # Merge degraded metadata and memory stats if applicable (T104)
+            if final_answer.metadata is None:
+                final_answer.metadata = {}
             if is_degraded:
-                if final_answer.metadata is None:
-                    final_answer.metadata = {}
                 final_answer.metadata.update(degraded_metadata)
+            else:
+                # Even if not degraded, include memory stats in metadata
+                if memory_stats:
+                    final_answer.metadata.update(memory_stats)
             
             return final_answer
             

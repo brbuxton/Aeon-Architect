@@ -54,6 +54,14 @@ class StepPreparation:
 
         ready_steps = []
         for step in plan.steps:
+            # Hard-wire: Normalize status to enum if string (temporary workaround for Memory Foundations sprint)
+            # TODO: Remove when proper Pydantic enum deserialization is implemented in validation sprint
+            if isinstance(step.status, str):
+                try:
+                    step.status = StepStatus(step.status.lower())
+                except (ValueError, AttributeError):
+                    step.status = StepStatus.PENDING  # Default fallback
+            
             if step.status == StepStatus.PENDING:
                 # Check if all dependencies are complete
                 dependencies_satisfied = True
@@ -64,6 +72,13 @@ class StepPreparation:
                         dep_step = next(
                             (s for s in plan.steps if s.step_id == dep_id), None
                         )
+                        # Hard-wire: Normalize dependency step status to enum if string
+                        if dep_step and isinstance(dep_step.status, str):
+                            try:
+                                dep_step.status = StepStatus(dep_step.status.lower())
+                            except (ValueError, AttributeError):
+                                dep_step.status = StepStatus.PENDING
+                        
                         if not dep_step or dep_step.status != StepStatus.COMPLETE:
                             dependencies_satisfied = False
                             break

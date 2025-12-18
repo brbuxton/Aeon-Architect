@@ -72,6 +72,10 @@ class RecursivePlanner:
         task_description: str,
         task_profile: Any,  # TaskProfile from aeon.adaptive.models
         tool_registry: ToolRegistry,
+        memory: Optional[Any] = None,  # MemoryAccessInterface
+        session_id: Optional[str] = None,
+        execution_id: Optional[str] = None,
+        phase: Optional[str] = None,
     ) -> Plan:
         """
         Generate initial declarative plan for a task.
@@ -80,6 +84,10 @@ class RecursivePlanner:
             task_description: Natural language task description
             task_profile: TaskProfile for the task
             tool_registry: Tool registry for tool awareness
+            memory: Optional memory access interface for memory injection
+            session_id: Optional session ID for memory injection
+            execution_id: Optional execution ID for memory injection
+            phase: Optional phase identifier (defaults to "B" for plan generation)
 
         Returns:
             Plan with steps including step_index, total_steps, incoming_context, handoff_to_next
@@ -91,8 +99,15 @@ class RecursivePlanner:
         if not task_description or not task_description.strip():
             raise ValidationError("task_description must be non-empty string")
 
-        # Construct prompt for plan generation
-        prompt = construct_plan_generation_prompt(task_description, tool_registry)
+        # Construct prompt for plan generation (with memory injection support)
+        prompt = construct_plan_generation_prompt(
+            task_description,
+            tool_registry,
+            memory=memory,
+            session_id=session_id,
+            execution_id=execution_id,
+            phase=phase or "B",
+        )
         
         # Enhance prompt with TaskProfile context
         prompt += f"\n\nTaskProfile context:\n"
@@ -104,10 +119,15 @@ class RecursivePlanner:
         prompt += "\nGenerate a plan with steps that include step_index, total_steps, incoming_context, and handoff_to_next fields.\n"
 
         try:
-            # Generate LLM response
+            # Generate LLM response (with memory injection in system prompt)
             response = self.llm_adapter.generate(
                 prompt=prompt,
-                system_prompt=get_plan_generation_system_prompt(),
+                system_prompt=get_plan_generation_system_prompt(
+                    memory=memory,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                    phase=phase or "B",
+                ),
                 max_tokens=4096,
                 temperature=0.7,
             )

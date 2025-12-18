@@ -7,23 +7,57 @@ from aeon.memory.interface import Memory
 from aeon.prompts.registry import get_prompt, PromptId, PlanGenerationSystemInput, PlanGenerationUserInput
 
 
-def get_plan_generation_system_prompt() -> str:
-    """Get system prompt for plan generation (uses registry)."""
-    return get_prompt(PromptId.PLAN_GENERATION_SYSTEM, PlanGenerationSystemInput())
+def get_plan_generation_system_prompt(
+    memory: Optional[Any] = None,  # MemoryAccessInterface
+    session_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    phase: Optional[str] = None,
+) -> str:
+    """
+    Get system prompt for plan generation (uses registry).
+    
+    Args:
+        memory: Optional memory access interface for memory injection
+        session_id: Optional session ID for memory injection
+        execution_id: Optional execution ID for memory injection
+        phase: Optional phase identifier (defaults to "B" for plan generation)
+    
+    Returns:
+        System prompt string with memory context injected if available
+    """
+    return get_prompt(
+        PromptId.PLAN_GENERATION_SYSTEM,
+        PlanGenerationSystemInput(),
+        memory=memory,
+        session_id=session_id,
+        execution_id=execution_id,
+        phase=phase or "B",
+    )
 
 
-def construct_plan_generation_prompt(request: str, tool_registry: Optional[Any] = None) -> str:
+def construct_plan_generation_prompt(
+    request: str,
+    tool_registry: Optional[Any] = None,
+    memory: Optional[Any] = None,  # MemoryAccessInterface
+    session_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    phase: Optional[str] = None,
+) -> str:
     """
     Construct prompt for plan generation (uses registry).
     
-    Includes tool registry if available.
+    Includes tool registry if available. Supports memory injection for cross-execution context.
     
     Args:
         request: Natural language request
         tool_registry: Optional tool registry to include available tools
+        memory: Optional memory access interface for memory injection
+        session_id: Optional session ID for memory injection
+        execution_id: Optional execution ID for memory injection
+        phase: Optional phase identifier (defaults to "B" for plan generation)
         
     Returns:
-        Formatted prompt string
+        Formatted prompt string with memory context injected if available
     """
     # Build tool registry export
     tool_registry_export = ""
@@ -39,10 +73,17 @@ def construct_plan_generation_prompt(request: str, tool_registry: Optional[Any] 
             tool_registry_export += "\n"
             tool_registry_export += "You may reference these tools in step.tool fields. Do not invent tools.\n\n"
     
-    return get_prompt(PromptId.PLAN_GENERATION_USER, PlanGenerationUserInput(
-        request=request,
-        tool_registry_export=tool_registry_export
-    ))
+    return get_prompt(
+        PromptId.PLAN_GENERATION_USER,
+        PlanGenerationUserInput(
+            request=request,
+            tool_registry_export=tool_registry_export
+        ),
+        memory=memory,
+        session_id=session_id,
+        execution_id=execution_id,
+        phase=phase or "B",
+    )
 
 
 def build_reasoning_prompt(
@@ -138,18 +179,10 @@ def build_reasoning_prompt(
     if hasattr(step, 'incoming_context') and step.incoming_context:
         prompt += f"Context from previous steps:\n{step.incoming_context}\n\n"
 
-    # Add memory context if available
-    try:
-        # Search for relevant memory entries (prefix with step_id or general context)
-        context_entries = memory.search("step_")
-        if context_entries:
-            prompt += "Additional context from memory:\n"
-            for key, value in context_entries[:5]:  # Limit to 5 most recent
-                prompt += f"- {key}: {value}\n"
-            prompt += "\n"
-    except Exception:
-        # If memory search fails, continue without context
-        pass
+    # Add memory context placeholder (T081: Memory injection point marker)
+    # Memory injection will be handled by prompt registry when memory_injection_enabled=True
+    # For dynamically constructed prompts, we include the placeholder here
+    prompt += "{memory_context}\n\n"
 
     prompt += "Please provide your reasoning and result. "
     prompt += "If the task is clear and you can proceed, respond with clarity_state: CLEAR. "

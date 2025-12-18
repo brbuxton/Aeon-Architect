@@ -248,6 +248,7 @@ class LogEntry(BaseModel):
         "error_recovery",
         "step_execution_outcome",
         "tool_invocation_result",
+        "memory_operation",
         "cycle",
     ] = Field(default="cycle", description="Event type")
     correlation_id: Optional[str] = Field(None, description="Correlation ID linking events for a single execution")
@@ -292,6 +293,14 @@ class LogEntry(BaseModel):
     original_error: Optional[Dict[str, Any]] = Field(None, description="Original error (for error_recovery events)")
     recovery_action: Optional[str] = Field(None, description="Recovery action attempted (for error_recovery events)")
     recovery_outcome: Optional[Literal["success", "failure"]] = Field(None, description="Recovery outcome (for error_recovery events)")
+    
+    # Memory operation fields (content-free observability)
+    memory_operation_type: Optional[str] = Field(None, description="Memory operation type (write_entry, read_entries, select_for_injection, get_usage_stats, list_entries, delete_session_entries) (for memory_operation events)")
+    memory_session_id: Optional[str] = Field(None, description="Session ID for memory operation (for memory_operation events)")
+    memory_execution_id: Optional[str] = Field(None, description="Execution ID for memory operation (for memory_operation events)")
+    memory_phase: Optional[str] = Field(None, description="Phase for memory operation (for memory_operation events)")
+    memory_entry_count: Optional[int] = Field(None, ge=0, description="Number of entries affected (for memory_operation events)")
+    memory_error_type: Optional[str] = Field(None, description="Error type if operation failed (for memory_operation events)")
 
     model_config = ConfigDict(
         frozen=False,  # Allow updates during cycle

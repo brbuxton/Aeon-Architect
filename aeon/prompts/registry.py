@@ -152,6 +152,7 @@ class PromptDefinition:
         input_model: Type[PromptInput],
         output_model: Optional[Type[PromptOutput]] = None,
         render_fn: Optional[Callable[[PromptInput], str]] = None,
+        memory_injection_enabled: bool = False,
     ):
         """
         Initialize PromptDefinition.
@@ -162,12 +163,14 @@ class PromptDefinition:
             input_model: Pydantic model class for input validation
             output_model: Optional Pydantic model class for output validation
             render_fn: Optional custom rendering function. If None, uses default f-string rendering.
+            memory_injection_enabled: Whether memory injection is enabled for this prompt (default: False)
         """
         self.prompt_id = prompt_id
         self.template = template
         self.input_model = input_model
         self.output_model = output_model
         self.render_fn = render_fn or self._default_render
+        self.memory_injection_enabled = memory_injection_enabled
 
     def _default_render(self, input_data: PromptInput) -> str:
         """
@@ -198,8 +201,37 @@ class PromptDefinition:
             for key in input_dict.keys():
                 template = template.replace(f"{{input.{key}}}", f"{{{key}}}")
             
-            # Render using .format() with model fields
-            result = template.format(**input_dict)
+            # Handle optional placeholders that will be replaced later (e.g., memory_context)
+            # These are placeholders that may be in the template but not in input_data
+            # They will be replaced during memory injection, so we need to preserve them
+            # Use a custom formatter that allows missing keys for optional placeholders
+            optional_placeholders = ["memory_context"]
+            
+            # Check if template has optional placeholders
+            has_optional_placeholders = any(f"{{{p}}}" in template for p in optional_placeholders)
+            
+            if has_optional_placeholders:
+                # Use a formatter that handles missing optional keys
+                class OptionalKeyFormatter:
+                    """Formatter that preserves optional placeholders for later replacement."""
+                    def __init__(self, base_dict, optional_keys):
+                        self.base_dict = base_dict
+                        self.optional_keys = set(optional_keys)
+                    
+                    def __getitem__(self, key):
+                        if key in self.base_dict:
+                            return self.base_dict[key]
+                        elif key in self.optional_keys:
+                            # Return placeholder as-is so it can be replaced during memory injection
+                            return f"{{{key}}}"
+                        else:
+                            raise KeyError(f"Missing required field: {key}")
+                
+                formatter = OptionalKeyFormatter(input_dict, optional_placeholders)
+                result = template.format_map(formatter)
+            else:
+                # No optional placeholders, use standard formatting
+                result = template.format(**input_dict)
             
             return result
         except PydanticValidationError as e:
@@ -253,6 +285,11 @@ class PromptRegistry:
         self,
         prompt_id: PromptId,
         input_data: PromptInput,
+        memory: Optional[Any] = None,
+        session_id: Optional[str] = None,
+        execution_id: Optional[str] = None,
+        phase: Optional[str] = None,
+        injection_budget: int = 2000,
     ) -> str:
         """
         Retrieve and render a prompt by identifier (T014).
@@ -260,6 +297,11 @@ class PromptRegistry:
         Args:
             prompt_id: Unique prompt identifier
             input_data: Input data conforming to prompt's input model
+            memory: Optional MemoryAccessInterface for memory injection
+            session_id: Optional session ID for memory injection
+            execution_id: Optional execution ID for memory injection
+            phase: Optional phase (A, B, C, D, E) for memory injection
+            injection_budget: Injection budget in characters (default: 2000)
 
         Returns:
             Rendered prompt string ready for LLM consumption
@@ -272,7 +314,68 @@ class PromptRegistry:
             raise PromptNotFoundError(prompt_id.value)
         
         definition = self._registry[prompt_id]
-        return definition.render(input_data)
+        rendered = definition.render(input_data)
+        
+        # Memory injection logic (T090-T092)
+        # If memory is None, remove memory_context placeholder for backwards compatibility
+        # This ensures old notebooks without memory support still work
+        if memory is None and "{memory_context}" in rendered:
+            rendered = rendered.replace("{memory_context}", "")
+            return rendered  # Return early, no memory injection possible
+        
+        if definition.memory_injection_enabled and memory is not None:
+            # Enforce memory injection disabled for Phase C and Phase E (T092)
+            if phase in ["C", "E"]:
+                # Memory injection is disabled for Phase C and E, return rendered prompt as-is
+                return rendered
+            
+            # Check if template has memory injection point
+            if "{memory_context}" in definition.template or "{memory_context}" in rendered:
+                try:
+                    # Call select_for_injection() on memory interface
+                    context = {
+                        "current_phase": phase or "A",
+                        "current_execution_id": execution_id,
+                        "injection_point": prompt_id.value,
+                    }
+                    injection_result = memory.select_for_injection(
+                        session_id=session_id or "",
+                        context=context,
+                        budget=injection_budget,
+                    )
+                    
+                    # Format memory context with non-authoritative marker (T091)
+                    context_blocks = injection_result.get("context_blocks", [])
+                    non_authoritative_marker = injection_result.get(
+                        "non_authoritative_marker",
+                        "Non-authoritative context from this session (for reference only)",
+                    )
+                    
+                    if context_blocks:
+                        # Format context blocks with marker
+                        memory_context = f"{non_authoritative_marker}\n\n"
+                        memory_context += "\n\n".join(context_blocks)
+                        memory_context += f"\n\n{non_authoritative_marker}"
+                        
+                        # Insert at injection point
+                        rendered = rendered.replace("{memory_context}", memory_context)
+                    else:
+                        # No context blocks, remove injection point
+                        rendered = rendered.replace("{memory_context}", "")
+                        
+                except Exception as e:
+                    # Graceful degradation: memory injection failure doesn't block prompt rendering (T090)
+                    # Log error but continue with prompt rendering
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"Memory injection failed for prompt {prompt_id.value}: {e}",
+                        exc_info=True,
+                    )
+                    # Remove injection point on failure
+                    rendered = rendered.replace("{memory_context}", "")
+        
+        return rendered
 
     def list_prompts(self) -> List[PromptId]:
         """
@@ -437,6 +540,11 @@ _registry_instance: Optional[PromptRegistry] = None
 def get_prompt(
     prompt_id: PromptId,
     input_data: PromptInput,
+    memory: Optional[Any] = None,
+    session_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    phase: Optional[str] = None,
+    injection_budget: int = 2000,
 ) -> str:
     """
     Convenience function to retrieve and render a prompt using global registry.
@@ -444,6 +552,11 @@ def get_prompt(
     Args:
         prompt_id: Unique prompt identifier
         input_data: Input data conforming to prompt's input model
+        memory: Optional MemoryAccessInterface for memory injection
+        session_id: Optional session ID for memory injection
+        execution_id: Optional execution ID for memory injection
+        phase: Optional phase (A, B, C, D, E) for memory injection
+        injection_budget: Injection budget in characters (default: 2000)
 
     Returns:
         Rendered prompt string ready for LLM consumption
@@ -455,7 +568,15 @@ def get_prompt(
     global _registry_instance
     if _registry_instance is None:
         _initialize_registry()
-    return _registry_instance.get_prompt(prompt_id, input_data)
+    return _registry_instance.get_prompt(
+        prompt_id,
+        input_data,
+        memory=memory,
+        session_id=session_id,
+        execution_id=execution_id,
+        phase=phase,
+        injection_budget=injection_budget,
+    )
 
 
 def get_prompt_registry() -> PromptRegistry:
@@ -498,7 +619,7 @@ class ReasoningStepUserInput(PromptInput):
     step_index: Optional[int] = Field(default=None, description="Step index")
     total_steps: Optional[int] = Field(default=None, description="Total steps")
     incoming_context: Optional[str] = Field(default=None, description="Context from previous steps")
-    memory_context: Optional[str] = Field(default=None, description="Memory context")
+    memory_context: Optional[str] = Field(default=None, description="Memory context from STM")  # T081: Memory injection point
 
 
 # Additional Input Models for other prompts
@@ -764,9 +885,12 @@ Return only valid JSON.""",
 
 {request}
 
+{memory_context}
+
 {tool_registry_export}Return a JSON plan with goal and steps.""",
         input_model=PlanGenerationUserInput,
         output_model=PlanGenerationOutput,  # T063
+        memory_injection_enabled=True,  # T080: Enable memory injection for plan generation
     ))
     
     # Reasoning Step Prompts (T023)
@@ -774,6 +898,7 @@ Return only valid JSON.""",
         prompt_id=PromptId.REASONING_STEP_SYSTEM,
         template="You are a reasoning assistant. Provide clear, structured responses. Include clarity_state and handoff_to_next in your response.",
         input_model=ReasoningStepSystemInput,
+        memory_injection_enabled=True,  # T080: Enable memory injection for reasoning steps
     ))
     
     # Note: REASONING_STEP_USER is constructed dynamically in build_reasoning_prompt()
@@ -839,6 +964,7 @@ Adjust dimensions based on whether complexity was underestimated (increase) or o
         template="You are a plan refinement assistant. Generate refinement actions as JSON array.",
         input_model=RecursiveRefinementSystemInput,
         output_model=RecursiveRefinementOutput,  # T063
+        memory_injection_enabled=True,  # T080: Enable memory injection for refinement
     ))
     
     # Note: RECURSIVE_REFINEMENT_USER is constructed dynamically in refine_plan()

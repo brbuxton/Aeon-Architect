@@ -9,6 +9,17 @@ note = "High-level, non-committal, unordered, no sprint assignments"
 legend = "[Category: core|feature|infrastructure|security|quality-of-life] [Impact: critical|high|medium|low]"
 
 # ============================================================================
+# Observations
+# ============================================================================
+
+[[observations]]
+category = "behavior"
+impact = "low"
+title = "Referential continuity with non-authoritative memory markers"
+description = "Referential continuity (e.g., 'the same issue') is resolved by some models but not others when memory is marked non-authoritative. This is expected behavior and deferred until semantic/ambiguity handling sprint."
+note = "Non-authoritative markers may cause some LLMs to discount memory context, affecting referential resolution. This is a known limitation of the current memory injection approach."
+
+# ============================================================================
 # Aeon Adaptive Reasoning Framework Epic
 # ============================================================================
 
@@ -35,7 +46,7 @@ user_stories_delivered = 3
 id = "memory-foundations"
 order = 8
 title = "Memory Foundations"
-status = "pending"
+status = "completed"
 dependencies = ["observability", "phase-transitions", "prompt-infrastructure"]
 impact = "Enables memory-aware reasoning and context propagation"
 effort = "medium-high"
@@ -193,7 +204,7 @@ description = "Addressed in convergence-refinement and semantic-validator sprint
 [[architectural_gaps]]
 id = 4
 title = "Memory Timing"
-status = "pending"
+status = "resolved"
 addressed_in = "memory-foundations"
 description = "Resolved in memory-foundations sprint (Memory Foundations). Establishes short-term memory engine with proper timing for context injection. Memory prioritization and eviction policies ensure optimal memory usage across phases. Addresses when and how memory is accessed during phase transitions."
 
@@ -574,6 +585,39 @@ impact = "medium"
 title = "Add regression test for ExecutionPass.execution_results population"
 description = "Introduce a kernel-level regression test asserting that completed Phase C steps produce populated ExecutionResult entries. This prevents future regressions where step_output exists but execution_results remains empty, and enforces execution evidence invariants required by semantic validation, convergence assessment, and Phase E."
 
+[[backlog]]
+category = "bug"
+impact = "high"
+title = "Remove temporary hard-wires for Memory Foundations sprint"
+description = "During Memory Foundations sprint (Sprint 8), temporary hard-wires were added to isolate memory/session functionality from validation, convergence, and refinement subsystems. These must be removed and replaced with proper implementations in their respective sprints."
+
+[backlog.7.hard_wires]
+convergence_refinement = [
+    "Location: aeon/orchestration/strategy.py",
+    "has_converged() always returns True (line 46) - 'STUB: Force convergence while implementing Memory'",
+    "should_refine() always returns False (line 30) - 'STUB: Disable refinement while implementing Memory'",
+    "Rationale: Isolates memory/session testing from convergence and refinement logic",
+    "Removal: Replace with proper implementation in convergence-refinement sprint (Sprint 9)"
+]
+
+[backlog.7.hard_wires.status_enum_normalization]
+location = "aeon/orchestration/step_prep.py - get_ready_steps() method"
+issue = "PlanStep.status may be deserialized as string 'pending' instead of StepStatus.PENDING enum, causing step.status == StepStatus.PENDING comparison to fail and preventing step execution"
+workaround = "Normalize status to enum in get_ready_steps() before comparison: if isinstance(step.status, str): step.status = StepStatus(step.status.lower())"
+rationale = "Temporary workaround to ensure steps execute correctly while proper Pydantic enum deserialization is addressed in validation sprint"
+removal = "Replace with proper Pydantic model_validate() usage and/or field validators in PlanParser.parse() when validation infrastructure is implemented"
+note = "Root cause: Pydantic use_enum_values=True serializes enums to strings, but deserialization may not always convert strings back to enums when using Plan(**plan_dict) instead of Plan.model_validate(plan_dict)"
+
+[backlog.7]
+removal_priority = "high"
+dependencies = ["convergence-refinement sprint for convergence/refinement", "semantic-validator sprint for status validation"]
+test_requirements = [
+    "Verify convergence logic works correctly after removing hard-wire",
+    "Verify refinement logic works correctly after removing hard-wire",
+    "Verify step status enum normalization is no longer needed after proper deserialization",
+    "Add regression tests to prevent status deserialization issues"
+]
+
 # ============================================================================
 # Post-Epic Work
 # ============================================================================
@@ -649,6 +693,27 @@ test_coverage = "22 unit tests + 3 integration tests (all passing)"
 files_changed = "1 major new module (aeon/prompts/registry.py), 15+ modules updated"
 impact = "Enables systematic prompt improvements, A/B testing capabilities, completes A→B→C→D→E reasoning loop"
 documentation = "Complete specification in specs/007-prompt-infrastructure/ including quickstart, tasks, and data models"
+
+[[archive.resolved]]
+id = "memory-foundations"
+category = "core"
+impact = "high"
+title = "Sprint 8 — Memory Foundations"
+status = "completed"
+branch = "008-memory-foundations"
+
+[archive.resolved.2.components]
+short_term_memory_engine = "Automatic storage of intermediate results, relevance scoring, TTL-based expiration, dynamic injection into LLM prompts, running summaries, plan-step-oriented storage structure, memory prioritization and eviction policies"
+memory_oriented_heuristics = "Decide what gets written to short-term vs long-term, prioritize memory based on importance/novelty/recurrence, identify redundant entries, summarize when memory grows too large, handle conflicting memories, memory compression and optimization"
+ephemeral_memory_guarantee = "Working memory exists only for duration of single Aeon task, no STM data persisted across sessions or written to disk, STM structures non-serializable in logs (content-free logging only)"
+memory_access_interface = "Stable interface for Phase B/C/D/E to read/write STM, modular MAI for Private-mode policies to wrap later without refactoring"
+session_management = "Session lifecycle management, session-scoped memory persistence, automatic session creation, TTL-based session expiration"
+
+[archive.resolved.2]
+test_coverage = "Comprehensive unit and integration tests for STM, Session Manager, and memory injection"
+files_changed = "New modules: aeon/memory/stm.py, aeon/session/manager.py, aeon/session/interface.py; Updated: orchestrator, phases, and memory integration points"
+impact = "Enables memory-aware reasoning and context propagation across execution passes, foundation for future long-term memory and private-mode enforcement"
+documentation = "Complete specification in specs/008-memory-foundations/ including quickstart, tasks, data models, and test notebook"
 
 [[archive.resolved]]
 id = "phase-transitions"

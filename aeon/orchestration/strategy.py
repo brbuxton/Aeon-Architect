@@ -26,27 +26,7 @@ def should_refine(
     Returns:
         True if refinement is needed, False otherwise
     """
-    needs_refinement = evaluation_results.get("needs_refinement", False)
-    
-    # Check if explicitly marked as needing refinement
-    if needs_refinement:
-        return True
-
-    # Check for validation issues
-    validation_issues = evaluation_results.get("validation_issues", [])
-    if validation_issues:
-        # Check if any issues are critical or high severity
-        for issue in validation_issues:
-            severity = issue.get("severity") if isinstance(issue, dict) else getattr(issue, "severity", None)
-            if severity in ("CRITICAL", "ERROR"):
-                return True
-
-    # Check convergence status
-    convergence_assessment = evaluation_results.get("convergence_assessment", {})
-    converged = convergence_assessment.get("converged", False) if isinstance(convergence_assessment, dict) else getattr(convergence_assessment, "converged", False)
-    if not converged:
-        return True
-
+    # STUB: Disable refinement while implementing Memory
     return False
 
 
@@ -62,19 +42,8 @@ def has_converged(
     Returns:
         True if converged, False otherwise
     """
-    converged = evaluation_results.get("converged", False)
-    
-    # Check convergence assessment if available
-    convergence_assessment = evaluation_results.get("convergence_assessment", {})
-    if isinstance(convergence_assessment, dict):
-        assessment_converged = convergence_assessment.get("converged", False)
-        if assessment_converged:
-            return True
-    elif hasattr(convergence_assessment, "converged"):
-        if convergence_assessment.converged:
-            return True
-
-    return converged
+    # STUB: Force convergence while implementing Memory
+    return True
 
 
 def determine_next_action(

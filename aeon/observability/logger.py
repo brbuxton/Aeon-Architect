@@ -837,3 +837,56 @@ class JSONLLogger:
             # Non-blocking: silently fail on errors
             pass
 
+    def log_memory_operation(
+        self,
+        operation_type: str,
+        session_id: str,
+        correlation_id: Optional[str] = None,
+        execution_id: Optional[str] = None,
+        phase: Optional[str] = None,
+        entry_count: Optional[int] = None,
+        success: Optional[bool] = None,
+        error_type: Optional[str] = None,
+        pass_number: Optional[int] = None,
+        timestamp: Optional[str] = None,
+    ) -> None:
+        """
+        Log a memory operation event (content-free observability) (T100, T101).
+
+        Args:
+            operation_type: Memory operation type (write_entry, read_entries, select_for_injection, get_usage_stats, list_entries, delete_session_entries)
+            session_id: Session ID for memory operation (required)
+            correlation_id: Correlation ID linking events for a single execution (optional)
+            execution_id: Execution ID for memory operation (optional)
+            phase: Phase for memory operation (optional)
+            entry_count: Number of entries affected (optional)
+            success: Whether operation succeeded (optional)
+            error_type: Error type if operation failed (optional, for T101)
+            pass_number: Pass number in multi-pass execution (optional)
+            timestamp: ISO 8601 timestamp (optional, defaults to now)
+
+        Note:
+            This method is non-blocking and will silently fail if file write fails.
+            Logs contain only structural metadata (operation type, counts, IDs) - NO raw content.
+        """
+        if not self.file_path:
+            return  # No-op if no file path provided
+
+        try:
+            entry = LogEntry(
+                event="memory_operation",
+                correlation_id=correlation_id,
+                memory_operation_type=operation_type,
+                memory_session_id=session_id,
+                memory_execution_id=execution_id,
+                memory_phase=phase,
+                memory_entry_count=entry_count,
+                memory_error_type=error_type,
+                pass_number=pass_number,
+                timestamp=timestamp or datetime.now().isoformat(),
+            )
+            self.log_entry(entry)
+        except Exception:
+            # Non-blocking: silently fail on errors
+            pass
+

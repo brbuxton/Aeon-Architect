@@ -36,8 +36,11 @@ class OrchestrationEngine:
         tool_registry: Optional[Any] = None,  # ToolRegistry
         supervisor: Optional[Any] = None,  # Supervisor
         logger: Optional["JSONLLogger"] = None,
-        memory: Optional[Any] = None,  # Memory
+        memory: Optional[Any] = None,  # Memory (legacy)
         plan_generator: Optional[Callable] = None,  # Function to generate plans
+        memory_access: Optional[Any] = None,  # MemoryAccessInterface (T119)
+        session_manager: Optional[Any] = None,  # SessionSubsystemInterface (T119)
+        session_id: Optional[str] = None,  # Current session_id (T110)
     ):
         """
         Initialize orchestration engine.
@@ -55,8 +58,11 @@ class OrchestrationEngine:
             tool_registry: Optional ToolRegistry instance
             supervisor: Optional Supervisor instance
             logger: Optional JSONL logger
-            memory: Optional Memory interface
+            memory: Optional Memory interface (legacy)
             plan_generator: Optional function to generate plans
+            memory_access: Optional Memory Access Interface (MAI) (T119)
+            session_manager: Optional Session subsystem interface (T119)
+            session_id: Optional current session_id (T110)
         """
         self.llm = llm
         self._phase_orchestrator = phase_orchestrator
@@ -72,6 +78,10 @@ class OrchestrationEngine:
         self.logger = logger
         self.memory = memory
         self._plan_generator = plan_generator
+        # T119: Store memory access and session manager
+        self.memory_access = memory_access
+        self.session_manager = session_manager
+        self._session_id = session_id
 
     def run_multipass(
         self,
@@ -123,6 +133,24 @@ class OrchestrationEngine:
         try:
             # Phase A: TaskProfile & TTL allocation
             task_profile, ttl_allocated = self.execute_phase_a(request, ttl, execution_context)
+            
+            # T111: Wire memory write after LLM response for Phase A (TaskProfile Inference)
+            if self.memory_access and self._session_id:
+                try:
+                    # Write TaskProfile inference result
+                    content = {
+                        "task_profile": task_profile.model_dump() if hasattr(task_profile, "model_dump") else str(task_profile),
+                        "ttl_allocated": ttl_allocated,
+                    }
+                    self.memory_access.write_entry(
+                        session_id=self._session_id,
+                        execution_id=execution_id,
+                        phase="A",
+                        content=content,
+                    )
+                except Exception:
+                    # Graceful degradation: memory write failure doesn't block execution
+                    pass
 
             # Initialize state for execution
             plan_to_execute = plan or (self._plan_generator(request) if self._plan_generator else None)
@@ -146,6 +174,28 @@ class OrchestrationEngine:
             )
             self._step_preparation.populate_step_indices(plan_to_execute)
             state.plan = plan_to_execute
+            
+            # T112: Wire memory write after LLM response for Phase B (Reasoning Steps)
+            if self.memory_access and self._session_id:
+                try:
+                    # Write plan refinement result (Phase B produces refined plan)
+                    # Include user request so LLM can see what was asked in previous executions
+                    content = {
+                        "user_request": request,  # Store original user request
+                        "goal": plan_to_execute.goal if hasattr(plan_to_execute, "goal") else None,
+                        "step_descriptions": [
+                            step.description for step in (plan_to_execute.steps if hasattr(plan_to_execute, "steps") and plan_to_execute.steps else [])
+                        ],
+                    }
+                    self.memory_access.write_entry(
+                        session_id=self._session_id,
+                        execution_id=execution_id,
+                        phase="B",
+                        content=content,
+                    )
+                except Exception:
+                    # Graceful degradation: memory write failure doesn't block execution
+                    pass
 
             # Contract validation: A→B transition outputs
             outputs_a_b = {"refined_plan": plan_to_execute}
@@ -242,8 +292,31 @@ class OrchestrationEngine:
             )
             
             # Execute Phase E (T082) - must execute unconditionally (FR-020, FR-024)
+            # T105: Wire memory usage stats collection
             prompt_registry = get_prompt_registry()
-            final_answer = execute_phase_e(phase_e_input, self.llm, prompt_registry)
+            final_answer = execute_phase_e(
+                phase_e_input, 
+                self.llm, 
+                prompt_registry,
+                memory=self.memory,  # T105: Pass memory if available
+                session_id=self._session_id,  # T105: Pass session_id
+            )
+            
+            # T116: Wire execution completion notification in orchestrator at Phase E
+            if self.session_manager and self._session_id:
+                try:
+                    session_state = self.session_manager.notify_execution_complete(self._session_id)
+                    # T117: Wire expired session handling - when Session subsystem returns expired status, call delete_session_entries()
+                    if session_state.state == "expired":
+                        if self.memory_access:
+                            try:
+                                self.memory_access.delete_session_entries(self._session_id)
+                            except Exception:
+                                # Graceful degradation: memory cleanup failure doesn't block execution
+                                pass
+                except Exception:
+                    # Graceful degradation: session notification failure doesn't block execution
+                    pass
             
             # Check if max passes limit was reached
             execution_end = datetime.now()
@@ -338,8 +411,15 @@ class OrchestrationEngine:
             )
             
             # Execute Phase E even on TTL expiration
+            # T105: Wire memory usage stats collection (session_id will be available in Phase 8)
             prompt_registry = get_prompt_registry()
-            final_answer = execute_phase_e(phase_e_input, self.llm, prompt_registry)
+            final_answer = execute_phase_e(
+                phase_e_input, 
+                self.llm, 
+                prompt_registry,
+                memory=self.memory,  # T105: Pass memory if available
+                session_id=None,  # T105: session_id will be wired in Phase 8
+            )
             
             # Try to get TTL expiration response if available
             if execution_passes:
@@ -461,6 +541,9 @@ class OrchestrationEngine:
             execution_context=execution_context,
             logger=self.logger,
             ttl_remaining=ttl_allocated,
+            memory_access=self.memory_access,  # Pass memory access for memory injection
+            session_id=self._session_id,  # Pass session_id for memory injection
+            execution_id=execution_context.correlation_id,  # Use correlation_id as execution_id
         )
         if not success:
             refined_plan = plan  # Continue with original plan if refinement fails
@@ -640,6 +723,27 @@ class OrchestrationEngine:
                 request=request,
             )
             execution_pass = merge_evaluation_results(execution_pass, evaluation_results)
+            
+            # T113: Wire memory write with metadata only after LLM response for Phase C (Validation/Convergence)
+            if self.memory_access and self._session_id:
+                try:
+                    # Write metadata only (convergence status, detected issues, reason codes, completeness score, coherence score)
+                    content = {
+                        "convergence_status": evaluation_results.get("converged", False) if isinstance(evaluation_results, dict) else False,
+                        "detected_issues": evaluation_results.get("detected_issues", []) if isinstance(evaluation_results, dict) else [],
+                        "reason_codes": evaluation_results.get("reason_codes", []) if isinstance(evaluation_results, dict) else [],
+                        "completeness_score": evaluation_results.get("completeness_score", 0.0) if isinstance(evaluation_results, dict) else 0.0,
+                        "coherence_score": evaluation_results.get("coherence_score", 0.0) if isinstance(evaluation_results, dict) else 0.0,
+                    }
+                    self.memory_access.write_entry(
+                        session_id=self._session_id,
+                        execution_id=execution_id,
+                        phase="C",
+                        content=content,
+                    )
+                except Exception:
+                    # Graceful degradation: memory write failure doesn't block execution
+                    pass
 
             # Contract validation: C→D transition inputs
             inputs_c_d = {
@@ -717,6 +821,27 @@ class OrchestrationEngine:
                 )
                 if success and updated_task_profile:
                     task_profile = updated_task_profile
+                
+                # T114: Wire memory write after LLM response for Phase D (Recursive Planning/Refinement)
+                if self.memory_access and self._session_id:
+                    try:
+                        # Write refinement result (refinement reason, updated goal, updated step descriptions)
+                        content = {
+                            "refinement_reason": error if error else "TaskProfile update",
+                            "updated_goal": state.plan.goal if hasattr(state.plan, "goal") and state.plan.goal else None,
+                            "updated_step_descriptions": [
+                                step.description for step in (state.plan.steps if hasattr(state.plan, "steps") and state.plan.steps else [])
+                            ],
+                        }
+                        self.memory_access.write_entry(
+                            session_id=self._session_id,
+                            execution_id=execution_id,
+                            phase="D",
+                            content=content,
+                        )
+                    except Exception:
+                        # Graceful degradation: memory write failure doesn't block execution
+                        pass
 
                 validate_phase_invariants(execution_pass, "D")
                 check_ttl_at_phase_boundary(state.ttl_remaining, "D", execution_pass, pass_number, state.plan.model_dump() if state else {})

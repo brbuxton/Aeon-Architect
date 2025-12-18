@@ -15,7 +15,8 @@ from aeon.exceptions import LLMError, PlanError, SupervisorError, ToolError, TTL
 from aeon.kernel.executor import StepExecutor
 from aeon.kernel.state import ExecutionContext, ExecutionHistory, ExecutionPass, OrchestrationState
 from aeon.llm.interface import LLMAdapter
-from aeon.memory.interface import Memory
+from aeon.memory.interface import Memory, MemoryAccessInterface
+from aeon.session.interface import SessionSubsystemInterface
 from aeon.observability.helpers import build_execution_result, generate_correlation_id
 from aeon.observability.logger import JSONLLogger
 from aeon.orchestration.contracts import (
@@ -61,17 +62,21 @@ class Orchestrator:
         tool_registry: Optional[Any] = None,
         supervisor: Optional[Any] = None,
         logger: Optional[JSONLLogger] = None,
+        memory_access: Optional[MemoryAccessInterface] = None,
+        session_manager: Optional[SessionSubsystemInterface] = None,
     ) -> None:
         """
         Initialize orchestrator.
 
         Args:
             llm: LLM adapter for generation
-            memory: Memory interface (optional)
+            memory: Memory interface (optional, legacy)
             ttl: Time-to-live in cycles (default 10)
             tool_registry: Tool registry (optional, for later phases)
             supervisor: Supervisor for error repair (optional, for later phases)
             logger: JSONL logger for cycle logging (optional)
+            memory_access: Memory Access Interface (MAI) for session-scoped memory (optional)
+            session_manager: Session subsystem interface for session lifecycle (optional)
         """
         self.llm = llm
         self.memory = memory
@@ -79,6 +84,11 @@ class Orchestrator:
         self.tool_registry = tool_registry
         self.supervisor = supervisor
         self.logger = logger
+        # T119: Dependency injection for memory and session
+        self.memory_access = memory_access
+        self.session_manager = session_manager
+        # Track current session_id for memory operations
+        self._current_session_id: Optional[str] = None
         self.parser = PlanParser()
         self.validator = PlanValidator()
         self.state: Optional[OrchestrationState] = None
@@ -339,7 +349,7 @@ class Orchestrator:
         # Step execution is logged via phase-aware logging methods in the multipass engine
         return None
 
-    def execute_multipass(self, request: str, plan: Optional[Plan] = None) -> Dict[str, Any]:
+    def execute_multipass(self, request: str, plan: Optional[Plan] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute a request using multi-pass execution loop (User Story 1).
 
@@ -352,6 +362,7 @@ class Orchestrator:
         Args:
             request: Natural language request
             plan: Optional pre-generated plan
+            session_id: Optional session_id to reuse (if None, creates new session)
 
         Returns:
             Execution result dict with ExecutionHistory
@@ -377,20 +388,44 @@ class Orchestrator:
         )
 
         # Initialize state for execution
-        if not self.state:
-            plan_to_execute = plan or self.generate_plan(request)
-            self.state = OrchestrationState(
-                plan=plan_to_execute,
-                ttl_remaining=self.ttl,
-                memory=self.memory
-            )
-        else:
-            plan_to_execute = plan or self.state.plan
+        # Always generate a new plan from the request when no plan is provided
+        # Each execution is independent and should have its own plan
+        plan_to_execute = plan or self.generate_plan(request)
+        
+        # Reset state for new execution (each execution should start fresh)
+        self.state = OrchestrationState(
+            plan=plan_to_execute,
+            ttl_remaining=self.ttl,
+            memory=self.memory
+        )
 
         # Initialize multi-pass state
         self._pass_number = 0
         self._current_phase = None
         self._execution_passes = []
+
+        # T110: Wire session creation at session start (or reuse if provided)
+        if self.session_manager:
+            if session_id:
+                # Reuse provided session_id
+                self._current_session_id = session_id
+                # Verify session exists and is valid
+                session_state = self.session_manager.get_session_state(session_id)
+                if session_state.state not in ["active", "expired"]:
+                    # Session is closed or invalid, create new one
+                    import logging
+                    logging.warning(f"Session {session_id} is {session_state.state}, creating new session")
+                    self._current_session_id = self.session_manager.create_session()
+            else:
+                # Create new session
+                self._current_session_id = self.session_manager.create_session()
+            
+            if not self._current_session_id:
+                # Graceful degradation: continue without session if creation fails
+                import logging
+                logging.warning("Session creation failed, continuing without session")
+        else:
+            self._current_session_id = session_id if session_id else None
 
         # Construct orchestration engine
         engine = OrchestrationEngine(
@@ -408,6 +443,9 @@ class Orchestrator:
             logger=self.logger,
             memory=self.memory,
             plan_generator=self.generate_plan,
+            memory_access=self.memory_access,  # T119: Pass memory access interface
+            session_manager=self.session_manager,  # T119: Pass session manager
+            session_id=self._current_session_id,  # T110: Pass session_id
         )
 
         # Run multipass execution via engine
@@ -435,5 +473,36 @@ class Orchestrator:
             Execution result dict with ExecutionHistory
         """
         return self.execute_multipass(request, plan)
+
+    def close_session(self) -> None:
+        """
+        Gracefully close the current session.
+        
+        T118: Wire graceful session closure - when session is closed (client/presentation
+        request or termination policy), call close_session() and delete_session_entries().
+        
+        This method should be called when:
+        - Client/presentation requests session termination
+        - Host-defined termination policy triggers closure
+        - Orchestrator is being shut down
+        """
+        if self.session_manager and self._current_session_id:
+            try:
+                # Close session in session subsystem
+                close_result = self.session_manager.close_session(self._current_session_id)
+                if close_result.success:
+                    # Delete memory entries for the session
+                    if self.memory_access:
+                        try:
+                            self.memory_access.delete_session_entries(self._current_session_id)
+                        except Exception:
+                            # Graceful degradation: memory cleanup failure doesn't block closure
+                            pass
+            except Exception:
+                # Graceful degradation: session closure failure doesn't block execution
+                pass
+            finally:
+                # Clear session_id
+                self._current_session_id = None
 
 

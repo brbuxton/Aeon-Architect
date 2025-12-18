@@ -62,7 +62,14 @@ aeon/
 ├── validation/          # Validation layer (schema + semantic)
 │   ├── schema.py        # Structural validation
 │   └── semantic.py      # Semantic validation (LLM-based)
-├── memory/              # Memory subsystem (K/V store)
+├── memory/              # Memory subsystem
+│   ├── stm.py           # Short-Term Memory (STM) - session-scoped memory
+│   ├── null_memory.py   # NullMemory - no-op memory implementation
+│   ├── interface.py     # Memory Access Interface (MAI)
+│   └── kv_store.py      # K/V store (legacy)
+├── session/             # Session subsystem
+│   ├── manager.py       # Session lifecycle management
+│   └── interface.py     # Session subsystem interface
 ├── tools/               # Tool system (registry, interface, stubs)
 ├── supervisor/          # Error repair module
 ├── llm/                 # LLM adapter interface
@@ -93,7 +100,10 @@ Phase-aware structured logging with correlation IDs, actionable error logging wi
 Explicit phase transition contracts, deterministic context propagation, prompt context alignment, TTL boundary behavior, ExecutionPass consistency, and phase boundary logging. See [Sprint 6 specification](specs/006-phase-transitions/spec.md) for details.
 
 ### ✅ Sprint 7: Prompt Infrastructure + Prompt Contracts (Completed)
-Centralized prompt management with registry, schema-backed prompt contracts with validation, unified JSON extraction, and Phase E (Final Answer Synthesis) implementation. All 23 system prompts consolidated, typed input/output models, and complete A→B→C→D→E reasoning loop. See [Sprint 7 specification](specs/007-prompt-infrastructure/spec.md) for details.
+Centralized prompt management with registry, schema-backed prompt contracts with validation, unified JSON extraction, and Phase E (Final Answer Synthesis) implementation. All 23 system prompts consolidated, typed input/output models, and complete A→B→C→D→E reasoning loop. See [Sprint 7 specification](specs/007-prompt-infrastructure/spec.md) for details. Test notebook: `specs/007-prompt-infrastructure/test_sprint_007_results.ipynb`
+
+### ✅ Sprint 8: Memory Foundations (Completed)
+Short-Term Memory (STM) and Session subsystems enabling session-scoped memory that persists across multiple executions within a single session. STM is ephemeral, bounded, and scoped to a single Aeon session with capacity and TTL-based eviction. Memory can be optionally injected into LLM prompts through explicit injection points. All memory operations degrade gracefully and never block execution. See [Sprint 8 specification](specs/008-memory-foundations/spec.md) for details. Test notebook: `specs/008-memory-foundations/test_memory_foundations.ipynb`
 
 ## Installation
 
@@ -110,86 +120,33 @@ pip install -e .
 
 ## Quick Start
 
-### Command Line Interface
+### Jupyter Notebooks
 
-The easiest way to use Aeon Core is through the CLI:
+The easiest way to explore and test Aeon is through the Jupyter notebooks provided in the sprint specifications:
 
-**Installation:**
+**Sprint 7 - Prompt Infrastructure:**
+- Location: `specs/007-prompt-infrastructure/test_sprint_007_results.ipynb`
+- Tests: Prompt infrastructure, prompt contracts, and Phase E synthesis
+- Requirements: Live llama-cpp backend running on `192.168.128.138:8000` (or update the notebook with your LLM endpoint)
+
+**Sprint 8 - Memory Foundations:**
+- Location: `specs/008-memory-foundations/test_memory_foundations.ipynb`
+- Tests: Session creation, memory persistence, and cross-execution reasoning
+- Requirements: Live llama-cpp backend running on `192.168.128.138:8000` (or update the notebook with your LLM endpoint)
+
+**To run the notebooks:**
 ```bash
-# Install the package in development mode to get the CLI
-pip install -e .
+# Install Jupyter if not already installed
+pip install jupyter
 
-# Verify installation
-aeon --help
+# Navigate to the spec directory
+cd specs/007-prompt-infrastructure  # or 008-memory-foundations
+
+# Launch Jupyter
+jupyter notebook test_sprint_007_results.ipynb  # or test_memory_foundations.ipynb
 ```
 
-**Basic Usage:**
-```bash
-# Generate a plan from a natural language request
-aeon plan "calculate the sum of 5 and 10"
-
-# Execute a request (generate plan and run it)
-aeon execute "calculate the sum of 5 and 10"
-
-# Output as JSON
-aeon execute --json "your request here"
-aeon plan --json "your request here"
-```
-
-**LLM Adapter Options:**
-```bash
-# Use with llama-cpp (default, runs on localhost:8000)
-aeon execute "analyze data and generate report"
-
-# Use with mock LLM for testing
-aeon --llm mock execute "test request"
-
-# Use with remote API (requires API key)
-aeon --llm remote --api-key YOUR_KEY --api-url https://api.openai.com/v1/chat/completions execute "your request"
-```
-
-**Configuration:**
-```bash
-# Use a config file (searches: .aeon.yaml, ~/.aeon.yaml, ~/.config/aeon/config.yaml)
-aeon --config .aeon.yaml execute "your request"
-
-# Override config with command-line options
-aeon --llm llama-cpp --ttl 20 execute "your request"
-```
-
-**Example Output:**
-```bash
-$ aeon --llm mock execute "calculate 5 plus 10"
-
-Executing request: calculate 5 plus 10
-
-Generating plan...
-Executing plan...
-
-Status: completed
-TTL remaining: 9
-
-Plan:
-  Goal: calculate 5 plus 10
-  Steps: 1
-    1. [complete][tool] Process request: calculate 5 plus 10
-      Result: {'result': 'success'}
-```
-
-**Configuration File** (`.aeon.yaml`):
-```yaml
-llm:
-  type: llama-cpp  # or "mock", "remote"
-  api_url: http://localhost:8000
-  model: your-model-name
-  api_key: your-api-key  # for remote LLM
-
-orchestrator:
-  ttl: 10
-  log_file: orchestration.jsonl
-```
-
-See `.aeon.yaml.example` for a complete example.
+These notebooks provide end-to-end examples of using Aeon's core features and demonstrate the complete reasoning pipeline.
 
 ### Python API Usage
 
@@ -244,7 +201,7 @@ orchestrator = Orchestrator(
 result = orchestrator.execute("add 5 and 10")
 ```
 
-### With Memory
+### With Memory (K/V Store)
 
 ```python
 from aeon.kernel.orchestrator import Orchestrator
@@ -271,6 +228,49 @@ result = orchestrator.execute("process user data")
 # Retrieve stored values
 name = memory.read("user_name")  # Returns "Alice"
 age = memory.read("user_age")    # Returns 30
+```
+
+### With Short-Term Memory (STM) and Sessions
+
+```python
+from aeon.kernel.orchestrator import Orchestrator
+from aeon.memory.stm import STM
+from aeon.session.manager import SessionManager
+from tests.fixtures.mock_llm import MockLLMAdapter
+
+# Create STM (Short-Term Memory) and Session Manager
+stm = STM(capacity=100, initial_ttl=10)  # 100 entries per session, TTL=10
+session_manager = SessionManager(initial_ttl=3)  # Session TTL=3 executions
+
+# Create orchestrator with STM and Session Manager
+orchestrator = Orchestrator(
+    llm=MockLLMAdapter(),
+    memory_access=stm,  # Use STM instead of K/V store
+    session_manager=session_manager,
+    ttl=10
+)
+
+# Execute first request - creates session and stores memory entries
+result1 = orchestrator.execute_multipass(request="design a web application")
+
+# Execute second request in same session - memory from first request is available
+result2 = orchestrator.execute_multipass(request="add authentication to the design")
+
+# Memory entries from first execution are automatically injected into prompts
+# for the second execution, providing context across multiple turns
+
+# Memory operations are automatic - orchestrator writes entries at phase boundaries
+# and injects memory into prompts when memory_injection_enabled=True
+
+# To disable memory, use NullMemory:
+from aeon.memory.null_memory import NullMemory
+null_memory = NullMemory()
+orchestrator = Orchestrator(
+    llm=MockLLMAdapter(),
+    memory_access=null_memory,  # Memory disabled
+    session_manager=session_manager,
+    ttl=10
+)
 ```
 
 ### With Logging
@@ -349,9 +349,10 @@ All sprint documentation is available in the [`specs/`](specs/) directory:
 - **Sprint 4**: [Kernel Refactoring](specs/004-kernel-refactor/) - LOC reduction and module extraction
 - **Sprint 5**: [Observability & Logging](specs/005-observability-logging/) - Structured logging and error reporting
 - **Sprint 6**: [Phase Transition Stabilization](specs/006-phase-transitions/) - Phase contracts and context propagation
-- **Sprint 7**: [Prompt Infrastructure + Prompt Contracts](specs/007-prompt-infrastructure/) - Centralized prompt registry, schema-backed contracts, Phase E synthesis
+- **Sprint 7**: [Prompt Infrastructure + Prompt Contracts](specs/007-prompt-infrastructure/) - Centralized prompt registry, schema-backed contracts, Phase E synthesis (includes test notebook)
+- **Sprint 8**: [Memory Foundations](specs/008-memory-foundations/) - Short-Term Memory (STM) and Session subsystems (includes test notebook)
 
-Each sprint folder contains specifications, implementation plans, tasks, data models, and interface contracts.
+Each sprint folder contains specifications, implementation plans, tasks, data models, and interface contracts. Sprints 7 and 8 include Jupyter notebooks for end-to-end testing.
 
 ## License
 
@@ -361,7 +362,7 @@ MIT
 
 ### Current State
 
-- **Current Sprint**: Sprint 8 (Memory Foundations) - See [Backlog](BACKLOG.md) for details
+- **Current Sprint**: Sprint 9 (Convergence Engine Refinement) - See [Backlog](BACKLOG.toml) for details
 - **Test Coverage**: 62% overall (92-97% for kernel core modules)
 - **Kernel LOC**: 635 LOC (under 800 LOC constitutional limit)
 - **Tests Passing**: 468 passed, 30 failed (498 total tests)
@@ -375,7 +376,7 @@ MIT
 ✅ **Sprint 5** (Observability & Logging) - 4 user stories: Structured logging, error codes, test coverage expansion  
 ✅ **Sprint 6** (Phase Transition Stabilization) - Phase transition contracts, context propagation, ExecutionPass consistency  
 ✅ **Sprint 7** (Prompt Infrastructure + Prompt Contracts) - 3 user stories: Centralized prompt registry (23 prompts), schema-backed contracts with validation, Phase E final answer synthesis completing A→B→C→D→E loop  
-✅ **Sprint 7** (Prompt Infrastructure + Prompt Contracts) - Centralized prompt registry, schema-backed contracts, unified JSON extraction, Phase E final answer synthesis
+✅ **Sprint 8** (Memory Foundations) - Short-Term Memory (STM) and Session subsystems with session-scoped memory persistence, TTL-based eviction, and graceful degradation
 
 See individual sprint specifications in [`specs/`](specs/) for detailed status and user stories.
 
