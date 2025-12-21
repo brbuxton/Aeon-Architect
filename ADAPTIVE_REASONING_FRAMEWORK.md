@@ -130,66 +130,153 @@ Each sprint has a smaller "Sprint Demo" for local functionality; Golden Paths va
 
 ---
 
-# 🔐 Sprint Gates (Lightweight Architectural Checkpoints)
-These gates protect against architectural drift and prevent starting a sprint whose foundations are not ready.
+# 🔐 Architectural Progression Gates (Critical Path Checkpoints)
 
-Each gate is a single question. If the answer is "no", do not continue.
+These gates replace the prior sprint-number–based gates.
+
+They reflect the **actual critical path** required to realize the North Star, based on clarified definitions of validation, convergence, refinement, and control authority.
+
+Each gate answers **one lightweight question**.  
+If the answer is “no”, further architectural work should pause until the deficiency is resolved.
+
+The gates are **ordered by dependency**, not by calendar sprint.
 
 ---
 
-## **Gate after Sprint 5 — Observability**
+## **Gate 1 — Minimum Trustworthy Artifacts**
+
+**Purpose:** Establish a reliable epistemic foundation.
+
 **Question:**
-> *Do I now have enough observability and test coverage to understand any failure in the next sprint?*
+> *Are TaskProfiles, Plans, Step Outputs, and ExecutionResults trustworthy enough that the system can reason about its own behavior without guessing?*
+
+**This gate is satisfied when:**
+- TaskProfile, Plan, Step Output, and ExecutionResult have explicit minimum contracts
+- Boundary validation exists for each artifact
+- Repair is attempted at most once and always re-validated
+- Persistent invalid artifacts cause visible termination (not silent continuation)
+
+**Why this matters:**
+Without trustworthy artifacts:
+- convergence is guesswork
+- refinement thrashes
+- deeper validation adds noise instead of insight
+
+This gate is **blocking** for all downstream work.
 
 ---
 
-## **Gate after Sprint 6 — Phase Integration**
+## **Gate 2 — Reliable, Loud Validation**
+
+**Purpose:** Make failures diagnosable and non-mysterious.
+
 **Question:**
-> *Are A→B→C→D transitions coherent, logged, and deterministic enough for prompt consolidation?*
+> *Does validation always run, always log, and never silently allow bad artifacts to pass?*
+
+**This gate is satisfied when:**
+- Validation executes at all phase boundaries where artifacts cross control points
+- Every failure is logged with phase, execution_id, pass_number, and step_id (where applicable)
+- Retry-once semantics are enforced consistently
+- There are no silent bypasses or implicit “best effort” continuations
+
+**Why this matters:**
+Validation should be:
+- boring
+- predictable
+- honest
+
+Not clever, partial, or surprising.
 
 ---
 
-## **Gate after Sprint 7 — Prompt Governance** ✅ PASSED
+## **Gate 3 — Honest Convergence Decisions**
+
+**Purpose:** Restore convergence as a truthful control decision.
+
 **Question:**
-> *Do all system prompts follow stable schemas and invariants, so the memory and reasoning modules can rely on their structure?*
+> *Can the system explicitly distinguish success, refine-worthy failure, stagnation, and budget exhaustion — and act accordingly?*
 
-**Answer**: ✅ **YES** - Sprint 7 completed successfully:
-- All 23 system prompts consolidated in centralized registry
-- All prompts have typed input models (Pydantic)
-- JSON-producing prompts have typed output models
-- Unified JSON extraction handles all LLM response formats
-- Location invariant verified: zero inline prompts outside registry
-- Schema invariant verified: all prompts have input models
-- Registration invariant verified: all PromptIds have registry entries
+**This gate is satisfied when:**
+- Convergence outcomes are explicit (e.g., success, refine, no-progress terminate, budget terminate)
+- Convergence relies only on validated evidence artifacts
+- Termination reasons are visible and explainable
+- Convergence decisions are not conflated with TTL exhaustion
 
-**Note:** Sprint 7 includes Phase E (Final Answer Synthesis), which completes the A→B→C→D→E reasoning loop. This enables Golden Paths to synthesize final answers, but does not include presentation-layer work (Layer 2) or kernel output governance (Layer 3).
+**Why this matters:**
+Stopping is easy.  
+Stopping **for the right reason** is the architectural challenge.
 
 ---
 
-## **Gate after Sprint 8 — Memory Stability**
+## **Gate 4 — Semantic Validation as Explanation (Not Control)**
+
+**Purpose:** Turn semantic validation into an explanatory system.
+
 **Question:**
-> *Does memory read/write deterministically and show correct traces without corrupting the reasoning loop?*
+> *Does semantic validation explain *why* convergence did not occur, without mutating artifacts or issuing commands?*
+
+**This gate is satisfied when:**
+- Semantic validation identifies gaps, contradictions, hallucinations, and mismatches
+- Findings are descriptive, referenced, and severity-scored
+- Validation does not block execution directly
+- Validation does not mutate canonical artifacts
+
+**Why this matters:**
+Semantic validation is a **witness**, not a judge.
+Its value is clarity, not authority.
 
 ---
 
-## **Gate after Sprint 9 — Convergence Stability**
+## **Gate 5 — Governed Refinement**
+
+**Purpose:** Ensure refinement is intentional, bounded, and effective.
+
 **Question:**
-> *Does convergence behave consistently under simple, repeatable tasks, without premature stopping or infinite loops?*
+> *Does refinement clearly communicate what the next pass must do differently, and only run when justified?*
+
+**This gate is satisfied when:**
+- Refinement consumes semantic findings and convergence context
+- Refinement produces explicit next-pass guidance (not retroactive fixes)
+- Refinement is bounded by convergence and TTL
+- Repeated refinement without progress leads to termination, not looping
+
+**Why this matters:**
+Refinement without governance becomes hope-driven iteration.
+Governed refinement becomes learning.
 
 ---
 
-## **Gate after Sprint 10 — Validation Reliability**
+## **Gate 6 — Recursive Planning & Adaptive Depth**
+
+**Purpose:** Safely enable advanced intelligence behaviors.
+
 **Question:**
-> *Does the Semantic Validator correctly identify contradictions, omissions, and hallucinations in realistic plans?*
+> *Can the system deepen planning or reasoning *only when justified by evidence*, without destabilizing control flow?*
+
+**This gate is satisfied when:**
+- Recursive planning operates on validated artifacts
+- Semantic findings localize what must change
+- Adaptive depth is triggered deliberately, not reflexively
+- Golden Path 3 scenarios complete coherently
+
+**Why this matters:**
+Recursive planning without trustworthy signals is chaos.
+With them, it becomes leverage.
 
 ---
 
-## **Gate after Sprint 11 — North Star Realization**
+## **Final Gate — North Star Realization**
+
 **Final Question:**
-> *Does Aeon successfully run Golden Paths 1, 2, and 3?*
+> *Does Aeon reliably execute the Golden Paths and converge honestly on stable outputs for bounded tasks?*
+
+This gate is satisfied when:
+- Golden Path 1 (multi-pass convergence) passes reliably
+- Golden Path 2 (memory-aware reasoning) passes deterministically
+- Golden Path 3 (deep planning and adaptive depth) passes coherently
 
 If yes: **the architecture epic is complete**.  
-If no: revise specs, revisit modules, or redesign where needed.
+If no: revisit the earliest failed gate and correct foundations before proceeding.
 
 ---
 
